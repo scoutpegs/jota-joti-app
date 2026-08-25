@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     
-    <!-- iOS and Android App Setup -->
+    <!-- PWA & iOS App Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="JOTA-JOTI">
+    <meta name="apple-mobile-web-app-title" content="Jota-Joti">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#5a2c84">
     
-    <!-- Your App Icon -->
-    <link rel="apple-touch-icon" href="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg">
-    <link rel="icon" type="image/jpeg" href="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg">
+    <!-- Custom App Logo -->
+    <link rel="apple-touch-icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQwiAmUceBdSdRUDBl6IuFAYsiwCf9hrSnISE-OMPkYqldhGffGgTT40DTK&s=10">
+    <link rel="icon" type="image/jpeg" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQwiAmUceBdSdRUDBl6IuFAYsiwCf9hrSnISE-OMPkYqldhGffGgTT40DTK&s=10">
 
     <title>JOTA-JOTI Prep Portal</title>
     
@@ -30,27 +30,44 @@
             background-color: var(--bg-color); 
             color: #333; 
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Creator watermark in the corner */
+        .watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            background: rgba(90, 44, 132, 0.85);
+            color: white;
+            padding: 5px 10px;
+            font-size: 11px;
+            border-radius: 20px;
+            z-index: 100;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         /* Main Wrapper */
         #main-content {
-            padding: 20px;
+            padding: 20px 20px 50px 20px;
             max-width: 650px; 
             margin: auto;
-            transition: filter 0.3s ease;
+            transition: filter 0.4s ease;
         }
 
         .blurred {
-            filter: blur(12px);
+            filter: blur(14px);
             pointer-events: none;
             user-select: none;
         }
 
-        /* Card Layout (From Image 1) */
+        /* Card Layout */
         .card { 
             background: white; 
             padding: 25px; 
-            border-radius: 12px; 
+            border-radius: 14px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
             text-align: center;
             margin-bottom: 20px;
@@ -62,11 +79,11 @@
         h1, h2, h3 { color: var(--scout-purple); margin-top: 0; margin-bottom: 15px; }
         h1 { font-size: 26px; }
         
-        /* Orange Warning Box (From Image 1) */
+        /* Warning Box */
         .warning-box { 
             background: #fff3e0; 
             padding: 15px; 
-            border-radius: 8px; 
+            border-radius: 10px; 
             color: #e65100; 
             font-weight: bold; 
             font-size: 14px;
@@ -77,7 +94,7 @@
 
         .dates { font-size: 14px; color: #333; margin-top: 20px; }
 
-        /* Blocky Countdown (From Image 2) */
+        /* Blocky Countdown */
         .countdown-container {
             display: flex;
             justify-content: center;
@@ -96,22 +113,22 @@
         .time-box span { display: block; font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
         .time-box label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
 
-        /* Form Button styling (From Image 1) */
+        /* Form Details */
         details {
             background: #fff;
-            border-radius: 8px;
+            border-radius: 10px;
             overflow: hidden;
             margin-top: 20px;
         }
         summary {
             background: var(--scout-purple);
             color: white;
-            padding: 15px;
+            padding: 16px;
             font-weight: bold;
             font-size: 15px;
             cursor: pointer;
             list-style: none;
-            border-radius: 8px;
+            border-radius: 10px;
             text-align: center;
             transition: background 0.2s;
         }
@@ -124,8 +141,8 @@
             display: none; 
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(5px);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
             z-index: 9999;
             flex-direction: column;
             justify-content: center;
@@ -137,38 +154,56 @@
 
         .install-box {
             background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-            max-width: 350px;
+            padding: 30px 20px;
+            border-radius: 18px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            max-width: 360px;
+            width: 100%;
             border-top: 6px solid var(--scout-purple);
+            position: relative;
         }
-        .install-box img { height: 60px; border-radius: 12px; margin-bottom: 15px; }
-        .install-box h2 { color: var(--scout-purple); margin-bottom: 10px; }
-        .instructions { display: none; text-align: left; background: #f4f6f8; padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 14px; line-height: 1.5; }
+        .install-box img { width: 65px; height: 65px; border-radius: 14px; margin-bottom: 15px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .install-box h2 { color: var(--scout-purple); margin-bottom: 8px; font-size: 20px; }
+        .instructions { display: none; text-align: left; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 15px; font-size: 14px; line-height: 1.5; border: 1px solid #e9ecef; }
+        
+        /* Pointing Arrow UI for Mobile Browsers */
+        .arrow-pointer {
+            font-size: 24px;
+            color: var(--scout-purple);
+            margin-top: 10px;
+            animation: bounce 1.5s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            40% {transform: translateY(8px);}
+            60% {transform: translateY(4px);}
+        }
     </style>
 </head>
 <body>
 
-    <!-- OVERLAY: Shown only to mobile users who haven't installed the app -->
+    <!-- Creator Watermark Visible Always -->
+    <div class="watermark">Made by Hunter Miller</div>
+
+    <!-- OVERLAY: Shown only to mobile users who haven't added as app -->
     <div id="install-overlay">
         <div class="install-box">
-            <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="Icon">
-            <h2>App Required</h2>
-            <p style="margin:0; color:#555;">Please add this portal to your Home Screen to continue preparing for JOTA-JOTI.</p>
+            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQwiAmUceBdSdRUDBl6IuFAYsiwCf9hrSnISE-OMPkYqldhGffGgTT40DTK&s=10" alt="App Logo">
+            <h2>Add Jota-Joti as App</h2>
+            <p style="margin:0; color:#555; font-size: 14px;">Please add this app to your home screen to unlock the portal seamlessly.</p>
             
             <div id="ios-instructions" class="instructions">
-                <strong>For iPhone/iPad:</strong><br><br>
-                1. Tap the <strong>Share</strong> button at the bottom of Safari (the square with an arrow).<br>
-                2. Scroll down and tap <strong>Add to Home Screen</strong>.<br>
-                3. Open the app from your home screen!
+                <strong>For iPhone / iPad (Safari):</strong><br>
+                1. Look at the bottom toolbar for the <strong>Share</strong> button (square with arrow).<br>
+                2. Scroll down and select <strong>Add to Home Screen</strong>.<br>
+                <div style="text-align: center;" class="arrow-pointer">⬇️</div>
             </div>
 
             <div id="android-instructions" class="instructions">
-                <strong>For Android:</strong><br><br>
-                1. Tap the <strong>Menu</strong> button (⋮) in the top right.<br>
+                <strong>For Android (Chrome):</strong><br>
+                1. Look at the top right corner for the <strong>Menu</strong> button (three vertical dots).<br>
                 2. Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.<br>
-                3. Open the app from your home screen!
+                <div style="text-align: center;" class="arrow-pointer">⬆️</div>
             </div>
         </div>
     </div>
@@ -176,7 +211,6 @@
     <!-- MAIN CONTENT -->
     <div id="main-content">
         
-        <!-- Top Card -->
         <div class="card">
             <div class="logos">
                 <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="Scouts Australia">
@@ -201,7 +235,6 @@
             <div class="dates"><strong>Dates:</strong> 16 - 18 October 2026</div>
         </div>
 
-        <!-- Bottom Card -->
         <div class="card">
             <h3>Activity Suggestions</h3>
             <p style="font-size: 14px; margin-bottom: 20px;">Have an idea for what we should do while we are there? Let us know below.</p>
@@ -215,20 +248,34 @@
     </div>
 
     <script>
-        // 1. DEVICE DETECTION AND BLUR LOGIC
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        // 1. ADVANCED PWA DETECTION & MEMORY LOGIC
+        // Using localStorage so once a user adds it, it remembers permanently on that device.
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || localStorage.getItem('jota_installed') === 'true';
 
-        if (isMobile && !isStandalone) {
-            document.getElementById('main-content').classList.add('blurred');
-            document.getElementById('install-overlay').style.display = 'flex';
+        if (isStandalone) {
+            // Forcefully record state so it never prompts again
+            localStorage.setItem('jota_installed', 'true');
+        } else {
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
-            if (/Android/i.test(navigator.userAgent)) {
-                document.getElementById('android-instructions').style.display = 'block';
-            } else {
-                document.getElementById('ios-instructions').style.display = 'block';
+            if (isMobile) {
+                document.getElementById('main-content').classList.add('blurred');
+                document.getElementById('install-overlay').style.display = 'flex';
+                
+                if (/Android/i.test(navigator.userAgent)) {
+                    document.getElementById('android-instructions').style.display = 'block';
+                } else {
+                    document.getElementById('ios-instructions').style.display = 'block';
+                }
             }
         }
+
+        // Trigger safety check if app mode is detected live
+        window.addEventListener('appinstalled', () => {
+            localStorage.setItem('jota_installed', 'true');
+            document.getElementById('main-content').classList.remove('blurred');
+            document.getElementById('install-overlay').style.display = 'none';
+        });
 
         // 2. COUNTDOWN TIMER LOGIC
         const countDownDate = new Date("Oct 16, 2026 00:00:00").getTime();
