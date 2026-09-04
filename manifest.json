@@ -1,0 +1,17 @@
+{
+  "name": "JOTA-JOTI Dashboard",
+  "short_name": "JOTA-JOTI",
+  "description": "Scouts Australia JOTA-JOTI event dashboard",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f6f8",
+  "theme_color": "#5a2c84",
+  "icons": [
+    { "src": "photo1.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "photo1.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "photo1.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "photo1.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
