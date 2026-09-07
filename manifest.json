@@ -2,7 +2,7 @@
   "id": "./",
   "name": "JOTA-JOTI Dashboard",
   "short_name": "JOTA-JOTI",
-  "description": "JOTA-JOTI Scout dashboard and event portal.",
+  "description": "Scouts Australia JOTA-JOTI event dashboard",
   "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",
@@ -13,6 +13,7 @@
   "lang": "en-AU",
   "categories": ["education", "social", "utilities"],
   "icons": [
-    { "src": "photo1.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {"src":"photo1.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"photo1.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ]
 }

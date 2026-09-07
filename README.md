@@ -1,21 +1,21 @@
-# JOTA-JOTI Dashboard — Improved Build
+# JOTA-JOTI PIN Reference Layout
 
-This build keeps the original application structure and adds a stronger session/reload flow, a stable timer-to-dashboard handoff, responsive UI improvements, and PWA install support.
+This build keeps the working PIN, keyboard, session, PWA, dashboard and Sheet-HTML functionality while applying the supplied reference screenshot as the visual target for the PIN page.
 
-## Key behaviour
+## PIN page changes
+- Clean light-grey page background; no decorative page gradients or neon borders.
+- 84px desktop header with centered Scouts Australia/JOTA-JOTI branding and a compact navigation action.
+- Responsive title, subtitle, pre-login note and connection state.
+- Four PIN positions show the actual entered numbers as they are typed.
+- Keypad uses the reference layout: 1–9 in three columns, with 0 and DEL centered on the final row.
+- Desktop keypad: 80x74px buttons with 18px gaps.
+- Smaller breakpoints scale the same arrangement for phones and landscape devices.
+- Keyboard focus and touch/press states remain animated.
+- The existing spinning login loader and embedded-page loader remain intact.
+- Password/access sheet keeps its slide-up behavior.
 
-- Remembered users are restored immediately on reload so the login screen does not flash every time.
-- The most recent account identity is remembered locally, while dashboard categories, links and logos are still fetched from the live backend/Sheet service.
-- A background refresh updates the remembered session without blocking the first screen.
-- A temporary network failure does not force the user to log back in.
-- A genuine backend rejection clears the remembered session and requires a fresh PIN.
-- The final-day countdown handoff is one-time and cannot repeatedly rebuild the dashboard.
-- Category/submenu state is protected from timer updates and accidental DOM rebuilds.
-- iPhone/iPad Safari installation instructions remain available, including the iPad share-menu location guidance.
-- Android install instructions support both native PWA install and Add to Home screen flows.
-- The service worker version is bumped so updated deployments can replace old cached shells.
-- No fake dashboard/sheet data is substituted when the backend is unavailable.
-
-## Backups
-
-The `backups/` directory contains the original and intermediate fixed versions of the main HTML/service-worker files.
+## Validation
+- JavaScript syntax check: passed.
+- Service worker syntax check: passed.
+- Manifest JSON validation: passed.
+- The final build was created from the last working PIN-number version rather than from an already-corrupted intermediate source.
