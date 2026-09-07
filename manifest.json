@@ -1,17 +1,18 @@
 {
+  "id": "./",
   "name": "JOTA-JOTI Dashboard",
   "short_name": "JOTA-JOTI",
-  "description": "Scouts Australia JOTA-JOTI event dashboard",
-  "start_url": "./index.html",
+  "description": "JOTA-JOTI Scout dashboard and event portal.",
+  "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#f4f6f8",
   "theme_color": "#5a2c84",
+  "lang": "en-AU",
+  "categories": ["education", "social", "utilities"],
   "icons": [
-    { "src": "photo1.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "photo1.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "photo1.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "photo1.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "photo1.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

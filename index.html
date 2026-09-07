@@ -870,7 +870,164 @@
             .num-btn { padding: 14px; font-size: 20px; }
         }
 
-    </style>
+
+        /* ==============================================================
+           DASHBOARD INTERACTION HARDENING
+           ============================================================== */
+
+        #dashboard-page-wrap {
+            position: relative;
+            width: 100%;
+            min-height: 0;
+            overflow-anchor: none;
+        }
+
+        #dashboard-screen,
+        #submenu-screen,
+        #login-screen {
+            overflow-anchor: none;
+        }
+
+        #dashboard-screen,
+        #submenu-screen {
+            scroll-margin-top: 12px;
+        }
+
+        #category-grid,
+        #submenu-grid {
+            position: relative;
+            width: 100%;
+        }
+
+        .card-btn {
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+        }
+
+        .card-btn:focus-visible,
+        .back-dash-btn:focus-visible {
+            outline: 3px solid rgba(90,44,132,0.25);
+            outline-offset: 3px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #dashboard-screen,
+            #submenu-screen,
+            .card-btn,
+            .back-dash-btn {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        @media (max-width: 600px) {
+            #dashboard-page-wrap {
+                padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+            }
+
+            #submenu-screen {
+                min-height: 50vh;
+            }
+
+            .grid {
+                gap: 14px;
+            }
+
+            .card-btn {
+                min-height: 170px;
+            }
+        }
+
+    
+        /* =====================================================
+           POLISHED UI / SESSION / INSTALL EXPERIENCE LAYER
+           ===================================================== */
+        :root {
+            --surface: #ffffff;
+            --surface-soft: #f7f5fb;
+            --border-soft: rgba(90, 44, 132, 0.12);
+            --shadow-soft: 0 14px 40px rgba(26, 18, 39, 0.08);
+        }
+
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top left, rgba(90,44,132,0.08), transparent 38%),
+                linear-gradient(180deg, #faf9fc 0%, #f3f5f8 100%);
+            color: var(--text-main, #222);
+        }
+
+        button, input, select { -webkit-tap-highlight-color: transparent; }
+        button { touch-action: manipulation; }
+
+        .prep-card, .login-box, .dashboard-card, .mobile-install-box {
+            box-shadow: var(--shadow-soft);
+        }
+
+        .card-btn {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-soft);
+            box-shadow: 0 8px 22px rgba(0,0,0,0.045);
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+        }
+        .card-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 28px rgba(90,44,132,0.10);
+            border-color: rgba(90,44,132,0.24);
+        }
+        .card-btn:active { transform: translateY(0) scale(.985); }
+        .card-btn:focus-visible {
+            outline: 3px solid rgba(90,44,132,.24);
+            outline-offset: 2px;
+        }
+
+        .compact-mode .card-btn { padding-top: 14px; padding-bottom: 14px; }
+
+        .mobile-install-overlay {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+        }
+        .mobile-install-box {
+            width: min(100%, 520px);
+            max-height: min(90vh, 760px);
+            overflow: auto;
+            border: 1px solid rgba(255,255,255,.65);
+        }
+        .install-instructions { background: linear-gradient(180deg, #f7f3fb, #f2eef8); }
+
+        .session-remembered-banner {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin: 12px auto 0;
+            max-width: 520px;
+            padding: 11px 14px;
+            border-radius: 14px;
+            background: rgba(45, 140, 87, .09);
+            color: #226b46;
+            border: 1px solid rgba(45,140,87,.15);
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .session-remembered-banner.visible { display: flex; }
+        .session-remembered-dot { width: 9px; height: 9px; border-radius: 50%; background: #2d8c57; flex: 0 0 auto; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+        }
+
+        @media (min-width: 1025px) {
+            .dashboard-page, .prep-page { max-width: 1180px; margin-inline: auto; }
+        }
+
+        @media (min-width: 601px) {
+            .mobile-install-overlay { padding: 24px; }
+        }
+</style>
 </head>
 <body>
 
@@ -986,6 +1143,7 @@
         <div id="login-screen">
             <h2 class="login-title">Enter Scout PIN</h2>
             <p class="login-sub">JOTA-JOTI Dashboard</p>
+            <div id="session-remembered-banner" class="session-remembered-banner"><span class="session-remembered-dot"></span><span id="session-remembered-text">Your account is remembered on this device.</span></div>
             <p class="prelogin-note" id="prelogin-note" style="display:none;">
                 Enter your 4-digit PIN to pre-login. If you sign in before the final 24 hours,
                 you will be returned to the countdown page with your name shown.
@@ -1104,6 +1262,9 @@
         const FINAL_DAY_MS = EVENT_START_MS - (24 * 60 * 60 * 1000);
         const PREP_MODE_KEY = "jotajoti_combined_mode";
         const INSTALLED_KEY = "jota_installed";
+        const AUTH_SESSION_KEY = "jotajoti_auth_session_v2";
+        const AUTH_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
+        const UI_PREFS_KEY = "jotajoti_ui_prefs_v2";
 
         let preLoginMode = false;
         let deferredInstallPrompt = null;
@@ -1115,6 +1276,95 @@
         let sessionUser = null;
         let dashboardData = null;
 
+        /*
+         * DASHBOARD VIEW STATE
+         * --------------------------------------------------------------
+         * The old timer handoff called openDashboardMode() on every
+         * countdown tick after the final-day threshold. That function
+         * rebuilt the dashboard and forcibly hid the submenu, which made
+         * category sections flash open and then close.
+         *
+         * These state values make the timer handoff a one-time transition
+         * and let the dashboard remember which internal screen is active.
+         */
+        let dashboardView = 'login';       // login | categories | submenu
+        let activeCategoryKey = '';
+        let dashboardHandoffComplete = false;
+        let lastDashboardBuildSignature = '';
+        let dashboardTransitionLock = false;
+        let backgroundRefreshInFlight = false;
+        let lastBackgroundRefresh = 0;
+        let rememberedSessionLoaded = false;
+
+        // Prevent repeated auto-handoffs from resetting the user's scroll
+        // position or the currently opened category/submenu.
+        function markDashboardHandoffComplete() {
+            dashboardHandoffComplete = true;
+        }
+
+        function setDashboardView(view) {
+            dashboardView = view;
+        }
+
+        function getDashboardView() {
+            return dashboardView;
+        }
+
+        function scrollToDashboardTop() {
+            /*
+             * Do not use scrollIntoView() here. On mobile Safari/Chrome it
+             * can reposition the whole document unexpectedly. A normal
+             * window.scrollTo is much more predictable.
+             */
+            window.scrollTo({
+                top: 0,
+                left: 0,
+                behavior: 'auto'
+            });
+        }
+
+        function ensureDashboardScreenOnly() {
+            const login = document.getElementById('login-screen');
+            const dashboard = document.getElementById('dashboard-screen');
+            const submenu = document.getElementById('submenu-screen');
+
+            if (!login || !dashboard || !submenu) return;
+
+            if (dashboardView === 'login') {
+                login.style.display = 'block';
+                dashboard.style.display = 'none';
+                submenu.style.display = 'none';
+                return;
+            }
+
+            if (dashboardView === 'categories') {
+                login.style.display = 'none';
+                dashboard.style.display = 'block';
+                submenu.style.display = 'none';
+                return;
+            }
+
+            if (dashboardView === 'submenu') {
+                login.style.display = 'none';
+                dashboard.style.display = 'none';
+                submenu.style.display = 'block';
+            }
+        }
+
+
+        function loadUIPreferences() {
+            try {
+                const prefs = JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}');
+                if (prefs.compact === true) document.body.classList.add('compact-mode');
+            } catch (_) {}
+        }
+
+        function toggleCompactMode() {
+            document.body.classList.toggle('compact-mode');
+            localStorage.setItem(UI_PREFS_KEY, JSON.stringify({
+                compact: document.body.classList.contains('compact-mode')
+            }));
+        }
 
         // Works out "Good morning" / "Good afternoon" / "Good evening" from the
         // device's local clock, falling back to a plain "Welcome" late at night.
@@ -1150,19 +1400,43 @@
         function initializeCombinedPortal() {
             resetLoginForm();
             initializePWA();
+            registerAppServiceWorker();
             startGreetingClock();
-            startCountdown();
-            checkConnection();
-            checkPortalConnection();
+            loadUIPreferences();
+
+            // Restore the remembered account immediately. This prevents the
+            // login screen from flashing on every reload. The saved session is
+            // only used as a local UI/session hint; fresh sheet data is still
+            // requested in the background and an invalid PIN is re-checked.
+            const restored = restoreRememberedSessionInstantly();
 
             if (isFinalDayOrLater()) {
-                openDashboardMode();
-                restoreSavedSessionForDashboard();
-                return;
+                markDashboardHandoffComplete();
+                setDashboardView(restored ? 'categories' : 'login');
+                openDashboardMode({source: 'startup', preserveView: true});
+                if (restored) {
+                    refreshRememberedSession({showLoading: false, keepOnFailure: true});
+                } else {
+                    restoreSavedSessionForDashboard();
+                }
+            } else {
+                setDashboardView('login');
+                showTimerMode();
+                startCountdown();
+                if (restored) {
+                    // Stay on the timer before event day, but keep the account
+                    // remembered so there is no need to log in again later.
+                    updatePortalGreeting();
+                    refreshRememberedSession({showLoading: false, keepOnFailure: true});
+                } else {
+                    restoreSavedSessionForTimer();
+                }
             }
 
-            showTimerMode();
-            restoreSavedSessionForTimer();
+            // Do not run a visible connection/login test on every page load.
+            // The first real data request already tells us whether the sheet
+            // service is reachable.
+            scheduleBackgroundServiceCheck();
         }
 
         function isFinalDayOrLater() {
@@ -1176,6 +1450,18 @@
         function showTimerMode() {
             preLoginMode = false;
             localStorage.setItem(PREP_MODE_KEY, 'timer');
+
+            /*
+             * If the event handoff has already occurred, never allow a
+             * stale timer action to reveal the preparation page again.
+             */
+            if (isFinalDayOrLater()) {
+                openDashboardMode({source: 'timer-blocked', preserveView: true});
+                return;
+            }
+
+            setDashboardView('login');
+            activeCategoryKey = '';
             document.getElementById('portal-page-wrap').style.display = 'block';
             document.getElementById('dashboard-page-wrap').style.display = 'none';
             document.getElementById('login-screen').style.display = 'none';
@@ -1187,12 +1473,15 @@
 
         function openPreLogin() {
             if (isFinalDayOrLater()) {
-                openDashboardMode();
+                markDashboardHandoffComplete();
+                openDashboardMode({source: 'prelogin-blocked', preserveView: true});
                 return;
             }
 
             preLoginMode = true;
             localStorage.setItem(PREP_MODE_KEY, 'prelogin');
+            setDashboardView('login');
+            activeCategoryKey = '';
 
             document.getElementById('portal-page-wrap').style.display = 'none';
             document.getElementById('dashboard-page-wrap').style.display = 'block';
@@ -1208,32 +1497,67 @@
 
         function returnToTimer() {
             if (isFinalDayOrLater()) {
-                openDashboardMode();
+                markDashboardHandoffComplete();
+                openDashboardMode({source: 'return-blocked', preserveView: true});
                 return;
             }
 
             showTimerMode();
         }
 
-        function openDashboardMode() {
+        function openDashboardMode(options = {}) {
+            const source = options.source || 'manual';
+            const preserveView = options.preserveView !== false;
+
             preLoginMode = false;
             localStorage.setItem(PREP_MODE_KEY, 'dashboard');
+            markDashboardHandoffComplete();
+
+            /*
+             * Stop the countdown once the dashboard is the primary page.
+             * This is important: there is no reason for a hidden timer to
+             * continue mutating the dashboard DOM every second.
+             */
+            stopCountdown();
+
             document.getElementById('portal-page-wrap').style.display = 'none';
             document.getElementById('dashboard-page-wrap').style.display = 'block';
             document.getElementById('prelogin-note').style.display = 'none';
             document.getElementById('back-to-timer-button').style.display = 'none';
-            updateTopNavigation();
 
-            if (sessionUser && dashboardData) {
+            if (sessionUser) {
+                if (!preserveView || dashboardView === 'login') {
+                    setDashboardView('categories');
+                }
+
+                // A remembered account should never be bounced back to the
+                // login form while fresh Sheet data is loading. Show the
+                // dashboard shell immediately, then paint the real categories
+                // when refreshRememberedSession() returns.
                 document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('dashboard-screen').style.display = 'block';
-                buildDashboard();
+                document.getElementById('dashboard-screen').style.display = dashboardView === 'categories' ? 'block' : 'none';
+                document.getElementById('submenu-screen').style.display = dashboardView === 'submenu' ? 'block' : 'none';
+
+                if (dashboardData) {
+                    buildDashboard({preserveView: true, reason: source});
+                } else if (dashboardView === 'categories') {
+                    const grid = document.getElementById('category-grid');
+                    if (grid) {
+                        grid.innerHTML = '<div class=\"empty-state\">Loading your dashboard…</div>';
+                    }
+                }
+
+                ensureDashboardScreenOnly();
                 updateDashboardGreeting();
             } else {
+                setDashboardView('login');
+                activeCategoryKey = '';
                 document.getElementById('login-screen').style.display = 'block';
                 document.getElementById('dashboard-screen').style.display = 'none';
                 document.getElementById('submenu-screen').style.display = 'none';
             }
+
+            updateTopNavigation();
         }
 
         function updateTopNavigation() {
@@ -1301,26 +1625,39 @@
             }, 60000);
         }
 
+        function stopCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+
         function updateCountdown() {
-            const remaining = EVENT_START_MS - Date.now();
-            const handoffBanner = document.getElementById('final-day-banner');
-
-            if (remaining <= 0) {
-                document.getElementById('days').innerText = '00';
-                document.getElementById('hours').innerText = '00';
-                document.getElementById('mins').innerText = '00';
-                document.getElementById('secs').innerText = '00';
-
+            /*
+             * Once the final-day handoff has happened, the countdown no
+             * longer owns the UI. This guard is the key fix for the
+             * "submenu opens then closes" bug.
+             */
+            if (dashboardHandoffComplete || isFinalDayOrLater()) {
+                const handoffBanner = document.getElementById('final-day-banner');
                 if (handoffBanner) {
                     handoffBanner.style.display = 'block';
-                    handoffBanner.innerText = 'JOTA-JOTI is live! The dashboard is active.';
+                    handoffBanner.innerText = isEventLive()
+                        ? 'JOTA-JOTI is live! The dashboard is active.'
+                        : 'The final 24 hours have started. The dashboard is now active.';
                 }
 
-                if (!isFinalDayOrLater()) return;
-                openDashboardMode();
-                if (!sessionUser) checkConnection();
+                if (!dashboardHandoffComplete) {
+                    markDashboardHandoffComplete();
+                    openDashboardMode({source: 'countdown-handoff', preserveView: true});
+                }
+
+                stopCountdown();
                 return;
             }
+
+            const remaining = Math.max(0, EVENT_START_MS - Date.now());
+            const handoffBanner = document.getElementById('final-day-banner');
 
             const totalSeconds = Math.floor(remaining / 1000);
             const days = Math.floor(totalSeconds / 86400);
@@ -1333,45 +1670,152 @@
             document.getElementById('mins').innerText = String(mins).padStart(2, '0');
             document.getElementById('secs').innerText = String(secs).padStart(2, '0');
 
-            if (isFinalDayOrLater()) {
-                if (handoffBanner) handoffBanner.style.display = 'block';
-                openDashboardMode();
+            if (handoffBanner) {
+                handoffBanner.style.display = 'none';
             }
         }
 
         function startCountdown() {
+            stopCountdown();
+
+            if (isFinalDayOrLater()) {
+                markDashboardHandoffComplete();
+                openDashboardMode({source: 'countdown-start-blocked', preserveView: true});
+                return;
+            }
+
             updateCountdown();
-            if (countdownInterval) clearInterval(countdownInterval);
             countdownInterval = setInterval(updateCountdown, 1000);
+        }
+
+        function restoreRememberedSessionInstantly() {
+            const savedPin = localStorage.getItem(SAVED_PIN_KEY);
+            const raw = localStorage.getItem(AUTH_SESSION_KEY);
+            if (!savedPin || !/^\d{4}$/.test(savedPin) || !raw) return false;
+
+            try {
+                const saved = JSON.parse(raw);
+                if (!saved || !saved.user || saved.pin !== savedPin) return false;
+                if (saved.savedAt && Date.now() - Number(saved.savedAt) > AUTH_SESSION_MAX_AGE_MS) return false;
+
+                sessionUser = saved.user;
+                rememberedSessionLoaded = true;
+                document.getElementById('forget-btn').style.display = 'block';
+                const rememberedBanner = document.getElementById('session-remembered-banner');
+                if (rememberedBanner) rememberedBanner.classList.add('visible');
+                updatePortalGreeting();
+                updateTopNavigation();
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function saveRememberedSession(pin, user) {
+            try {
+                localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({
+                    pin: pin,
+                    user: user,
+                    savedAt: Date.now()
+                }));
+            } catch (_) {}
+        }
+
+        function clearRememberedSession() {
+            localStorage.removeItem(AUTH_SESSION_KEY);
+            rememberedSessionLoaded = false;
+            const rememberedBanner = document.getElementById('session-remembered-banner');
+            if (rememberedBanner) rememberedBanner.classList.remove('visible');
         }
 
         function restoreSavedSessionForTimer() {
             const savedPin = localStorage.getItem(SAVED_PIN_KEY);
             if (!savedPin || !/^\d{4}$/.test(savedPin)) return;
-
-            document.getElementById('forget-btn').style.display = 'block';
-
-            fetchUserData(savedPin, {
-                remembering: true,
-                restoreForTimer: true
-            });
+            refreshRememberedSession({showLoading: false, keepOnFailure: true});
         }
 
         function restoreSavedSessionForDashboard() {
+            const restored = restoreRememberedSessionInstantly();
+            if (restored) {
+                refreshRememberedSession({showLoading: false, keepOnFailure: true});
+                return;
+            }
             const savedPin = localStorage.getItem(SAVED_PIN_KEY);
             if (!savedPin || !/^\d{4}$/.test(savedPin)) {
                 document.getElementById('forget-btn').style.display = 'none';
                 return;
             }
-
-            document.getElementById('forget-btn').style.display = 'block';
-            fetchUserData(savedPin, {
-                remembering: true,
-                restoreForDashboard: true
-            });
+            refreshRememberedSession({showLoading: false, keepOnFailure: false});
         }
 
-        function checkPortalConnection() {
+        async function refreshRememberedSession(options = {}) {
+            if (backgroundRefreshInFlight) return;
+            const savedPin = localStorage.getItem(SAVED_PIN_KEY);
+            if (!savedPin || !/^\d{4}$/.test(savedPin)) return;
+
+            backgroundRefreshInFlight = true;
+            lastBackgroundRefresh = Date.now();
+            const keepOnFailure = options.keepOnFailure !== false;
+
+            try {
+                const url = `${API_URL}?action=login&pin=${encodeURIComponent(savedPin)}&_=${Date.now()}`;
+                const response = await fetch(url, { cache: 'no-store' });
+                const data = await response.json();
+
+                if (!data || !data.success || !data.user) {
+                    // A real backend rejection is different from a network
+                    // outage: clear the local session so an old/disabled PIN
+                    // cannot stay approved forever.
+                    clearRememberedSession();
+                    localStorage.removeItem(SAVED_PIN_KEY);
+                    sessionUser = null;
+                    dashboardData = null;
+                    setDashboardView('login');
+                    updateTopNavigation();
+                    if (isFinalDayOrLater()) {
+                        document.getElementById('dashboard-screen').style.display = 'none';
+                        document.getElementById('submenu-screen').style.display = 'none';
+                        document.getElementById('login-screen').style.display = 'block';
+                    }
+                    return;
+                }
+
+                sessionUser = data.user;
+                const rememberedBanner = document.getElementById('session-remembered-banner');
+                if (rememberedBanner) rememberedBanner.classList.add('visible');
+                dashboardData = {
+                    categories: Array.isArray(data.categories) ? data.categories : [],
+                    links: Array.isArray(data.links) ? data.links : [],
+                    logos: Array.isArray(data.logos) ? data.logos : []
+                };
+
+                saveRememberedSession(savedPin, sessionUser);
+                updatePortalGreeting();
+                updateTopNavigation();
+
+                if (isFinalDayOrLater()) {
+                    setDashboardView(dashboardView === 'submenu' ? 'submenu' : 'categories');
+                    buildDashboard({force: true, reason: 'background-session-refresh'});
+                    ensureDashboardScreenOnly();
+                }
+            } catch (_) {
+                // Keep the remembered account active. The page can still show
+                // its last known session UI while the service is unavailable.
+            } finally {
+                backgroundRefreshInFlight = false;
+            }
+        }
+
+        function scheduleBackgroundServiceCheck() {
+            // Delay the lightweight health check so first paint/login restore
+            // is not held up. It is informational only.
+            window.setTimeout(() => {
+                if (Date.now() - lastBackgroundRefresh < 5000) return;
+                checkPortalConnection(true);
+            }, 4500);
+        }
+
+        function checkPortalConnection(silent = false) {
             const dot = document.getElementById('portal-network-dot');
             const text = document.getElementById('portal-network-text');
             if (!dot || !text) return;
@@ -1381,7 +1825,7 @@
                 .then(data => {
                     if (data && data.success) {
                         dot.className = 'portal-network-dot ok';
-                        text.innerText = 'Dashboard service connected';
+                        text.innerText = silent ? 'Ready' : 'Dashboard service connected';
                     } else {
                         dot.className = 'portal-network-dot bad';
                         text.innerText = 'Dashboard service reported a problem';
@@ -1389,7 +1833,7 @@
                 })
                 .catch(() => {
                     dot.className = 'portal-network-dot bad';
-                    text.innerText = 'Dashboard service is currently unreachable';
+                    text.innerText = silent ? 'Offline — using remembered session' : 'Dashboard service is currently unreachable';
                 });
         }
 
@@ -1398,8 +1842,7 @@
         function isRunningStandalone() {
             return (
                 window.matchMedia('(display-mode: standalone)').matches ||
-                window.navigator.standalone === true ||
-                localStorage.getItem(INSTALLED_KEY) === 'true'
+                window.navigator.standalone === true
             );
         }
 
@@ -1482,6 +1925,23 @@
             html += stepHTML(ICON_HOME, 'Open the new <strong>JOTA-JOTI</strong> icon from your Home Screen.');
             html += '</ul>';
             return html;
+        }
+
+        function registerAppServiceWorker() {
+            if (!('serviceWorker' in navigator)) return;
+            navigator.serviceWorker.register('./sw.js', {scope: './'}).then(reg => {
+                // Ask an updated worker to take over quickly on a new deploy.
+                if (reg.waiting) reg.waiting.postMessage({type: 'SKIP_WAITING'});
+                reg.addEventListener('updatefound', () => {
+                    const worker = reg.installing;
+                    if (!worker) return;
+                    worker.addEventListener('statechange', () => {
+                        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                            worker.postMessage({type: 'SKIP_WAITING'});
+                        }
+                    });
+                });
+            }).catch(() => {});
         }
 
         function initializePWA() {
@@ -1666,6 +2126,8 @@
         function forgetSavedPin() {
             localStorage.removeItem(SAVED_PIN_KEY);
             localStorage.removeItem('jotajoti_saved_user');
+            clearRememberedSession();
+            clearRememberedSession();
             document.getElementById('forget-btn').style.display = 'none';
             resetLoginForm();
             sessionUser = null;
@@ -1714,6 +2176,7 @@
 
                 if (pin !== 'guest') {
                     localStorage.setItem(SAVED_PIN_KEY, pin);
+                    saveRememberedSession(pin, sessionUser);
                 }
             } catch (error) {
                 // No fake/sample data is ever shown — a connection problem
@@ -1722,6 +2185,14 @@
                 // so the same PIN can be retried without re-typing it.
                 resetLoginForm();
                 document.getElementById('welcome-screen').style.display = 'none';
+                if (rememberedSessionLoaded && sessionUser) {
+                    // Keep the remembered session visible. Network failure is
+                    // not treated as a logout and the user is not forced to
+                    // re-enter the PIN.
+                    updateTopNavigation();
+                    updatePortalGreeting();
+                    return;
+                }
                 document.getElementById('login-screen').style.display = 'block';
                 document.getElementById('dashboard-screen').style.display = 'none';
                 showLoginError('Could not reach the sign-in system. Check your connection and try again.');
@@ -1741,8 +2212,10 @@
                 updateTopNavigation();
 
                 if (isFinalDayOrLater()) {
-                    openDashboardMode();
-                    buildDashboard();
+                    setDashboardView('categories');
+                    activeCategoryKey = '';
+                    buildDashboard({force: true, reason: 'login-handoff'});
+                    openDashboardMode({source: 'login-handoff', preserveView: true});
                     document.getElementById('dashboard-screen').style.display = 'block';
                     document.getElementById('login-screen').style.display = 'none';
                     return;
@@ -1764,10 +2237,14 @@
             dashboardData = null;
             localStorage.removeItem(SAVED_PIN_KEY);
             localStorage.removeItem('jotajoti_saved_user');
+            clearRememberedSession();
             document.getElementById('forget-btn').style.display = 'none';
             resetLoginForm();
             document.getElementById("dashboard-screen").style.display = "none";
             document.getElementById("submenu-screen").style.display = "none";
+            setDashboardView('login');
+            activeCategoryKey = '';
+            lastDashboardBuildSignature = '';
 
             updateTopNavigation();
             updatePortalGreeting();
@@ -1781,79 +2258,165 @@
             returnToTimer();
         }
 
-        function buildDashboard() {
+        function buildDashboard(options = {}) {
+            if (!dashboardData) return;
+
             updateDashboardGreeting();
 
             const grid = document.getElementById("category-grid");
+            if (!grid) return;
+
+            /*
+             * Build only when the data actually changed. Previously the
+             * timer could trigger this repeatedly, replacing every button
+             * while the user was interacting with the dashboard.
+             */
+            const categories = dashboardData.categories || [];
+            const links = dashboardData.links || [];
+            const buildSignature = JSON.stringify({
+                categories: categories,
+                links: links
+            });
+
+            if (options.force !== true && buildSignature === lastDashboardBuildSignature) {
+                ensureDashboardScreenOnly();
+                return;
+            }
+
+            lastDashboardBuildSignature = buildSignature;
             grid.innerHTML = "";
 
             // Only ever built from what came back from the sheets on this
             // fetch — no separate "activities" list, nothing hardcoded.
-            const categories = dashboardData.categories || [];
-            const links = dashboardData.links || [];
-
             categories.forEach(cat => {
                 const catKey = String(cat.CategoryKey || '').toLowerCase();
                 const catLinks = links.filter(link => String(link.CategoryKey || '').toLowerCase() === catKey);
-
                 const total = catLinks.length;
 
                 const btn = document.createElement("button");
                 btn.className = "card-btn";
+                btn.type = "button";
+                btn.dataset.categoryKey = catKey;
 
-                const badgeLabel = total === 0 ? 'Available' : total + (total === 1 ? ' Option' : ' Options');
+                const badgeLabel = total === 0
+                    ? 'Available'
+                    : total + (total === 1 ? ' Option' : ' Options');
 
-                btn.innerHTML = `<img class="card-icon" src="${cat.LogoURL || 'https://img.icons8.com/color/96/folder.png'}" alt="icon">
+                btn.innerHTML = `<img class="card-icon" src="${escapeAttribute(cat.LogoURL || 'https://img.icons8.com/color/96/folder.png')}" alt="">
                             <div class="card-title">${escapeHtml(cat.Title)}</div>
                             <div class="badge">${badgeLabel}</div>`;
 
-                btn.onclick = () => {
+                btn.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    /*
+                     * Remember the current vertical position before a
+                     * submenu transition. The transition itself does not
+                     * need to move the whole document.
+                     */
                     if (total === 1) {
                         openSite(catLinks[0]);
                     } else {
                         openSubMenu(cat, catLinks);
                     }
-                };
+
+                    if (document.activeElement === btn) {
+                        btn.blur();
+                    }
+                });
+
                 grid.appendChild(btn);
             });
 
             if (categories.length === 0) {
                 grid.innerHTML = `<div class="empty-state">No categories available.</div>`;
             }
+
+            ensureDashboardScreenOnly();
         }
 
         function openSubMenu(category, links) {
-            document.getElementById("dashboard-screen").style.display = "none";
-            document.getElementById("submenu-title").innerText = category.Title;
+            if (!category) return;
+
+            activeCategoryKey = String(category.CategoryKey || '').toLowerCase();
+            setDashboardView('submenu');
+
+            const title = document.getElementById("submenu-title");
+            if (title) title.innerText = category.Title || "Select Option";
 
             const subGrid = document.getElementById("submenu-grid");
+            if (!subGrid) return;
+
             subGrid.innerHTML = "";
 
-            links.forEach(item => {
+            (links || []).forEach(item => {
                 const btn = document.createElement("button");
                 btn.className = "card-btn";
+                btn.type = "button";
 
-                let html = `<img class="card-icon" src="${item.LogoURL || category.LogoURL || 'https://img.icons8.com/color/96/link.png'}" alt="icon">
+                let html = `<img class="card-icon" src="${escapeAttribute(item.LogoURL || category.LogoURL || 'https://img.icons8.com/color/96/link.png')}" alt="">
                             <div class="card-title">${escapeHtml(item.Title)}</div>`;
 
                 const badgeLabel = accessBadgeLabel(item);
                 if (badgeLabel) html += `<div class="badge">${badgeLabel}</div>`;
 
                 btn.innerHTML = html;
-                btn.onclick = () => openSite(item);
+                btn.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openSite(item);
+                });
                 subGrid.appendChild(btn);
             });
 
-            if (links.length === 0) {
+            if (!links || links.length === 0) {
                 subGrid.innerHTML = `<div class="empty-state">No links in this category yet.</div>`;
             }
 
+            document.getElementById("login-screen").style.display = "none";
+            document.getElementById("dashboard-screen").style.display = "none";
             document.getElementById("submenu-screen").style.display = "block";
+
+            /*
+             * Do not call scrollIntoView(). It can place the submenu at the
+             * bottom of the page on mobile. Keep the user's current position
+             * stable unless the submenu is currently completely off-screen.
+             */
+            const viewportTop = window.scrollY;
+            const viewportBottom = viewportTop + window.innerHeight;
+            const submenu = document.getElementById("submenu-screen");
+            const rect = submenu.getBoundingClientRect();
+
+            if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                window.scrollTo({
+                    top: Math.max(0, viewportTop + rect.top - 16),
+                    left: 0,
+                    behavior: 'smooth'
+                });
+            }
+
+            requestAnimationFrame(() => {
+                const firstButton = subGrid.querySelector('button');
+                if (firstButton) firstButton.focus({preventScroll: true});
+            });
         }
 
         function showDashboard() {
+            setDashboardView('categories');
+            activeCategoryKey = '';
             document.getElementById("submenu-screen").style.display = "none";
             document.getElementById("dashboard-screen").style.display = "block";
+            document.getElementById("login-screen").style.display = "none";
+            window.scrollTo({top: 0, left: 0, behavior: 'smooth'});
+        }
+
+        function escapeAttribute(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
         }
 
         // RequiresLogin / RequiresEmail both use the same 3-value scale straight
@@ -2169,8 +2732,10 @@
             updatePortalGreeting();
             updateTopNavigation();
             checkPortalConnection();
+
             if (isFinalDayOrLater()) {
-                openDashboardMode();
+                markDashboardHandoffComplete();
+                openDashboardMode({source: 'manual-refresh', preserveView: true});
             }
         }
 
@@ -2184,9 +2749,11 @@
 
         window.addEventListener('pageshow', () => {
             if (isFinalDayOrLater()) {
-                openDashboardMode();
+                markDashboardHandoffComplete();
+                openDashboardMode({source: 'pageshow', preserveView: true});
             } else if (!preLoginMode) {
                 showTimerMode();
+                startCountdown();
             }
         });
 
@@ -2198,7 +2765,13 @@
 
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                updateCountdown();
+                if (!isFinalDayOrLater() && !dashboardHandoffComplete) {
+                    updateCountdown();
+                } else if (isFinalDayOrLater() && !dashboardHandoffComplete) {
+                    markDashboardHandoffComplete();
+                    openDashboardMode({source: 'visibility-handoff', preserveView: true});
+                }
+
                 checkPortalConnection();
             }
         });
@@ -2258,6 +2831,60 @@
         window.addEventListener('pageshow', () => {
             ensureDashboardOnlyWhenReady();
         });
+
+
+        /*
+         * ==============================================================
+         * DASHBOARD STABILITY / DIAGNOSTIC HELPERS
+         * ==============================================================
+         *
+         * These helpers make it possible to verify the critical state
+         * machine from the browser console without inventing dashboard
+         * data. They are intentionally read-only except for the explicit
+         * test action.
+         */
+
+        function getDashboardUiState() {
+            return {
+                dashboardView,
+                activeCategoryKey,
+                dashboardHandoffComplete,
+                countdownRunning: !!countdownInterval,
+                sessionLoaded: !!sessionUser,
+                dashboardDataLoaded: !!dashboardData,
+                loginVisible: document.getElementById('login-screen')?.style.display !== 'none',
+                dashboardVisible: document.getElementById('dashboard-screen')?.style.display !== 'none',
+                submenuVisible: document.getElementById('submenu-screen')?.style.display !== 'none',
+                scrollY: window.scrollY
+            };
+        }
+
+        window.getDashboardUiState = getDashboardUiState;
+
+        function assertDashboardUiStable() {
+            const before = getDashboardUiState();
+
+            /*
+             * Simulate the old problem's trigger by manually invoking the
+             * countdown update several times. When the final-day mode is
+             * active, these calls must not change an already-open submenu.
+             */
+            updateCountdown();
+            updateCountdown();
+            updateCountdown();
+
+            const after = getDashboardUiState();
+
+            return {
+                stable: before.dashboardView === after.dashboardView &&
+                        before.activeCategoryKey === after.activeCategoryKey &&
+                        before.submenuVisible === after.submenuVisible,
+                before,
+                after
+            };
+        }
+
+        window.assertDashboardUiStable = assertDashboardUiStable;
 
         // Register the service worker so the app is installable on Android/
         // desktop Chrome/Edge and keeps working offline once installed.
@@ -2404,6 +3031,31 @@
     countdown text, descriptive image alternative text, dialog roles on
     transient overlays, and keyboard support for PIN entry. Reduced-motion
     preferences continue to be respected by the stylesheet.
+
+
+    DASHBOARD HANDOFF BUG FIX
+    ------------------------------------------------------------------------
+    The countdown now gives up control of the dashboard once the final-day
+    threshold is reached. The old implementation called openDashboardMode()
+    once per second, which hid the submenu and rebuilt the category grid
+    while the user was interacting with it. The repaired implementation
+    performs a one-time handoff, stops the countdown interval, remembers
+    the current dashboard view, and avoids rebuilding unchanged dashboard
+    data.
+
+    CATEGORY / SUBMENU STABILITY
+    ------------------------------------------------------------------------
+    Category buttons use explicit button event listeners and preserve the
+    current dashboard state. The submenu no longer relies on automatic
+    page scrolling or scrollIntoView(), which previously could move the
+    opened content toward the bottom of the document on mobile.
+
+    RECOVERY / DEBUG HELPERS
+    ------------------------------------------------------------------------
+    window.getDashboardUiState() returns the current dashboard screen state.
+    window.assertDashboardUiStable() invokes the countdown update repeatedly
+    and reports whether an already-open submenu stayed open. These helpers
+    are read-only diagnostics and do not create replacement dashboard data.
 
     TESTING CHECKLIST
     ------------------------------------------------------------------------
