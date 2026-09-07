@@ -26,3 +26,13 @@ This build keeps the working PIN, keyboard, session, PWA, dashboard and Sheet-HT
 The access/password popup is now persistent after opening. Clicking outside the popup no longer dismisses it. It remains visible until the user explicitly chooses **Take me to the site**, **Not Now**, or presses Escape. The popup has a stable open state after its entrance animation, preventing the previous animation from finishing and snapping the popup back down.
 
 The destination launch is triggered before the close animation starts so the action cannot be lost during the transition.
+
+## Full-page embedded HTML + outside-tap popup fix
+
+- Embedded HTML now uses the entire app viewport underneath its own top navigation row.
+- The embedded iframe fills the remaining height on phones, tablets, iPad and desktop.
+- Safe-area insets are respected for iPhone/iPad notches and browser chrome.
+- A tap/click on the darkened area outside the access popup closes it with the normal slide-down animation.
+- Clicks inside the access popup are isolated so copying credentials, scrolling, and pressing buttons cannot trigger an outside-close.
+- The popup still only closes after an explicit Continue/Take me to the site action, Not Now, Escape, or an outside tap.
+- Service-worker cache revision was bumped for the updated embedded-page and popup behavior.

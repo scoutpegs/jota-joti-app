@@ -1706,6 +1706,44 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
 }
 @media(prefers-reduced-motion:reduce){#login-screen .num-btn,#login-screen .pin-slot{transition:none!important} }
 
+
+
+/* ============================================================
+   EMBEDDED HTML FULL-PAGE + POPUP OUTSIDE-TAP FINAL OVERRIDE
+   ============================================================ */
+#embed-screen{
+    position:fixed!important; inset:0!important; width:100vw!important; height:100dvh!important;
+    min-height:100vh!important; max-height:100dvh!important; margin:0!important; padding:0!important;
+    display:none; flex-direction:column!important; overflow:hidden!important; overscroll-behavior:none;
+    z-index:3000!important;
+}
+#embed-screen.visible{display:flex!important;}
+#embed-screen.closing{display:flex!important;}
+#embed-screen .embed-header{
+    flex:0 0 auto!important; width:100%!important; min-height:64px!important; height:auto!important;
+    padding-top:max(10px,env(safe-area-inset-top,0px))!important;
+    padding-bottom:10px!important; padding-left:max(12px,env(safe-area-inset-left,0px))!important;
+    padding-right:max(12px,env(safe-area-inset-right,0px))!important;
+    background:#fff!important; box-sizing:border-box!important;
+}
+#embed-screen .embed-stage{
+    position:relative!important; flex:1 1 auto!important; width:100%!important; min-width:0!important;
+    min-height:0!important; height:auto!important; overflow:hidden!important; background:#fff!important;
+}
+#embed-screen #embed-frame{
+    display:block!important; width:100%!important; height:100%!important; min-height:100%!important;
+    border:0!important; margin:0!important; padding:0!important; background:#fff!important;
+}
+#embed-screen .embed-loading{position:absolute!important; inset:0!important; width:100%!important; height:100%!important;}
+#sheet-overlay{z-index:250!important; cursor:pointer; touch-action:manipulation;}
+#sheet-popup{z-index:251!important; cursor:default; touch-action:auto;}
+#sheet-popup .popup-handle,#sheet-popup .popup-title,#sheet-popup #sheet-body{position:relative;z-index:1;}
+@media(max-width:600px){
+    #embed-screen .embed-header{min-height:62px!important;}
+    #embed-screen .embed-external-btn{max-width:128px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+}
+@media(min-width:601px){#embed-screen .embed-header{min-height:68px!important;}}
+@media(prefers-reduced-motion:reduce){#embed-screen,#sheet-popup,#sheet-overlay{transition-duration:.01ms!important;}}
 </style>
 </head>
 <body>
@@ -3151,6 +3189,19 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
                 sheetCloseTimer = null;
             }, 340);
         }
+
+        // Clicking/tapping outside the password popup closes it with its
+        // normal slide-down animation. The popup itself is protected so
+        // button clicks, copy actions and scrolling never close it.
+        document.getElementById('sheet-overlay')?.addEventListener('click', event => {
+            if (event.target === event.currentTarget) {
+                closeSheet({reason: 'outside'});
+            }
+        });
+
+        document.getElementById('sheet-popup')?.addEventListener('click', event => {
+            event.stopPropagation();
+        });
 
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape') {
