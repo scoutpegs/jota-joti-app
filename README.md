@@ -19,3 +19,10 @@ This build keeps the working PIN, keyboard, session, PWA, dashboard and Sheet-HT
 - Service worker syntax check: passed.
 - Manifest JSON validation: passed.
 - The final build was created from the last working PIN-number version rather than from an already-corrupted intermediate source.
+
+
+## Password/access popup stability repair
+
+The access/password popup is now persistent after opening. Clicking outside the popup no longer dismisses it. It remains visible until the user explicitly chooses **Take me to the site**, **Not Now**, or presses Escape. The popup has a stable open state after its entrance animation, preventing the previous animation from finishing and snapping the popup back down.
+
+The destination launch is triggered before the close animation starts so the action cannot be lost during the transition.

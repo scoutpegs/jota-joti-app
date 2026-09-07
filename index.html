@@ -1047,10 +1047,18 @@
         #sheet-overlay {
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
+            cursor: default;
         }
+        #sheet-overlay.popup-active { pointer-events: auto; }
         #sheet-popup {
             transform: translateY(100%);
             opacity: .98;
+            pointer-events: none;
+        }
+        #sheet-popup.popup-open {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
         }
         #sheet-popup.popup-opening { animation: passwordPopupIn .48s cubic-bezier(.16,1,.3,1) forwards; }
         #sheet-popup.popup-closing { animation: passwordPopupOut .28s cubic-bezier(.7,0,.84,0) forwards; }
@@ -1912,7 +1920,7 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
         <span id="session-refresh-text">Updating your dashboard…</span>
     </div>
 
-    <div id="sheet-overlay" onclick="closeSheet()"></div>
+    <div id="sheet-overlay" aria-hidden="true"></div>
     <div id="sheet-popup">
         <div class="popup-handle"></div>
         <div class="popup-title" id="sheet-title">Details</div>
@@ -2994,15 +3002,30 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
 
             const continueBtn = document.createElement("button");
             continueBtn.className = "activity-open-btn";
-            continueBtn.innerText = needsOwnSomething ? "Continue" : "Continue to Site";
-            continueBtn.onclick = () => { closeSheet(); launchSite(site, embedded); };
+            continueBtn.type = "button";
+            continueBtn.innerText = "Take me to the site";
+            continueBtn.setAttribute('aria-label', `Take me to ${site.Title || 'the site'}`);
+            continueBtn.onclick = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                // Launch first, then begin the popup close animation.
+                // This prevents a click/animation race from making the popup
+                // disappear before the action has been triggered.
+                launchSite(site, embedded);
+                closeSheet({reason: 'continue'});
+            };
             row.appendChild(continueBtn);
 
             if (needsOwnSomething) {
                 const cancelBtn = document.createElement("button");
                 cancelBtn.className = "activity-open-btn btn-secondary";
+                cancelBtn.type = "button";
                 cancelBtn.innerText = "Not Now";
-                cancelBtn.onclick = () => { closeSheet(); };
+                cancelBtn.onclick = (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeSheet({reason: 'cancel'});
+                };
                 row.appendChild(cancelBtn);
             }
 
@@ -3073,32 +3096,68 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
             window.open(raw,'_blank','noopener,noreferrer');
         }
 
+        let sheetCloseTimer = null;
+
         function openSheet() {
             const overlay = document.getElementById("sheet-overlay");
             const popup = document.getElementById("sheet-popup");
-            overlay.style.display='block';
-            popup.classList.remove('popup-closing','popup-opening');
-            popup.style.bottom='0';
+            if (!overlay || !popup) return;
+
+            if (sheetCloseTimer) {
+                clearTimeout(sheetCloseTimer);
+                sheetCloseTimer = null;
+            }
+
+            overlay.style.display = 'block';
+            overlay.classList.add('popup-active');
+            overlay.style.opacity = '0';
+
+            popup.classList.remove('popup-closing');
+            popup.classList.add('popup-open');
+            popup.style.bottom = '0';
+
+            // Force the initial frame, then play the opening animation. The
+            // stable popup-open class remains after the animation finishes,
+            // so the popup cannot snap back down after 400–500 ms.
             void popup.offsetWidth;
-            requestAnimationFrame(()=>{
-                overlay.style.opacity='1';
+            requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+                popup.classList.remove('popup-opening');
+                void popup.offsetWidth;
                 popup.classList.add('popup-opening');
-                window.setTimeout(() => popup.classList.remove('popup-opening'), 520);
             });
         }
 
-        function closeSheet() {
+        function closeSheet(options = {}) {
             const overlay = document.getElementById("sheet-overlay");
             const popup = document.getElementById("sheet-popup");
-            overlay.style.opacity = "0";
+            if (!overlay || !popup) return;
+
+            if (sheetCloseTimer) {
+                clearTimeout(sheetCloseTimer);
+                sheetCloseTimer = null;
+            }
+
+            overlay.style.opacity = '0';
+            overlay.classList.remove('popup-active');
             popup.classList.remove('popup-opening');
+            popup.classList.remove('popup-open');
             popup.classList.add('popup-closing');
-            popup.style.bottom = "-100%";
-            setTimeout(() => {
-                overlay.style.display='none';
+            popup.style.bottom = '-100%';
+
+            sheetCloseTimer = window.setTimeout(() => {
+                overlay.style.display = 'none';
                 popup.classList.remove('popup-closing');
-            }, 300);
+                sheetCloseTimer = null;
+            }, 340);
         }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                const popup = document.getElementById('sheet-popup');
+                if (popup && popup.classList.contains('popup-open')) closeSheet({reason: 'escape'});
+            }
+        });
 
         function createCopyRow(label, value) {
             const row = document.createElement("div");
