@@ -24,6 +24,7 @@
         let deferredInstallPrompt = null;
         let countdownInterval = null;
         let greetingInterval = null;
+        let initialRouteApplied = false;
 
 
         let currentPin = "";
@@ -31,8 +32,6 @@
         let dashboardData = null;
 
 
-        // Works out "Good morning" / "Good afternoon" / "Good evening" from the
-        // device's local clock, falling back to a plain "Welcome" late at night.
         function getGreeting() {
             const hour = new Date().getHours();
             if (hour >= 5 && hour < 12) return "Good morning";
@@ -41,20 +40,12 @@
             return "Welcome";
         }
 
-        // Fills in the small greeting next to Log Out at the top of the
-        // dashboard, e.g. "GOOD AFTERNOON" / "Louise Ridgway".
         function updateDashboardGreeting() {
             const name = (sessionUser && sessionUser.Name) ? sessionUser.Name : "Scout";
             document.getElementById("dash-greeting-line").innerText = getGreeting().toUpperCase();
             document.getElementById("dash-greeting-name").innerText = name;
         }
 
-        // The saved PIN itself IS the login now; there's no separate password.
-        // The PIN is remembered in this browser (localStorage) purely so
-        // a returning scout doesn't have to re-type it, but the actual
-        // dashboard content (categories/links/logos) is never saved
-        // alongside it. It's always fetched fresh from the sheet on
-        // every single visit and every login.
         const SAVED_PIN_KEY = 'jotajoti_saved_pin';
         let lastAttemptedPin = '';
 
@@ -177,7 +168,7 @@
                 document.getElementById('submenu-screen').style.display = dashboardView === 'submenu' ? 'block' : 'none';
                 if (dashboardData) buildDashboard({preserveView:true});
                 else if (dashboardView === 'categories') {
-                    document.getElementById('category-grid').innerHTML = '<div class="empty-state loading-state"><div class="inline-spinner"></div><div>Loading your dashboard…</div></div>';
+                    document.getElementById('category-grid').innerHTML = skeletonGridHTML(6);
                 }
                 ensureDashboardScreenOnly();
                 updateDashboardGreeting();
@@ -338,7 +329,6 @@
                     buildDashboard({force:true,reason:'remembered-refresh'}); ensureDashboardScreenOnly();
                 }
             } catch (_) {
-                // Network failure does not equal logout. Keep the remembered account.
             } finally { backgroundRefreshInFlight=false; hideSessionRefreshLoader(); }
         }
 
@@ -476,8 +466,6 @@
 
             document.getElementById('install-native-btn').style.display = deferredInstallPrompt ? 'block' : 'none';
 
-            // Keep re-checking in case the user installs and comes back to
-            // this same tab without a full reload.
             if (!installPollTimer) {
                 installPollTimer = setInterval(() => {
                     if (isRunningStandalone()) {
@@ -496,9 +484,6 @@
             }
         }
 
-        // Manual "I've added it" button. Re-checks immediately instead of
-        // waiting for the poll, and gives feedback if it genuinely isn't
-        // installed yet rather than silently doing nothing.
         function recheckInstall() {
             if (isRunningStandalone()) {
                 localStorage.setItem(INSTALLED_KEY, 'true');
@@ -512,9 +497,6 @@
             }
         }
 
-        // Re-check whenever the tab regains focus/visibility. Covers the
-        // case where the user switches to the Home Screen, adds the icon,
-        // then comes right back to this browser tab.
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') initializePWA();
         });
@@ -545,13 +527,6 @@
 
 
 
-        // Pings the backend's lightweight ?action=health endpoint as soon
-        // as the page loads and shows a small green/red dot above the
-        // numpad. This is purely informational: it never blocks or
-        // changes login, but it means a broken deployment (wrong URL,
-        // deleted deployment, permissions not set to "Anyone") is obvious
-        // at a glance instead of only showing up as a confusing login
-        // failure after typing a PIN.
         async function checkConnection() {
             const dot = document.getElementById('status-dot');
             const text = document.getElementById('status-text');
@@ -577,8 +552,6 @@
             currentPin += String(num);
             updatePinDisplay();
             if (currentPin.length === 4) {
-                // Auto sign in as soon as the 4th digit is entered; the
-                // PIN alone is all that's needed.
                 setTimeout(() => submitLogin(), 150);
             }
         }
@@ -712,9 +685,6 @@
             loader.style.display='flex';
 
             try {
-                // cache: 'no-store' + a fresh timestamp on every request means
-                // categories/links/logos are always pulled live from the
-                // sheet. Nothing about them is ever pre-saved in the app.
                 const url = `${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
                 const response = await fetch(url, { cache: 'no-store' });
                 const data = await response.json();
@@ -750,10 +720,6 @@
                     saveRememberedSession(pin, sessionUser);
                 }
             } catch (error) {
-                // No fake/sample data is ever shown. A connection problem
-                // is reported honestly instead of silently substituting
-                // placeholder content, and a Try Again button is offered
-                // so the same PIN can be retried without re-typing it.
                 resetLoginForm();
                 const rememberedLoader=document.getElementById('welcome-screen');
                 rememberedLoader.classList.add('is-closing');
@@ -786,12 +752,6 @@
                     return;
                 }
 
-                /*
-                 * This is the important pre-event behavior:
-                 * logging in before the final 24 hours never strands the
-                 * user on the dashboard. The account is accepted, saved,
-                 * and then the user is returned to the main countdown page.
-                 */
                 showTimerMode();
                 updatePortalGreeting();
             }, 500);
@@ -800,11 +760,13 @@
         function logout() {
             sessionUser = null;
             dashboardData = null;
+            initialRouteApplied = false;
             localStorage.removeItem(SAVED_PIN_KEY);
             localStorage.removeItem('jotajoti_saved_user');
             clearRememberedSession();
             document.getElementById('forget-btn').style.display = 'none';
             resetLoginForm();
+            setRouteHash('#/', true);
             document.getElementById("dashboard-screen").style.display = "none";
             document.getElementById("submenu-screen").style.display = "none";
 
@@ -821,6 +783,77 @@
         }
 
         function escapeAttribute(value) { return String(value||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        function skeletonGridHTML(count) {
+            let out = '';
+            for (let i = 0; i < count; i++) {
+                out += '<div class="card-btn skeleton-card" aria-hidden="true">'
+                     + '<div class="skeleton-block skeleton-icon"></div>'
+                     + '<div class="skeleton-block skeleton-line"></div>'
+                     + '<div class="skeleton-block skeleton-badge"></div>'
+                     + '</div>';
+            }
+            return out;
+        }
+
+        /* ---------- URL routing: gives every section its own address ---------- */
+
+        function setRouteHash(hash, replace) {
+            if (!hash) hash = '#/';
+            if (location.hash === hash) return;
+            if (replace) history.replaceState(null, '', hash);
+            else history.pushState(null, '', hash);
+            document.title = routeTitle(hash);
+        }
+
+        function routeTitle(hash) {
+            const catMatch = hash.match(/^#\/category\/([^\/]+)/);
+            const siteMatch = hash.match(/^#\/site\/([^\/]+)/);
+            if (siteMatch && dashboardData) {
+                const site = (dashboardData.links || []).find(l => String(l.LinkID) === decodeURIComponent(siteMatch[1]));
+                if (site) return `${site.Title} · JOTA-JOTI`;
+            }
+            if (catMatch && dashboardData) {
+                const cat = (dashboardData.categories || []).find(c => String(c.CategoryKey || '').toLowerCase() === decodeURIComponent(catMatch[1]).toLowerCase());
+                if (cat) return `${cat.Title} · JOTA-JOTI`;
+            }
+            if (hash === '#/dashboard') return 'Dashboard · JOTA-JOTI';
+            return 'JOTA-JOTI Dashboard';
+        }
+
+        function applyRouteFromHash() {
+            if (!sessionUser || !dashboardData) return false;
+            const hash = location.hash || '';
+            const siteMatch = hash.match(/^#\/site\/([^\/]+)/);
+            const catMatch = hash.match(/^#\/category\/([^\/]+)/);
+
+            if (siteMatch) {
+                const id = decodeURIComponent(siteMatch[1]);
+                const site = (dashboardData.links || []).find(l => String(l.LinkID) === id);
+                if (site) {
+                    const cat = (dashboardData.categories || []).find(c => String(c.CategoryKey || '').toLowerCase() === String(site.CategoryKey || '').toLowerCase());
+                    const catLinks = (dashboardData.links || []).filter(l => String(l.CategoryKey || '').toLowerCase() === String(site.CategoryKey || '').toLowerCase());
+                    if (cat) openSubMenu(cat, catLinks, {skipHash: true});
+                    openSite(site);
+                    return true;
+                }
+            }
+            if (catMatch) {
+                const key = decodeURIComponent(catMatch[1]);
+                const cat = (dashboardData.categories || []).find(c => String(c.CategoryKey || '').toLowerCase() === key.toLowerCase());
+                if (cat) {
+                    const catLinks = (dashboardData.links || []).filter(l => String(l.CategoryKey || '').toLowerCase() === key.toLowerCase());
+                    openSubMenu(cat, catLinks);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        window.addEventListener('popstate', () => {
+            if (!dashboardHandoffComplete && !isFinalDayOrLater()) return;
+            if (!applyRouteFromHash()) showDashboard();
+        });
 
         function buildDashboard(options={}) {
             if (!dashboardData) return;
@@ -846,6 +879,11 @@
             });
             if(!categories.length) grid.innerHTML='<div class="empty-state">No categories available.</div>';
             ensureDashboardScreenOnly();
+
+            if (!initialRouteApplied) {
+                initialRouteApplied = true;
+                if (!applyRouteFromHash() && dashboardView === 'categories') setRouteHash('#/dashboard', true);
+            }
         }
 
         function addReactivePointer(btn) {
@@ -855,8 +893,9 @@
             btn.addEventListener('pointercancel',()=>btn.classList.remove('is-pressing'));
         }
 
-        function openSubMenu(category,links) {
+        function openSubMenu(category,links,options={}) {
             activeCategoryKey=String(category.CategoryKey||'').toLowerCase(); dashboardView='submenu';
+            if (!options.skipHash) setRouteHash('#/category/' + encodeURIComponent(activeCategoryKey));
             document.getElementById('submenu-title').innerText=category.Title||'Select Option';
             const subGrid=document.getElementById('submenu-grid'); subGrid.innerHTML='';
             (links||[]).forEach(item=>{
@@ -874,19 +913,10 @@
             dashboardView='categories'; activeCategoryKey='';
             document.getElementById('submenu-screen').style.display='none'; document.getElementById('dashboard-screen').style.display='block'; document.getElementById('login-screen').style.display='none';
             animateScreenIn(document.getElementById('dashboard-screen'));
+            setRouteHash('#/dashboard');
         }
 
-        // RequiresLogin / RequiresEmail both use the same 3-value scale straight
-        // from the Links sheet:
-        //   0 = not needed, opens straight away
-        //   1 = "yours": this account's saved Username/Password (or Email) covers it,
-        //       so show it as a copy-and-go row
-        //   3 = "your own": the site needs its own separate login/email (or purchase),
-        //       so just warn the scout before they continue
-        //
-        // toAccessLevel() is deliberately forgiving about what a spreadsheet
-        // cell can come back as: a real number, a numeric string, or
-        // TRUE/FALSE text if the cell was typed as a checkbox/boolean.
+        // Access scale: 0 = open, 1 = saved account covers it, 3 = needs own login.
         function toAccessLevel(rawValue) {
             if (rawValue === undefined || rawValue === null) return 0;
             if (typeof rawValue === 'boolean') return rawValue ? 1 : 0;
@@ -901,9 +931,6 @@
             return (parsed === 1 || parsed === 3) ? parsed : 0;
         }
 
-        // Reads a link's login requirement. Prefers RequiresLogin (current
-        // backend); falls back to AccessType or ReqUser so links still work
-        // even if Code.gs hasn't been redeployed to the latest version yet.
         function deriveLoginLevel(site) {
             if (site.RequiresLogin !== undefined && String(site.RequiresLogin).trim() !== '') {
                 return toAccessLevel(site.RequiresLogin);
@@ -917,14 +944,11 @@
             return 0;
         }
 
-        // Same idea for the email requirement.
         function deriveEmailLevel(site) {
             if (site.RequiresEmail !== undefined && String(site.RequiresEmail).trim() !== '') {
                 return toAccessLevel(site.RequiresEmail);
             }
             if (site.AccessType !== undefined && String(site.AccessType).trim() !== '') {
-                // Older backends only had one combined flag; its "needs an
-                // account" case (3) implies needing their own email too.
                 return toAccessLevel(site.AccessType) === 3 ? 3 : 0;
             }
             if (site.ReqEmail !== undefined) {
@@ -933,29 +957,18 @@
             return 0;
         }
 
-        // Some rows in the Links sheet don't have a real URL in the URL
-        // column at all. They have a whole block of HTML pasted in
-        // instead (a mini page/widget written directly in the sheet).
-        // Anything that doesn't start with http:// or https:// is treated
-        // as raw HTML rather than a link.
+        // Rows without a real URL contain inline HTML instead.
         function isRawHtml(value) {
             const text = String(value || '').trim();
             if (!text) return false;
             return !/^https?:\/\//i.test(text);
         }
 
-        // The Links sheet has its own CanEmbed column (boolean) for normal
-        // URLs. That's still the source of truth for those. A row whose
-        // URL is actually raw HTML always opens in the embedded tab, since
-        // there's no real address to open in a new browser tab.
         function canEmbed(site) {
             if (isRawHtml(site && site.URL)) return true;
             return site && site.CanEmbed === true;
         }
 
-        // The account's email, straight from the Email column only, no
-        // fallback to ParentEmail. Blank means it genuinely hasn't been
-        // added to the sheet yet.
         function resolveUserEmail() {
             if (!sessionUser) return '';
             return sessionUser.Email || '';
@@ -988,8 +1001,6 @@
                 alert('This link has no URL (or HTML) set in the sheet, so it can\'t be opened yet.');
                 return;
             }
-            // Raw HTML can only ever be shown in the embedded tab; there's
-            // no real address to open in a new browser tab.
             if (embedded || isRawHtml(raw)) {
                 openEmbeddedSite(site);
             } else {
@@ -997,9 +1008,6 @@
             }
         }
 
-        // One popup that adapts to whatever mix of login/email requirements a
-        // link has: copy rows for anything "saved to your account", and an
-        // amber note for anything that needs the scout's own details.
         function showAccessPopup(site, embedded, loginLevel, emailLevel) {
             const needsOwnSomething = loginLevel === 3 || emailLevel === 3;
             document.getElementById("sheet-title").innerText = needsOwnSomething ? "Before You Continue" : "Your Login Details";
@@ -1014,10 +1022,7 @@
                 : `${site.Title} needs a login. Tap to copy your details, then continue.`;
             body.appendChild(intro);
 
-            // "Saved to your account": copyable rows
             if (loginLevel === 1) {
-                // RequiresLogin=1 means this app needs the saved account.
-                // Show all three saved details together: username, password and email.
                 if (sessionUser && sessionUser.Username) body.appendChild(createCopyRow("Username", sessionUser.Username));
                 if (sessionUser && sessionUser.Password) body.appendChild(createCopyRow("Password", sessionUser.Password));
                 const loginEmail = resolveUserEmail();
@@ -1035,7 +1040,6 @@
                 }
             }
 
-            // "You'll need your own": informational, nothing to copy
             if (loginLevel === 3) {
                 body.appendChild(createInfoNote("This site needs its own account. You may already have one, or you may need to sign up (and it might need to be bought).", "own"));
             }
@@ -1054,9 +1058,6 @@
             continueBtn.onclick = (event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                // Launch first, then begin the popup close animation.
-                // This prevents a click/animation race from making the popup
-                // disappear before the action has been triggered.
                 launchSite(site, embedded);
                 closeSheet({reason: 'continue'});
             };
@@ -1104,6 +1105,7 @@
             const token=++embedLoadToken;
             currentEmbeddedSite = site;
             title.innerText=site.Title||'Site';
+            if (site.LinkID) setRouteHash('#/site/' + encodeURIComponent(site.LinkID));
             showEmbedLoading(isRawHtml(raw)?'Rendering HTML':'Opening site', isRawHtml(raw)?'Building the page from the HTML saved in the dashboard…':'Waiting for the embedded page to become ready…');
             const externalBtn=document.getElementById('embed-external-btn');
             if(externalBtn) externalBtn.style.display=(raw && !isRawHtml(raw) ? 'block' : 'none');
@@ -1134,6 +1136,7 @@
             const screen=document.getElementById('embed-screen'); const frame=document.getElementById('embed-frame');
             ++embedLoadToken; screen.classList.remove('visible'); screen.classList.add('closing');
             window.setTimeout(()=>{ screen.style.display='none'; screen.classList.remove('closing'); frame.removeAttribute('srcdoc'); frame.src='about:blank'; currentEmbeddedSite=null; },300);
+            setRouteHash(activeCategoryKey ? '#/category/' + encodeURIComponent(activeCategoryKey) : '#/dashboard');
         }
 
         function openEmbeddedExternally() {
@@ -1162,9 +1165,6 @@
             popup.classList.add('popup-open');
             popup.style.bottom = '0';
 
-            // Force the initial frame, then play the opening animation. The
-            // stable popup-open class remains after the animation finishes,
-            // so the popup cannot snap back down after 400–500 ms.
             void popup.offsetWidth;
             requestAnimationFrame(() => {
                 overlay.style.opacity = '1';
@@ -1198,9 +1198,6 @@
             }, 340);
         }
 
-        // Clicking/tapping outside the password popup closes it with its
-        // normal slide-down animation. The popup itself is protected so
-        // button clicks, copy actions and scrolling never close it.
         document.getElementById('sheet-overlay')?.addEventListener('click', event => {
             if (event.target === event.currentTarget) {
                 closeSheet({reason: 'outside'});
@@ -1264,7 +1261,6 @@
         }
 
 
-        // Debug helpers for checking timing/login state during testing
         function getCombinedPortalState() {
             return {
                 now: new Date().toISOString(),
@@ -1296,22 +1292,10 @@
 
         window.forcePortalRefresh = forcePortalRefresh;
 
-        /*
-         * Refreshing the page while the dashboard is active must never turn
-         * back into the countdown after the 24-hour threshold. The startup
-         * logic checks the timestamp before deciding which page is visible.
-         */
-
         window.addEventListener('pageshow', () => {
             if(isFinalDayOrLater()){ dashboardHandoffComplete=true; openDashboardMode({source:'pageshow',preserveView:true,animate:false}); }
             else if(!preLoginMode){ showTimerMode(); startCountdown(); }
         });
-
-        /*
-         * Keep the live countdown accurate after a browser has been asleep.
-         * setInterval can be delayed in background tabs, so a visibility
-         * event always performs an immediate calculation when the tab returns.
-         */
 
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
@@ -1319,10 +1303,6 @@
                 checkPortalConnection(true);
             }
         });
-
-        /*
-         * Network changes are useful feedback on the preparation page.
-         */
 
         window.addEventListener('online', () => {
             checkPortalConnection();
@@ -1337,11 +1317,6 @@
             if (dot) dot.className = 'portal-network-dot bad';
             if (text) text.innerText = 'Device is offline';
         });
-
-        /*
-         * If the user closes the pre-login area with Escape, the timer is
-         * restored rather than leaving an empty dashboard wrapper visible.
-         */
 
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && preLoginMode && !isFinalDayOrLater()) {

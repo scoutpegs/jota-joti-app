@@ -1645,3 +1645,19 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
     font-family: var(--font-display);
 }
 .time-box span { letter-spacing: -0.5px; }
+
+/* Skeleton loading placeholders shown while dashboard data is fetched */
+.skeleton-card { cursor: default; pointer-events: none; }
+.skeleton-block {
+    background: linear-gradient(90deg, rgba(90,44,132,0.08) 25%, rgba(90,44,132,0.16) 37%, rgba(90,44,132,0.08) 63%);
+    background-size: 400% 100%;
+    border-radius: 10px;
+    animation: skeleton-shimmer 1.4s ease infinite;
+}
+.skeleton-icon { width: 60px; height: 60px; border-radius: 16px; }
+.skeleton-line { width: 70%; height: 14px; }
+.skeleton-badge { width: 50%; height: 18px; border-radius: 12px; }
+@keyframes skeleton-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
