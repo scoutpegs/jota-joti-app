@@ -108,8 +108,29 @@
             el.setAttribute('aria-hidden','true');
         }
 
+        // ---- Testing helper: skip the countdown on this device ----
+        // Visit the site with ?preview=1 once on a device to jump straight past
+        // the countdown into the normal dashboard/login flow, so it can be
+        // tested before the real countdown ends. The flag is remembered on
+        // that device (localStorage), so it keeps working on reload without
+        // the URL parameter. Visit with ?preview=0 to turn it back off and
+        // restore the normal countdown for that device.
+        const SKIP_COUNTDOWN_KEY = 'jota_skip_countdown_preview';
+        (function initSkipCountdownPreview() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.has('preview')) {
+                    if (params.get('preview') === '0') localStorage.removeItem(SKIP_COUNTDOWN_KEY);
+                    else localStorage.setItem(SKIP_COUNTDOWN_KEY, '1');
+                }
+            } catch (e) { /* localStorage unavailable — ignore */ }
+        })();
+        function isPreviewModeActive() {
+            try { return localStorage.getItem(SKIP_COUNTDOWN_KEY) === '1'; } catch (e) { return false; }
+        }
+
         function isFinalDayOrLater() {
-            return Date.now() >= FINAL_DAY_MS;
+            return isPreviewModeActive() || Date.now() >= FINAL_DAY_MS;
         }
 
         function isEventLive() {
