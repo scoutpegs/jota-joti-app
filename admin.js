@@ -1,10 +1,14 @@
 /* Standalone JOTA-JOTI admin client.
    No sign-in is required. This calls the openAdmin* actions in Code.gs.
-   Keep this page private because the API can read participant data and send email. */
+
+   Transport note:
+   Apps Script ContentService normally redirects responses from
+   script.google.com to a one-time script.googleusercontent.com URL. Modern
+   browsers can block a JSONP <script> response at that redirected URL.
+   The primary transport here is therefore a hidden iframe + postMessage.
+   JSONP is kept only as a read/preview fallback for older environments.
+*/
 const API_URL='https://script.google.com/macros/s/AKfycbwa3R5odIbwsPRQHHSedx4mbwRrsAE3tWLcfZX1d4Nq_QNBBDozp2TFX1jfq1eSCLwP/exec';
-// The skip-the-countdown page lives at the same level as this file (skip.html),
-// resolved relative to wherever admin.html itself is hosted — so this keeps
-// working even if the site moves to a custom domain later.
 const SKIP_PAGE_URL = new URL('skip', window.location.href).href;
 const TAGS=['{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{parentName}}','{{username}}','{{pin}}','{{participantID}}','{{youthSection}}','{{ageYear}}','{{ageGroup}}','{{email}}','{{youthEmail}}','{{parentEmail}}'];
 let users=[],sections=[],categories=[],groups=[],selected=[],allSelected=[],focusEl=null;
@@ -18,8 +22,88 @@ function b64url(obj){
   return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 
-const JSONP_TIMEOUT_MS=15000;
-const JSONP_RETRIES=2;
+const IFRAME_TIMEOUT_MS=15000;
+const JSONP_TIMEOUT_MS=9000;
+const JSONP_RETRIES=1;
+let requestCounter=0;
+
+function makeRequestId(){
+  requestCounter=(requestCounter+1)%1000000;
+  return 'admin_'+Date.now().toString(36)+'_'+requestCounter.toString(36)+'_'+Math.random().toString(36).slice(2,10);
+}
+
+function normaliseApiResult(data, action){
+  if(!data || typeof data!=='object') throw new Error('Apps Script '+action+' returned an invalid response.');
+  if(data.success===false) throw new Error(data.error||('Apps Script '+action+' failed.'));
+  return data;
+}
+
+function iframeRequestOnce(action,params={}){
+  return new Promise((resolve,reject)=>{
+    const requestId=makeRequestId();
+    const iframe=document.createElement('iframe');
+    iframe.name='jotaJotiAdminTransport_'+requestId;
+    iframe.id=iframe.name;
+    iframe.title='JOTA-JOTI API transport';
+    iframe.setAttribute('aria-hidden','true');
+    iframe.style.cssText='position:fixed;width:1px;height:1px;left:-10px;top:-10px;border:0;opacity:0;pointer-events:none';
+
+    let settled=false;
+    let timer=null;
+    const cleanup=()=>{
+      window.removeEventListener('message',onMessage);
+      if(timer)clearTimeout(timer);
+      setTimeout(()=>iframe.remove(),0);
+    };
+    const finish=(fn,value)=>{
+      if(settled)return;
+      settled=true;
+      cleanup();
+      fn(value);
+    };
+    const onMessage=(event)=>{
+      const msg=event && event.data;
+      if(!msg || msg.type!=='jota-joti-admin-response' || msg.requestId!==requestId)return;
+      // The requestId is unpredictable and the message must come from this
+      // transport iframe. This is the important integrity check; the Apps
+      // Script response may originate from script.googleusercontent.com.
+      if(event.source!==iframe.contentWindow)return;
+      try{finish(resolve,normaliseApiResult(msg.data,action));}
+      catch(err){finish(reject,err)}
+    };
+
+    window.addEventListener('message',onMessage);
+    timer=setTimeout(()=>finish(reject,new Error(
+      'Apps Script '+action+' did not answer within '+Math.round(IFRAME_TIMEOUT_MS/1000)+' seconds. Check the web-app deployment (Execute as you, Anyone) and the Apps Script Executions log.'
+    )),IFRAME_TIMEOUT_MS);
+
+    document.body.appendChild(iframe);
+
+    // POST all admin calls. This avoids long URL limits when an HTML email is
+    // included in the preview/send payload and works with doPost(e).
+    const form=document.createElement('form');
+    form.method='POST';
+    form.action=API_URL;
+    form.target=iframe.name;
+    form.style.display='none';
+
+    const fields=Object.assign({},params||{}, {
+      action:action,
+      transport:'iframe',
+      rid:requestId
+    });
+    Object.keys(fields).forEach(key=>{
+      const input=document.createElement('input');
+      input.type='hidden';
+      input.name=key;
+      input.value=String(fields[key]??'');
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    try{form.submit();}catch(err){finish(reject,err)}
+    setTimeout(()=>form.remove(),0);
+  });
+}
 
 function jsonpOnce(action,params={}){
   return new Promise((resolve,reject)=>{
@@ -39,26 +123,17 @@ function jsonpOnce(action,params={}){
       script.remove();
       fn(value);
     };
-    const timer=setTimeout(()=>finish(reject,new Error('The Apps Script '+action+' request timed out after '+Math.round(JSONP_TIMEOUT_MS/1000)+' seconds. The health endpoint may still work, so this usually means this specific action failed on the Google side.')),JSONP_TIMEOUT_MS);
+    const timer=setTimeout(()=>finish(reject,new Error('The Apps Script '+action+' JSONP fallback timed out.')),JSONP_TIMEOUT_MS);
 
     window[cb]=(data)=>{
-      if(!data || typeof data!=='object'){
-        finish(reject,new Error('Apps Script '+action+' returned an invalid response.'));
-        return;
-      }
-      if(data.success===false){
-        finish(reject,new Error(data.error||('Apps Script '+action+' failed.')));
-        return;
-      }
-      finish(resolve,data);
+      try{finish(resolve,normaliseApiResult(data,action));}
+      catch(err){finish(reject,err)}
     };
 
     script.async=true;
     script.charset='utf-8';
     script.referrerPolicy='no-referrer';
-    script.onerror=()=>finish(reject,new Error(
-      'Apps Script '+action+' did not return a usable JSONP response. Google may have redirected the request to a login/error page. Test '+API_URL+'?action=health in a new tab.'
-    ));
+    script.onerror=()=>finish(reject,new Error('Apps Script '+action+' JSONP fallback was blocked by the browser.'));
     script.src=API_URL+'?'+q.toString();
     document.head.appendChild(script);
   });
@@ -67,49 +142,48 @@ function jsonpOnce(action,params={}){
 async function jsonp(action,params={}){
   let lastError=null;
   for(let attempt=0;attempt<=JSONP_RETRIES;attempt++){
-    try{
-      return await jsonpOnce(action,params);
-    }catch(e){
-      lastError=e;
-      if(attempt<JSONP_RETRIES){
-        await new Promise(r=>setTimeout(r,700*(attempt+1)));
-      }
-    }
+    try{return await jsonpOnce(action,params)}catch(e){lastError=e;if(attempt<JSONP_RETRIES)await new Promise(r=>setTimeout(r,500))}
   }
   throw lastError||new Error('Apps Script request failed.');
 }
 
 async function call(action,params={}){
-  // The openAdmin* endpoints are the intended standalone/no-sign-in API.
-  // Do NOT fall back to admin* here: those endpoints require an admin token
-  // and would only create a second, misleading failure after the real error.
-  return jsonp(action,params);
+  try{
+    return await iframeRequestOnce(action,params);
+  }catch(primaryError){
+    // Never retry a send through another transport: the Apps Script request
+    // could have completed even if the browser did not receive the response.
+    if(action==='openAdminSend')throw primaryError;
+
+    // Read-only / preview calls can safely try the legacy JSONP path as a
+    // compatibility fallback. This is intentionally not used for Send.
+    try{return await jsonp(action,params)}
+    catch(fallbackError){
+      throw new Error(primaryError.message+' JSONP fallback: '+fallbackError.message);
+    }
+  }
 }
 
 async function loadAll(){
-  // Verify the deployment first. A healthy API with a failing Users action is
-  // reported as an endpoint/data problem rather than a generic connection error.
   try{
+    await call('adminPing');
     await call('health');
   }catch(e){
-    throw new Error('Apps Script health check failed: '+e.message);
+    throw new Error('Apps Script connection check failed: '+e.message);
   }
 
   let u=[];
-  try{
-    u=await call('openAdminUsers');
-  }catch(e){
-    throw new Error('Users API failed after a healthy Apps Script check: '+e.message);
-  }
-  users=Array.isArray(u)?u:[];
+  try{u=await call('openAdminUsers');}
+  catch(e){throw new Error('Users API failed after a healthy Apps Script check: '+e.message)}
+  users=Array.isArray(u)?u:(Array.isArray(u.users)?u.users:(Array.isArray(u.data)?u.data:[]));
 
-  try{sections=await call('openAdminSections')||[];}
+  try{const r=await call('openAdminSections');sections=Array.isArray(r)?r:(r.sections||r.data||[]);}
   catch(e){sections=[];console.warn('Sections API failed:',e);}
 
-  try{categories=await call('openAdminCategories')||[];}
+  try{const r=await call('openAdminCategories');categories=Array.isArray(r)?r:(r.categories||r.data||[]);}
   catch(e){categories=[];console.warn('Categories API failed:',e);}
 
-  try{groups=await call('openAdminGroups')||[];}
+  try{const r=await call('openAdminGroups');groups=Array.isArray(r)?r:(r.groups||r.data||[]);}
   catch(e){groups=[];console.warn('Saved groups unavailable:',e);}
 
   let me={sender:'Admin',quota:'—'};
@@ -141,13 +215,13 @@ function scope(){return document.querySelector('input[name=scope]:checked').valu
 function recipientEmails(u){const t=targetType(),a=[];if((t==='parent'||t==='both')&&validEmail(u.ParentEmail))a.push(u.ParentEmail);if((t==='youth'||t==='both')&&validEmail(u.Email))a.push(u.Email);return [...new Set(a.map(x=>String(x).toLowerCase()))]}
 function scopedUsers(){const s=scope();if(s==='selected')return selected;if(s==='all')return selected.length?selected:activeUsers();if(s==='section'){const v=$('sectionSearch').dataset.value;return activeUsers().filter(u=>(u.YouthSection||u.AgeYear)===v)}if(s==='activity'){const k=($('activitySearch').dataset.value||'').toLowerCase();const all=categories.map(x=>String(x.CategoryKey||'').toLowerCase());return activeUsers().filter(u=>{const raw=String(u.AllowedCategories||'').trim();if(!raw||raw==='*')return all.includes(k);return raw.split(',').map(x=>x.trim().toLowerCase()).includes(k)})}if(s==='group'){const key=($('groupSearch').dataset.value||'').toLowerCase();const g=groups.find(x=>String(x.GroupKey||'').toLowerCase()===key);const ids=g?g.ParticipantIDs.map(String):[];return activeUsers().filter(u=>ids.includes(String(u.ParticipantID)))}return []}
 function refreshPreview(){const us=scopedUsers();const n=us.reduce((t,u)=>t+recipientEmails(u).length,0);const missing=us.filter(u=>!recipientEmails(u).length).length;$('preview').textContent=us.length?`Selected: ${us.length} user(s) · ${n} individual email(s) · ${missing} missing email(s)`:'Choose recipients to see the live recipient count.'}
-function setScopeUI(){const s=scope();[['selected','selectedBox'],['section','sectionBox'],['activity','activityBox'],['group','groupBox'],['all','allBox']].forEach(([a,b])=>$(b).classList.toggle('hidden',s!==a));refreshPreview()}
-function choosePerson(i){const x=$('personOptions')._matches[i];if(!x)return;if(!selected.some(u=>String(u.ParticipantID)===String(x.ParticipantID)))selected.push(x);$('personSearch').value='';$('personOptions').style.display='none';renderChips();renderPeople();refreshPreview()}
-function chooseSection(i){const x=$('sectionOptions')._matches[i];if(!x)return;$('sectionSearch').value=x.label||x.value;$('sectionSearch').dataset.value=x.value;$('sectionOptions').style.display='none';refreshPreview()}
-function chooseCategory(i){const x=$('activityOptions')._matches[i];if(!x)return;$('activitySearch').value=x.Title||x.CategoryKey;$('activitySearch').dataset.value=x.CategoryKey;$('activityOptions').style.display='none';refreshPreview()}
+function setScopeUI(){const s=scope();[['selected','select...'],['section','select...'],['activity','select...'],['group','select...'],['all','select...']].forEach(()=>{});['selectedBox','sectionBox','activityBox','groupBox','allBox'].forEach(id=>$(id).classList.add('hidden'));const map={selected:'selectedBox',section:'sectionBox',activity:'activityBox',group:'groupBox',all:'allBox'};$(map[s]).classList.remove('hidden');refreshPreview()}
+function choosePerson(i){const u=$('personOptions')._matches?.[i];if(!u)return;if(!selected.some(x=>String(x.ParticipantID)===String(u.ParticipantID)))selected.push(u);$('personSearch').value='';$('personOptions').style.display='none';renderChips();refreshPreview()}
+function chooseSection(i){const x=$('sectionOptions')._matches?.[i];if(!x)return;$('sectionSearch').value=x.label||x.value;$('sectionSearch').dataset.value=x.value;$('sectionOptions').style.display='none';refreshPreview()}
+function chooseCategory(i){const x=$('activityOptions')._matches?.[i];if(!x)return;$('activitySearch').value=x.Title||x.CategoryKey;$('activitySearch').dataset.value=x.CategoryKey;$('activityOptions').style.display='none';refreshPreview()}
 function payload(){const subject=$('subject').value.trim(),body=$('body').value.trim(),s=scope(),t=targetType();if(!subject)throw Error('Enter a subject.');if(!body)throw Error('Write an HTML message.');if(subject.length>180)throw Error('Subject is too long.');if(body.length>60000)throw Error('Keep the HTML message under 60,000 characters.');const us=scopedUsers();if(!us.length)throw Error('No active users are selected.');const p={subject,htmlBody:body,scope:s,targetType:t};if(s==='selected'||s==='all')p.participantIds=us.map(u=>u.ParticipantID);if(s==='section'){if(!$('sectionSearch').dataset.value)throw Error('Choose a youth section.');p.ageGroup=$('sectionSearch').dataset.value}if(s==='activity'){if(!$('activitySearch').dataset.value)throw Error('Choose an activity category.');p.categoryKey=$('activitySearch').dataset.value}if(s==='group'){if(!$('groupSearch').dataset.value)throw Error('Choose a saved group.');p.groupKey=$('groupSearch').dataset.value}const drive=$('driveAttachment').value.trim();if(drive)p.attachments=[{driveUrl:drive}];p.certificate={placement:$('certificatePlacement').value||'none',title:$('certificateTitle').value.trim(),subtitle:$('certificateSubtitle').value.trim(),message:$('certificateMessage').value.trim(),footer:$('certificateFooter').value.trim()};return p}
 async function preview(){try{const p=payload();showMsg('emailMsg','Checking the live Users sheet…',true);const r=await call('openAdminPreview',{payload:b64url(p)});$('preview').textContent=`Ready: ${r.totalRecipients} individual email(s) · ${r.matchedUsers} matched user(s) · ${r.missingEmails} missing email(s)${r.warnings?.length?'\n'+r.warnings.join('\n'):''}`;showMsg('emailMsg','No email has been sent.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
-async function send(){try{const p=payload();if(!confirm('Send this email now to the live recipient list?'))return;const r=await call('openAdminSend',{payload:b64url(p)});let text=`Sent ${r.sent} of ${r.total} email(s).\nMatched users: ${r.matchedUsers}.`;if(r.missingEmails)text+=`\nMissing emails: ${r.missingEmails}.`;if(r.failed?.length)text+='\nFailures:\n'+r.failed.join('\n');showMsg('emailMsg',text,r.failed?.length===0);await loadAll()}catch(e){showMsg('emailMsg',e.message,false)}}
+async function send(){try{const p=payload();if(!confirm('Send this email now to the live recipient list?'))return;showMsg('emailMsg','Sending… please wait. Do not press Send again.',true);const r=await call('openAdminSend',{payload:b64url(p)});let text=`Sent ${r.sent} of ${r.total} email(s).\nMatched users: ${r.matchedUsers}.`;if(r.missingEmails)text+=`\nMissing emails: ${r.missingEmails}.`;if(r.failed?.length)text+='\nFailures:\n'+r.failed.join('\n');showMsg('emailMsg',text,r.failed?.length===0);await loadAll()}catch(e){showMsg('emailMsg',e.message,false)}}
 function clearComposer(){['subject','body','driveAttachment'].forEach(id=>$(id).value='');$('certificatePlacement').value='none';$('certificateTitle').value='CERTIFICATE OF COMPLETION';$('certificateSubtitle').value='JOTA-JOTI 2026';$('certificateMessage').value='This certifies that {{childFullName}} has successfully taken part in JOTA-JOTI 2026 with Boulder Scout Group.';$('certificateFooter').value='Issued by Boulder Scout Group';selected=[];allSelected=[];$('personSearch').value='';$('sectionSearch').value='';$('activitySearch').value='';$('groupSearch').value='';delete $('sectionSearch').dataset.value;delete $('activitySearch').dataset.value;delete $('groupSearch').dataset.value;document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();$('emailMsg').className='message';refreshPreview()}
 function insertTag(tag){const el=focusEl||$('body'),a=el.selectionStart||el.value.length,b=el.selectionEnd||el.value.length;el.value=el.value.slice(0,a)+tag+el.value.slice(b);el.focus();el.selectionStart=el.selectionEnd=a+tag.length}
 async function findScout(q){const n=norm(q);const list=activeUsers().filter(u=>matches(u,n)).slice(0,8);const box=$('findOptions');box.innerHTML=list.map((u,i)=>optionHTML(u,i)).join('')||'<div class="option"><span>No matching active users</span></div>';box._matches=list;box.style.display='block'}
@@ -172,14 +246,9 @@ function setupPreviewLink(){
   input.value=link;
   $('openPreviewLink').href=link;
   $('copyPreviewLink').onclick=async()=>{
-    try{
-      await navigator.clipboard.writeText(link);
-      showMsg('previewMsg','Link copied.',true);
-    }catch(e){
-      input.select();
-      showMsg('previewMsg','Could not auto-copy — the link is selected, press Ctrl/Cmd+C.',false);
-    }
+    try{await navigator.clipboard.writeText(link);showMsg('previewMsg','Link copied.',true)}
+    catch(e){input.select();showMsg('previewMsg','Could not auto-copy — the link is selected, press Ctrl/Cmd+C.',false)}
   };
 }
-async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. No sign-in required.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
+async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. Connection is using the browser-safe Apps Script transport.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
 boot();

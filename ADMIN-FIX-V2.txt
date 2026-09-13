@@ -1,0 +1,22 @@
+JOTA-JOTI ADMIN FIX — v2
+
+The critical issue found in the supplied Code.gs was that the health and diagnostics actions returned ordinary JSON even when the browser supplied a JSONP callback. The standalone admin.js uses JSONP, so those responses could never invoke the callback and the browser waited until timeout.
+
+Fixed:
+- health now uses apiResponse(e, data)
+- diagnostics now uses apiResponse(e, data)
+- added adminPing JSONP test endpoint
+- admin.js uses 20 second timeout and 3 retries
+- admin.js accepts both array responses and common wrapped responses
+- existing openAdmin* endpoints and email logic retained
+
+IMPORTANT: Deploy the included Code.gs in the same Apps Script project as the spreadsheet. Then deploy/update the web app as a new version. The GitHub admin page must point to that deployment URL.
+
+Quick test URLs:
+?action=adminPing&callback=testCallback
+?action=health&callback=testCallback
+
+A successful response should look like:
+testCallback({...});
+
+Do not paste those as literal URLs into the admin page; they are just endpoint tests.

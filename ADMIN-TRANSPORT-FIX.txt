@@ -1,0 +1,58 @@
+JOTA-JOTI ADMIN TRANSPORT FIX
+==============================
+
+What changed
+-------------
+The GitHub Pages /admin page no longer depends on JSONP as its main connection method.
+It now sends admin requests to Apps Script with a hidden iframe POST and receives the
+response with window.postMessage. This is designed to avoid the Chrome
+ERR_BLOCKED_BY_RESPONSE problem seen when a JSONP <script> request is redirected by
+Google from script.google.com to script.googleusercontent.com.
+
+The old JSONP path remains as a read/preview compatibility fallback, but it is never
+used as an automatic retry for Send because a timed-out send may already have completed
+on the server and must not be duplicated.
+
+Apps Script changes
+-------------------
+- Added transport=iframe response support.
+- iframe responses are returned as HtmlService output with XFrameOptionsMode.ALLOWALL.
+- Responses contain a random request id and are delivered with postMessage.
+- Health, adminPing, diagnostics, Users, sections, categories, groups, sender, preview,
+  and send all work through the same router.
+- The spreadsheet-id helper is retained so web-app execution does not depend on
+  SpreadsheetApp.getActiveSpreadsheet() after the first setup.
+- Only the intended active-spreadsheet fallback remains inside getSpreadsheet_().
+
+Admin page changes
+------------------
+- Primary connection method is iframe POST.
+- Large HTML email payloads are sent in the POST body instead of a huge URL.
+- The page gives a clearer timeout/deployment error.
+- Send is not automatically retried through another transport.
+
+Installation
+------------
+1. Open the Google Sheet used by JOTA-JOTI.
+2. Extensions > Apps Script.
+3. Replace Code.gs with the Code.gs included in this package.
+4. Save.
+5. Run setupEOISystem once from the Apps Script editor and approve the requested
+   Google permissions.
+6. Deploy > Manage deployments > edit the web app deployment.
+7. Execute as: Me.
+8. Who has access: Anyone.
+9. Update the deployment.
+10. Keep the same /exec URL used by admin.js.
+11. Replace the GitHub Pages admin.js with the admin.js included in this package.
+12. Reload /admin with DevTools open and disable cache during the first test.
+
+The admin page should now show:
+"Standalone admin loaded. Connection is using the browser-safe Apps Script transport."
+
+Important
+---------
+The standalone admin page intentionally has no sign-in and can read participant data and
+send mail. Keep the /admin URL private. The Apps Script web app must be allowed to execute
+as the account that owns the spreadsheet and should have the required MailApp/Drive/Sheets
+permissions.
