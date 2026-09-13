@@ -2,12 +2,15 @@
    No sign-in is required. This calls the openAdmin* actions in Code.gs.
    Keep this page private because the API can read participant data and send email. */
 const API_URL='https://script.google.com/macros/s/AKfycbwa3R5odIbwsPRQHHSedx4mbwRrsAE3tWLcfZX1d4Nq_QNBBDozp2TFX1jfq1eSCLwP/exec';
+// Must match SKIP_COUNTDOWN_PARAM in script.js on the main site, and CONFIG.WEBSITE_URL in Code.gs.
+const SITE_URL='https://scoutpegs.github.io/jota-joti-app/';
+const SKIP_COUNTDOWN_PARAM='jjscoutpreview2026';
 const TAGS=['{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{parentName}}','{{username}}','{{pin}}','{{participantID}}','{{youthSection}}','{{ageYear}}','{{ageGroup}}','{{email}}','{{youthEmail}}','{{parentEmail}}'];
 let users=[],sections=[],categories=[],groups=[],selected=[],allSelected=[],focusEl=null;
 const $=id=>document.getElementById(id);
 function showMsg(id,text,ok){const e=$(id);e.textContent=text;e.className='message '+(ok?'ok':'err')}
 function b64url(obj){const s=JSON.stringify(obj);const bytes=new TextEncoder().encode(s);let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
-function jsonp(action,params={}){return new Promise((resolve,reject)=>{const cb='jotaOpenAdminCb_'+Date.now()+'_'+Math.floor(Math.random()*100000);const script=document.createElement('script');const q=new URLSearchParams({action,callback:cb,_:Date.now(),...params});let timer=setTimeout(()=>{cleanup();reject(new Error('The Google Apps Script server did not respond.'))},30000);window[cb]=data=>{clearTimeout(timer);cleanup();if(data&&data.success===false)reject(new Error(data.error||'Request failed'));else resolve(data)};function cleanup(){delete window[cb];script.remove()}script.onerror=()=>{clearTimeout(timer);cleanup();reject(new Error('Could not reach the Google Apps Script API.'))};script.src=API_URL+'?'+q.toString();document.body.appendChild(script)})}
+function jsonp(action,params={}){return new Promise((resolve,reject)=>{const cb='jotaOpenAdminCb_'+Date.now()+'_'+Math.floor(Math.random()*100000);const script=document.createElement('script');const q=new URLSearchParams({action,callback:cb,_:Date.now(),...params});let timer=setTimeout(()=>{cleanup();reject(new Error('The Google Apps Script server did not respond.'))},30000);window[cb]=data=>{clearTimeout(timer);cleanup();if(data&&data.success===false)reject(new Error(data.error||'Request failed'));else resolve(data)};function cleanup(){delete window[cb];script.remove()}script.onerror=()=>{clearTimeout(timer);cleanup();reject(new Error('Could not reach the Google Apps Script API at '+API_URL+' — open that URL with ?action=health added on the end in a new browser tab. If it shows a Google error page instead of {"success":true,...}, the deployment is wrong or stale: redeploy (Deploy \u2192 Manage deployments \u2192 Web app, Execute as: me, Who has access: Anyone) and paste the new URL into API_URL at the top of this file.'))};script.src=API_URL+'?'+q.toString();document.body.appendChild(script)})}
 async function call(action,params={}){return jsonp(action,params)}
 async function loadAll(){const [u,s,c,g,me]=await Promise.all([call('openAdminUsers'),call('openAdminSections'),call('openAdminCategories'),call('openAdminGroups'),call('openAdminSender')]);users=u||[];sections=s||[];categories=c||[];groups=g||[];$('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';renderStats(me.quota);renderPeople();renderGroups();renderCategories();renderSavedGroups();refreshPreview()}
 function activeUsers(){return users.filter(u=>String(u.Status||'').toLowerCase()!=='disabled')}
@@ -51,5 +54,21 @@ function setupEvents(){
  TAGS.forEach(tag=>{const b=document.createElement('button');b.className='tag';b.type='button';b.textContent=tag;b.onclick=()=>insertTag(tag);$('tags').appendChild(b)});$('subject').onfocus=()=>focusEl=$('subject');$('body').onfocus=()=>focusEl=$('body');
  $('sectionCards').onclick=e=>{const b=e.target.closest('[data-section]');if(b){document.querySelector('input[name=scope][value=section]').checked=true;setScopeUI();$('sectionSearch').value=b.dataset.section;$('sectionSearch').dataset.value=b.dataset.section;refreshPreview()}};$('categoryCards').onclick=e=>{const b=e.target.closest('[data-category]');if(b){document.querySelector('input[name=scope][value=activity]').checked=true;setScopeUI();$('activitySearch').value=b.dataset.category;$('activitySearch').dataset.value=b.dataset.category;refreshPreview()}};
 }
-async function boot(){setupEvents();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. No sign-in required.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
+function setupPreviewLink(){
+  const link=SITE_URL+(SITE_URL.includes('?')?'&':'?')+SKIP_COUNTDOWN_PARAM+'=1';
+  const input=$('previewLink');
+  if(!input)return;
+  input.value=link;
+  $('openPreviewLink').href=link;
+  $('copyPreviewLink').onclick=async()=>{
+    try{
+      await navigator.clipboard.writeText(link);
+      showMsg('previewMsg','Link copied.',true);
+    }catch(e){
+      input.select();
+      showMsg('previewMsg','Could not auto-copy — the link is selected, press Ctrl/Cmd+C.',false);
+    }
+  };
+}
+async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. No sign-in required.',true)}catch(e){showMsg('emailMsg',e.message+' — check API_URL at the top of admin.js and that the Apps Script deployment is live (see the health-check link in the chat reply).',false)}}
 boot();
