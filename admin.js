@@ -10,26 +10,120 @@ const TAGS=['{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{pare
 let users=[],sections=[],categories=[],groups=[],selected=[],allSelected=[],focusEl=null;
 const $=id=>document.getElementById(id);
 function showMsg(id,text,ok){const e=$(id);e.textContent=text;e.className='message '+(ok?'ok':'err')}
-function b64url(obj){const s=JSON.stringify(obj);const bytes=new TextEncoder().encode(s);let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
-function jsonp(action,params={}){return new Promise((resolve,reject)=>{const cb='jotaOpenAdminCb_'+Date.now()+'_'+Math.floor(Math.random()*100000);const script=document.createElement('script');const q=new URLSearchParams({action,callback:cb,_:Date.now(),...params});let timer=setTimeout(()=>{cleanup();reject(new Error('The Google Apps Script server did not respond.'))},30000);window[cb]=data=>{clearTimeout(timer);cleanup();if(data&&data.success===false)reject(new Error(data.error||'Request failed'));else resolve(data)};function cleanup(){delete window[cb];script.remove()}script.onerror=()=>{clearTimeout(timer);cleanup();reject(new Error('Could not reach the Google Apps Script API at '+API_URL+' — open that URL with ?action=health added on the end in a new browser tab. If it shows a Google error page instead of {"success":true,...}, the deployment is wrong or stale: redeploy (Deploy \u2192 Manage deployments \u2192 Web app, Execute as: me, Who has access: Anyone) and paste the new URL into API_URL at the top of this file.'))};script.src=API_URL+'?'+q.toString();document.body.appendChild(script)})}
-async function call(action,params={}){
-  const legacy = {
-    openAdminUsers:'adminUsers',
-    openAdminSections:'adminSections',
-    openAdminCategories:'adminCategories',
-    openAdminGroups:'adminGroups',
-    openAdminSender:'adminSender',
-    openAdminPreview:'adminPreview',
-    openAdminSend:'adminSend'
-  }[action];
-  try {
-    return await jsonp(action,params);
-  } catch (first) {
-    if (!legacy || legacy===action) throw first;
-    return jsonp(legacy,params);
-  }
+function b64url(obj){
+  const s=JSON.stringify(obj);
+  const bytes=new TextEncoder().encode(s);
+  let bin='';
+  bytes.forEach(b=>bin+=String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
-async function loadAll(){const [u,s,c,g,me]=await Promise.all([call('openAdminUsers'),call('openAdminSections'),call('openAdminCategories'),call('openAdminGroups').catch(()=>[]),call('openAdminSender')]);users=u||[];sections=s||[];categories=c||[];groups=g||[];$('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';renderStats(me.quota);renderPeople();renderGroups();renderCategories();renderSavedGroups();refreshPreview()}
+
+const JSONP_TIMEOUT_MS=15000;
+const JSONP_RETRIES=2;
+
+function jsonpOnce(action,params={}){
+  return new Promise((resolve,reject)=>{
+    const cb='jotaOpenAdminCb_'+Date.now()+'_'+Math.floor(Math.random()*1000000);
+    const script=document.createElement('script');
+    const q=new URLSearchParams();
+    q.set('action',action);
+    q.set('callback',cb);
+    q.set('_',String(Date.now())+'_'+Math.random().toString(36).slice(2));
+    Object.keys(params||{}).forEach(k=>q.set(k,String(params[k])));
+    let settled=false;
+    const finish=(fn,value)=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      delete window[cb];
+      script.remove();
+      fn(value);
+    };
+    const timer=setTimeout(()=>finish(reject,new Error('The Apps Script '+action+' request timed out after '+Math.round(JSONP_TIMEOUT_MS/1000)+' seconds. The health endpoint may still work, so this usually means this specific action failed on the Google side.')),JSONP_TIMEOUT_MS);
+
+    window[cb]=(data)=>{
+      if(!data || typeof data!=='object'){
+        finish(reject,new Error('Apps Script '+action+' returned an invalid response.'));
+        return;
+      }
+      if(data.success===false){
+        finish(reject,new Error(data.error||('Apps Script '+action+' failed.')));
+        return;
+      }
+      finish(resolve,data);
+    };
+
+    script.async=true;
+    script.charset='utf-8';
+    script.referrerPolicy='no-referrer';
+    script.onerror=()=>finish(reject,new Error(
+      'Apps Script '+action+' did not return a usable JSONP response. Google may have redirected the request to a login/error page. Test '+API_URL+'?action=health in a new tab.'
+    ));
+    script.src=API_URL+'?'+q.toString();
+    document.head.appendChild(script);
+  });
+}
+
+async function jsonp(action,params={}){
+  let lastError=null;
+  for(let attempt=0;attempt<=JSONP_RETRIES;attempt++){
+    try{
+      return await jsonpOnce(action,params);
+    }catch(e){
+      lastError=e;
+      if(attempt<JSONP_RETRIES){
+        await new Promise(r=>setTimeout(r,700*(attempt+1)));
+      }
+    }
+  }
+  throw lastError||new Error('Apps Script request failed.');
+}
+
+async function call(action,params={}){
+  // The openAdmin* endpoints are the intended standalone/no-sign-in API.
+  // Do NOT fall back to admin* here: those endpoints require an admin token
+  // and would only create a second, misleading failure after the real error.
+  return jsonp(action,params);
+}
+
+async function loadAll(){
+  // Verify the deployment first. A healthy API with a failing Users action is
+  // reported as an endpoint/data problem rather than a generic connection error.
+  try{
+    await call('health');
+  }catch(e){
+    throw new Error('Apps Script health check failed: '+e.message);
+  }
+
+  let u=[];
+  try{
+    u=await call('openAdminUsers');
+  }catch(e){
+    throw new Error('Users API failed after a healthy Apps Script check: '+e.message);
+  }
+  users=Array.isArray(u)?u:[];
+
+  try{sections=await call('openAdminSections')||[];}
+  catch(e){sections=[];console.warn('Sections API failed:',e);}
+
+  try{categories=await call('openAdminCategories')||[];}
+  catch(e){categories=[];console.warn('Categories API failed:',e);}
+
+  try{groups=await call('openAdminGroups')||[];}
+  catch(e){groups=[];console.warn('Saved groups unavailable:',e);}
+
+  let me={sender:'Admin',quota:'—'};
+  try{me=await call('openAdminSender')||me;}
+  catch(e){console.warn('Sender/quota endpoint unavailable:',e);}
+
+  $('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';
+  renderStats(me.quota);
+  renderPeople();
+  renderGroups();
+  renderCategories();
+  renderSavedGroups();
+  refreshPreview();
+}
 function activeUsers(){return users.filter(u=>String(u.Status||'').toLowerCase()!=='disabled')}
 function renderStats(q){const a=activeUsers();$('userCount').textContent=a.length;$('parentCount').textContent=a.filter(u=>validEmail(u.ParentEmail)).length;$('youthCount').textContent=a.filter(u=>validEmail(u.Email)).length;$('quota').textContent=q??'—'}
 function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim())}
@@ -87,5 +181,5 @@ function setupPreviewLink(){
     }
   };
 }
-async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. No sign-in required.',true)}catch(e){showMsg('emailMsg',e.message+' — check API_URL at the top of admin.js and that the Apps Script deployment is live (see the health-check link in the chat reply).',false)}}
+async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. No sign-in required.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
 boot();

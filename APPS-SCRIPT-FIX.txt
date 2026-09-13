@@ -1,0 +1,65 @@
+JOTA-JOTI ADMIN BACKEND FIX
+===========================
+
+The 302 redirect from script.google.com to script.googleusercontent.com is NORMAL
+for Apps Script Web Apps. Do not try to remove it.
+
+The important backend fix is to make the spreadsheet lookup deterministic in a
+Web App request and keep optional MailApp status from breaking the admin UI.
+
+1. Add this function once near the top of Code.gs:
+
+function getSpreadsheet_() {
+  var props = PropertiesService.getScriptProperties();
+  var savedId = String(props.getProperty('JOTA_JOTI_SPREADSHEET_ID') || '').trim();
+  if (savedId) {
+    try { return SpreadsheetApp.openById(savedId); }
+    catch (e) { props.deleteProperty('JOTA_JOTI_SPREADSHEET_ID'); }
+  }
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (!active) {
+    throw new Error('JOTA-JOTI cannot find its Google Sheet. Open the spreadsheet, run setupEOISystem once, approve permissions, then redeploy the web app.');
+  }
+  props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
+  return active;
+}
+
+2. Replace every SpreadsheetApp.getActiveSpreadsheet() in Code.gs with getSpreadsheet_().
+
+3. Replace the openAdminSender branch with:
+
+if (action === 'openAdminSender') {
+  var sender = '';
+  var quota = null;
+  try {
+    sender = String(Session.getEffectiveUser().getEmail() || '').trim();
+    quota = MailApp.getRemainingDailyQuota();
+  } catch (mailError) {
+    sender = String(Session.getEffectiveUser().getEmail() || '').trim();
+  }
+  return apiResponse(e, {
+    success: true,
+    sender: sender,
+    quota: quota,
+    organiser: CONFIG.SCOUT_GROUP
+  });
+}
+
+4. Keep openAdminUsers/openAdminSections/openAdminCategories/openAdminGroups/openAdminPreview/openAdminSend as the standalone endpoints.
+
+5. Run setupEOISystem once manually in Apps Script and approve permissions.
+6. Run testParentEmail once and confirm the email arrives.
+7. Redeploy the Web App as:
+   Execute as: Me
+   Who has access: Anyone
+8. Keep the same /exec URL if Google gives you the same deployment URL.
+
+9. Health test:
+   https://YOUR-EXEC-URL/exec?action=health
+
+Expected beginning:
+   {"success":true,"message":"JOTA-JOTI API is running"
+
+10. The new admin.js intentionally does NOT fall back from openAdmin* to admin*.
+    The admin* endpoints require a session token, so using them as a fallback
+    from a no-sign-in page creates false secondary errors.
