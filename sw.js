@@ -1,5 +1,5 @@
 // JOTA-JOTI Dashboard PWA service worker.
-const CACHE_NAME = 'jota-joti-shell-v5';
+const CACHE_NAME = 'jota-joti-shell-v6';
 const APP_SHELL = ['./index.html', './manifest.json', './photo1.png'];
 
 self.addEventListener('install', event => {
@@ -28,10 +28,15 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
 
   // Every navigation (whatever path or extra text is in the address bar)
-  // always resolves to the real app shell, never to whatever incidental
-  // path was actually requested. This is what makes the app open the same
-  // way from any link, bookmark, or mistyped URL.
+  // resolves to the real app shell, never to whatever incidental path was
+  // actually requested — EXCEPT for the two other real pages this site has,
+  // /skip and /admin, which must load their own separate HTML files rather
+  // than being redirected back to the countdown/dashboard page.
   if (req.mode === 'navigate') {
+    const path = url.pathname.replace(/\/+$/, '');
+    const isOtherRealPage = /\/(skip|admin)(\.html)?$/.test(path);
+    if (isOtherRealPage) return;
+
     event.respondWith(
       fetch('./index.html')
         .then(response => {

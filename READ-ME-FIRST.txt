@@ -1,0 +1,69 @@
+JOTA-JOTI SITE — WHAT EACH FILE IS
+===================================
+No folders here — every file below goes straight into the ROOT of your
+GitHub repo (the same place index.html already lives). Upload all of
+them together, overwriting the old versions.
+
+FILES FOR YOUR GITHUB REPO (github.com, the "jota-joti-app" repo)
+-------------------------------------------------------------------
+index.html      The countdown page. This is what visiting
+                https://scoutpegs.github.io/jota-joti-app/ shows.
+                Always shows the countdown for every normal visitor.
+
+skip.html       A second, separate page. Visiting
+                https://scoutpegs.github.io/jota-joti-app/skip
+                skips straight past the countdown into the normal
+                login/dashboard screens. It's the exact same page as
+                index.html except for two lines, so testing on it is
+                the same as testing the real dashboard.
+
+admin.html      The email tool. Visiting
+                https://scoutpegs.github.io/jota-joti-app/admin
+                opens it directly — no password, no PIN.
+
+admin.js        Code that admin.html needs. Upload it, but you'll
+                never open it directly in a browser.
+
+admin.css       Styling that admin.html needs. Same as above —
+                upload it, don't open it directly.
+
+script.js       Code that index.html and skip.html both need.
+                Upload it, don't open it directly.
+
+style.css       Styling for index.html and skip.html.
+                Upload it, don't open it directly.
+
+sw.js           Makes the site installable/work offline as an app.
+                Upload it, don't open it directly.
+
+manifest.json   Tells phones how to show the site if someone adds it
+                to their home screen (name, icon, colours).
+
+photo1.png      The logo/icon image used around the site.
+
+NOT FOR GITHUB — THIS ONE GOES INTO GOOGLE APPS SCRIPT INSTEAD
+-------------------------------------------------------------------
+Code.gs         This is the backend. It does NOT go in your GitHub
+                repo. In your Google Sheet: Extensions → Apps Script,
+                delete what's there, paste this in, save, then
+                Deploy → Manage deployments to publish it as a Web
+                app (Execute as: me, Who has access: Anyone).
+                admin.js and script.js both call this deployment's
+                URL, so if you ever redeploy and get a new URL,
+                you need to update it in BOTH admin.js and script.js
+                (look for the line starting with "API_URL" near the
+                top of each file).
+
+QUICK CHECK AFTER UPLOADING
+-------------------------------------------------------------------
+1. https://scoutpegs.github.io/jota-joti-app/       → countdown
+2. https://scoutpegs.github.io/jota-joti-app/skip   → dashboard/login, no countdown
+3. https://scoutpegs.github.io/jota-joti-app/admin  → email tool, opens straight in
+
+If /admin says "Could not reach the Google Apps Script API", open
+this in a new tab (using YOUR actual deployment URL from admin.js):
+  https://script.google.com/macros/s/.../exec?action=health
+You should see {"success":true,...}. If you see a Google sign-in or
+error page instead, the Apps Script deployment needs to be redone
+(Deploy → Manage deployments → Web app → Execute as: me → Who has
+access: Anyone), and the new URL pasted into admin.js and script.js.

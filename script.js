@@ -108,34 +108,12 @@
             el.setAttribute('aria-hidden','true');
         }
 
-        // ---- Testing helper: skip the countdown on this device ----
-        // This is deliberately NOT a short, guessable word like "preview" or
-        // "test" — a link using this exact parameter is generated for you on
-        // the private /admin page (so scouts/parents browsing normally will
-        // never stumble onto it by trying obvious URLs). Visiting a link with
-        // this parameter set to "1" jumps straight past the countdown into
-        // the normal dashboard/login flow on that device, and remembers that
-        // choice (localStorage) so it keeps working without the parameter on
-        // future visits. Visiting with the parameter set to "0" turns it back
-        // off. With NO parameter at all (the normal case for every visitor),
-        // the countdown always shows as usual.
-        const SKIP_COUNTDOWN_PARAM = 'jjscoutpreview2026';
-        const SKIP_COUNTDOWN_KEY = 'jota_skip_countdown_preview';
-        (function initSkipCountdownPreview() {
-            try {
-                const params = new URLSearchParams(window.location.search);
-                if (params.has(SKIP_COUNTDOWN_PARAM)) {
-                    if (params.get(SKIP_COUNTDOWN_PARAM) === '0') localStorage.removeItem(SKIP_COUNTDOWN_KEY);
-                    else localStorage.setItem(SKIP_COUNTDOWN_KEY, '1');
-                }
-            } catch (e) { /* localStorage unavailable — ignore */ }
-        })();
-        function isPreviewModeActive() {
-            try { return localStorage.getItem(SKIP_COUNTDOWN_KEY) === '1'; } catch (e) { return false; }
-        }
-
+        // ---- Testing helper: skip.html sets window.__JOTA_FORCE_SKIP__ = true
+        // before this file loads, so visiting /skip jumps straight past the
+        // countdown into the normal dashboard/login flow. The real site root
+        // (index.html) never sets this, so it always shows the countdown.
         function isFinalDayOrLater() {
-            return isPreviewModeActive() || Date.now() >= FINAL_DAY_MS;
+            return window.__JOTA_FORCE_SKIP__ === true || Date.now() >= FINAL_DAY_MS;
         }
 
         function isEventLive() {

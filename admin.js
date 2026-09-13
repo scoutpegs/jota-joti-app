@@ -2,9 +2,10 @@
    No sign-in is required. This calls the openAdmin* actions in Code.gs.
    Keep this page private because the API can read participant data and send email. */
 const API_URL='https://script.google.com/macros/s/AKfycbwa3R5odIbwsPRQHHSedx4mbwRrsAE3tWLcfZX1d4Nq_QNBBDozp2TFX1jfq1eSCLwP/exec';
-// Must match SKIP_COUNTDOWN_PARAM in script.js on the main site, and CONFIG.WEBSITE_URL in Code.gs.
-const SITE_URL='https://scoutpegs.github.io/jota-joti-app/';
-const SKIP_COUNTDOWN_PARAM='jjscoutpreview2026';
+// The skip-the-countdown page lives at the same level as this file (skip.html),
+// resolved relative to wherever admin.html itself is hosted — so this keeps
+// working even if the site moves to a custom domain later.
+const SKIP_PAGE_URL = new URL('skip.html', window.location.href).href;
 const TAGS=['{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{parentName}}','{{username}}','{{pin}}','{{participantID}}','{{youthSection}}','{{ageYear}}','{{ageGroup}}','{{email}}','{{youthEmail}}','{{parentEmail}}'];
 let users=[],sections=[],categories=[],groups=[],selected=[],allSelected=[],focusEl=null;
 const $=id=>document.getElementById(id);
@@ -55,7 +56,7 @@ function setupEvents(){
  $('sectionCards').onclick=e=>{const b=e.target.closest('[data-section]');if(b){document.querySelector('input[name=scope][value=section]').checked=true;setScopeUI();$('sectionSearch').value=b.dataset.section;$('sectionSearch').dataset.value=b.dataset.section;refreshPreview()}};$('categoryCards').onclick=e=>{const b=e.target.closest('[data-category]');if(b){document.querySelector('input[name=scope][value=activity]').checked=true;setScopeUI();$('activitySearch').value=b.dataset.category;$('activitySearch').dataset.value=b.dataset.category;refreshPreview()}};
 }
 function setupPreviewLink(){
-  const link=SITE_URL+(SITE_URL.includes('?')?'&':'?')+SKIP_COUNTDOWN_PARAM+'=1';
+  const link=SKIP_PAGE_URL;
   const input=$('previewLink');
   if(!input)return;
   input.value=link;

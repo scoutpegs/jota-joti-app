@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Admin Centre · JOTA-JOTI</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div><div class="eyebrow">BOULDER SCOUT GROUP</div><h1>JOTA-JOTI Admin Centre</h1><p>Email and participant management</p></div>
+    <div class="top-actions"><span id="senderBadge" class="badge">Loading…</span></div>
+  </header>
+
+  <main>
+    <section class="card" style="margin-bottom:18px">
+      <h2>No sign-in required</h2>
+      <p>This page connects directly to your Apps Script API and opens straight into the tools below. Keep this page's link private — don't put it in the public JOTA-JOTI site's menus — since anyone with the link can use it.</p>
+    </section>
+
+    <section id="app">
+      <div class="stats"><div><b id="userCount">—</b><span>active users</span></div><div><b id="parentCount">—</b><span>parent emails</span></div><div><b id="youthCount">—</b><span>youth emails</span></div><div><b id="quota">—</b><span>emails left today</span></div></div>
+
+      <div class="grid">
+        <section class="card composer">
+          <div class="section-head"><div><h2>Email centre</h2><p>Choose exactly who should receive the message. The server re-reads the live Users sheet before every send.</p></div><button id="refreshBtn" class="ghost">Refresh users</button></div>
+
+          <fieldset><legend>Who receives it?</legend><div class="seg"><label><input name="targetType" type="radio" value="parent" checked> Parents</label><label><input name="targetType" type="radio" value="youth"> Youth</label><label><input name="targetType" type="radio" value="both"> Parents + Youth</label></div></fieldset>
+          <fieldset><legend>How do you choose people?</legend><div class="seg wrap"><label><input name="scope" type="radio" value="selected" checked> Pick by name</label><label><input name="scope" type="radio" value="section"> Youth section</label><label><input name="scope" type="radio" value="activity"> Activity category</label><label><input name="scope" type="radio" value="group"> Saved group</label><label><input name="scope" type="radio" value="all"> Everyone</label></div></fieldset>
+
+          <div id="selectedBox" class="picker"><label>People</label><div class="combo"><input id="personSearch" placeholder="Click to see names or type the start of a name…" autocomplete="off"><div id="personOptions" class="options"></div></div><div id="chips" class="chips"></div><div class="small">Selected people are shown below. Click × to remove someone.</div></div>
+          <div id="sectionBox" class="picker hidden"><label>Youth section</label><div class="combo"><input id="sectionSearch" placeholder="Choose a youth section…" autocomplete="off"><div id="sectionOptions" class="options"></div></div><div id="sectionInfo" class="small"></div></div>
+          <div id="groupBox" class="picker hidden"><label>Saved group</label><div class="combo"><input id="groupSearch" placeholder="Choose a saved group…" autocomplete="off"><div id="groupOptions" class="options"></div></div></div>
+          <div id="activityBox" class="picker hidden"><label>Activity category</label><div class="combo"><input id="activitySearch" placeholder="Choose an activity category…" autocomplete="off"><div id="activityOptions" class="options"></div></div></div>
+          <div id="allBox" class="picker hidden"><label>Everyone</label><div class="combo"><input id="allSearch" value="All active users" readonly><div id="allOptions" class="options"></div></div><div class="chips" id="allChips"></div><div class="small">Everyone starts as all active Users. Remove anyone you do not want to email.</div></div>
+
+          <div id="preview" class="preview">Choose recipients to see the live recipient count.</div>
+
+          <label>Subject<input id="subject" maxlength="180" placeholder="JOTA-JOTI update for {{childFirstName}}"></label>
+          <label>HTML message<textarea id="body" rows="13" placeholder="<p>Hi {{parentName}},</p><p>Here is a JOTA-JOTI update for {{childFirstName}}.</p>"></textarea></label>
+          <div class="tags" id="tags"></div>
+
+          <div class="card inner-card">
+            <div class="section-head"><div><h3>Certificate settings</h3><p>Optional. Add a personalised completion certificate to each individual email.</p></div></div>
+            <label><span>Certificate placement</span>
+              <select id="certificatePlacement">
+                <option value="none">No certificate</option>
+                <option value="attachment">PDF attachment only</option>
+                <option value="before">Certificate block before my message</option>
+                <option value="after">Certificate block after my message</option>
+                <option value="before-attachment">Certificate block + PDF attachment (before)</option>
+                <option value="after-attachment">Certificate block + PDF attachment (after)</option>
+              </select>
+            </label>
+            <div class="cert-grid">
+              <label>Certificate title<input id="certificateTitle" maxlength="120" value="CERTIFICATE OF COMPLETION"></label>
+              <label>Event line<input id="certificateSubtitle" maxlength="120" value="JOTA-JOTI 2026"></label>
+              <label>Certificate message<textarea id="certificateMessage" rows="3">This certifies that {{childFullName}} has successfully taken part in JOTA-JOTI 2026 with Boulder Scout Group.</textarea></label>
+              <label>Footer text<input id="certificateFooter" maxlength="160" value="Issued by Boulder Scout Group"></label>
+            </div>
+            <div class="small">Certificate text supports the same merge tags as the email. The PDF is generated separately for each scout, so every recipient gets their own name.</div>
+          </div>
+
+          <div class="attachment"><label>Google Drive attachment (optional)</label><input id="driveAttachment" placeholder="Paste a Google Drive file URL or file ID"><div class="small">The Apps Script account must have access to the file. A Drive attachment avoids putting the file itself into the browser request.</div></div>
+          <div class="actions"><button id="previewBtn" class="ghost">Check recipients</button><button id="sendBtn" class="primary">Send email</button><button id="clearBtn" class="ghost">Clear</button></div>
+          <div id="emailMsg" class="message"></div>
+        </section>
+
+        <aside class="side">
+          <section class="card"><h2>Find a scout</h2><p>Search the live Users sheet by name, PIN, username, participant ID, parent or email.</p><div class="combo"><input id="findSearch" placeholder="Start typing…" autocomplete="off"><div id="findOptions" class="options"></div></div><div id="findResult" class="result hidden"></div></section>
+          <section class="card"><h2>Quick groups</h2><div id="sectionCards" class="section-cards"></div></section>
+          <section class="card"><h2>Activity categories</h2><div id="categoryCards" class="section-cards"></div></section>
+          <section class="card"><h2>Safety</h2><p class="small">Only active Users are eligible. Disabled accounts are excluded server-side even if an old browser has stale data. Every send is written to the <b>EmailLog</b> sheet.</p></section>
+          <section class="card"><h2>Preview the site (skip countdown)</h2><p class="small">Use this link to test the site on any device before the countdown ends. Don't share it outside this admin page — it's the only place this link is shown.</p><div class="combo"><input id="previewLink" readonly></div><div class="actions" style="margin-top:9px"><button id="copyPreviewLink" class="ghost" type="button">Copy link</button><a id="openPreviewLink" class="ghost" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 13px;border-radius:9px" href="#" target="_blank" rel="noopener">Open in new tab</a></div><div id="previewMsg" class="message"></div></section>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="admin.js"></script>
+</body>
+</html>
