@@ -1609,7 +1609,9 @@ function adminListUsers() {
       ParentEmail: user.ParentEmail || '',
       Status: user.Status || '',
       AgeYear: user.AgeYear || '',
-      YouthSection: getCanonicalYouthSection(user.AgeYear || user.AgeGroup || ''),
+      // The email admin uses the live Users.AgeYear field as the user's section.
+      // Keep YouthSection for compatibility, but make it reflect AgeYear when present.
+      YouthSection: user.AgeYear || getCanonicalYouthSection(user.AgeGroup || ''),
       AgeGroup: user.AgeGroup || '',
       AllowedCategories: user.AllowedCategories || ''
     };
@@ -1631,23 +1633,29 @@ function getCanonicalYouthSection(value) {
 }
 
 function adminListAgeGroups() {
-  // These are the selectable sections. Counts are calculated from the live Users sheet.
+  // Email groups use the Users.AgeYear field directly. This intentionally avoids
+  // rewriting values such as "Vent", "Scout", or "Leader" into other labels.
   var users = getSheetData(CONFIG.USERS_SHEET);
-  var order = ['Joeys', 'Cubs', 'Scouts', 'Venturers', 'Leaders'];
+  var order = [];
   var counts = {};
-  order.forEach(function(section) { counts[section] = 0; });
 
   users.forEach(function(user) {
     if (String(user.Status || '').trim().toLowerCase() === 'disabled') return;
-    var section = getCanonicalYouthSection(user.AgeYear || user.AgeGroup || '');
-    if (counts.hasOwnProperty(section)) counts[section]++;
+    var ageYear = String(user.AgeYear || '').trim();
+    if (!ageYear) return;
+    var key = normaliseLookupValue(ageYear);
+    if (!counts.hasOwnProperty(key)) {
+      counts[key] = { value: ageYear, count: 0 };
+      order.push(key);
+    }
+    counts[key].count++;
   });
 
-  return order.map(function(section) {
+  return order.map(function(key) {
     return {
-      value: section,
-      label: section,
-      count: counts[section]
+      value: counts[key].value,
+      label: counts[key].value,
+      count: counts[key].count
     };
   });
 }
@@ -1873,15 +1881,31 @@ function adminListCategories() {
 function adminListGroups() {
   const sheet = getSpreadsheet_().getSheetByName(CONFIG.EMAIL_GROUPS_SHEET);
   if (!sheet) return [];
-  return getSheetData(CONFIG.EMAIL_GROUPS_SHEET).filter(function(row) {
+  var activeGroups = getSheetData(CONFIG.EMAIL_GROUPS_SHEET).filter(function(row) {
     return String(row.Active || 'true').trim().toLowerCase() !== 'false';
   }).map(function(row) {
     return {
       GroupKey: String(row.GroupKey || '').trim(),
       GroupName: String(row.GroupName || row.Title || row.GroupKey || '').trim(),
-      ParticipantIDs: String(row.ParticipantIDs || row.ParticipantIds || '').split(',').map(function(x){return String(x).trim();}).filter(Boolean)
+      ParticipantIDs: String(row.ParticipantIDs || row.ParticipantIds || '').split(',').map(function(x){return String(x).trim();}).filter(Boolean),
+      AgeYears: []
     };
   }).filter(function(g){ return g.GroupKey || g.GroupName; });
+
+  var users = getSheetData(CONFIG.USERS_SHEET);
+  var byId = {};
+  users.forEach(function(user) { byId[String(user.ParticipantID || '').trim()] = user; });
+  activeGroups.forEach(function(group) {
+    var ageYears = {};
+    group.ParticipantIDs.forEach(function(id) {
+      var user = byId[String(id)];
+      var ageYear = String(user && user.AgeYear || '').trim();
+      if (ageYear) ageYears[normaliseLookupValue(ageYear)] = ageYear;
+    });
+    group.AgeYears = Object.keys(ageYears).map(function(key){ return ageYears[key]; });
+  });
+
+  return activeGroups;
 }
 
 function emailAddressesForUser(user, targetType) {
@@ -1923,11 +1947,21 @@ function resolveBulkEmailUsers(payload) {
   }
 
   if (scope === 'section') {
-    var wanted = getCanonicalYouthSection(payload.ageGroup || '');
-    if (!wanted) throw new Error('Choose a youth section.');
+    var wanted = String(payload.ageGroup || '').trim();
+    if (!wanted) throw new Error('Choose an AgeYear group.');
 
+    var wantedKey = normaliseLookupValue(wanted);
+    var exact = activeUsers.filter(function(user) {
+      return normaliseLookupValue(user.AgeYear || '') === wantedKey;
+    });
+
+    // Backwards-compatible fallback for older clients that send a canonical
+    // section label such as "Venturers" instead of the stored AgeYear value.
+    if (exact.length) return exact;
+
+    var canonical = getCanonicalYouthSection(wanted);
     return activeUsers.filter(function(user) {
-      return getCanonicalYouthSection(user.AgeYear || user.AgeGroup || '') === wanted;
+      return getCanonicalYouthSection(user.AgeYear || user.AgeGroup || '') === canonical;
     });
   }
 

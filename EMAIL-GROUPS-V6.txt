@@ -1,0 +1,16 @@
+V6 EMAIL GROUPS / USER SEARCH
+
+1. Email group section counts and section filtering use the Users sheet AgeYear column directly.
+   Examples in the current sheet include Vent, Scout and Leader.
+
+2. EmailGroups still uses ParticipantIDs for saved membership. The API also exposes AgeYears for each saved group so the admin UI can see which AgeYear values its members currently have.
+
+3. The recipient search accepts any of these user fields:
+   - ParticipantID
+   - PIN
+   - Name
+   - Username
+
+4. Type an exact value and press Enter to add the matching active user immediately. If there is one partial match, Enter can also select it.
+
+5. The server still validates the final recipient list against the live Users sheet, so stale browser data cannot create a recipient who is no longer active.
