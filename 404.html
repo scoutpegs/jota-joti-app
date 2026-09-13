@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JOTA-JOTI</title>
+<style>
+html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif;background:#f4f6f8;color:#18202a}
+main{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}
+.card{max-width:560px;width:100%;background:#fff;border-radius:18px;padding:28px;box-shadow:0 10px 40px #0001}
+a{color:#5a2c84}
+</style>
+</head>
+<body>
+<main><div class="card">
+<h1>Opening JOTA-JOTI…</h1>
+<p id="status">Loading the requested page.</p>
+<p><a href="./">Go to the countdown</a></p>
+</div></main>
+<script>
+(async function(){
+  const path = location.pathname.replace(/\/+$/,'');
+  const m = path.match(/\\/(skip|admin)$/i);
+  const target = m ? m[1].toLowerCase()+'.html' : 'index.html';
+  const status = document.getElementById('status');
+  try {
+    const r = await fetch(new URL(target, location.href), {cache:'no-store'});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const html = await r.text();
+    document.open();
+    document.write(html);
+    document.close();
+  } catch (e) {
+    status.textContent = 'Could not load '+target+'. Open '+target+' directly if GitHub Pages has not finished publishing yet.';
+  }
+})();
+</script>
+</body>
+</html>
