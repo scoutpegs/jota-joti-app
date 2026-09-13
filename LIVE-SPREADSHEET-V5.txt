@@ -1,0 +1,47 @@
+JOTA-JOTI ADMIN V5 — LIVE GOOGLE SHEET CONFIGURATION
+
+The admin/API backend is now hard-wired to the live spreadsheet:
+1l6ZXb8ah7HrnE5D75nNtpu3IdQ-mpg1-M6RvsbBxJGk
+
+Current Apps Script Web App:
+https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec
+
+V5 reads these live tabs from that spreadsheet when present:
+Form responses 1, EmailLog, EmailGroups, Users, Categories, Links, Logos,
+BlockedURLs, BlockedCategories, Settings, EmailTemplates, Setup Guide.
+The runtime configuration specifically uses Users, Categories, Links, Logos,
+BlockedURLs, BlockedCategories, Settings, EmailLog and EmailGroups.
+
+IMPORTANT SHARING SETUP
+
+1. Google Sheet: keep the sheet itself PRIVATE / Restricted. Do NOT make the
+   sheet "Anyone with the link" just so the web app can read it. The Apps Script
+   runs as the deployment owner and opens the sheet by ID, so the deployment
+   account only needs access to the sheet.
+
+2. Apps Script Web App: because the GitHub Pages admin is a separate website,
+   the web-app deployment needs to be accessible to the browser. Set:
+   Execute as: Me
+   Who has access: Anyone
+
+3. Keep the spreadsheet URL private. Anyone who can directly open a shared
+   spreadsheet can see the underlying participant information.
+
+4. The current standalone admin endpoints are not a replacement for real
+   authentication. The admin page should therefore also be kept private/not
+   advertised publicly. If you want, the next hardening step is to require the
+   existing admin password/session for every participant-list and email-send
+   endpoint.
+
+FIRST-RUN
+
+- Replace Code.gs with this V5 version.
+- Save.
+- Run setupEOISystem once from the Apps Script editor using the account that
+  owns or can edit the spreadsheet above.
+- Approve requested permissions.
+- Update the existing Web App deployment to the V5 code.
+- Replace GitHub Pages admin.js with this V5 file.
+
+The browser admin now uses normal fetch() JSON requests. It does not use JSONP
+or hidden iframes.

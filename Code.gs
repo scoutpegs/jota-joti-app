@@ -20,7 +20,15 @@ const CONFIG = {
   ADMIN_SESSION_PREFIX: 'JOTA_JOTI_ADMIN_SESSION_',
   ADMIN_SESSION_TTL_SECONDS: 21600,
   EMAIL_LOG_SHEET: 'EmailLog',
-  EMAIL_GROUPS_SHEET: 'EmailGroups'
+  EMAIL_GROUPS_SHEET: 'EmailGroups',
+
+  // Live Google Sheet used by the JOTA-JOTI system. Keeping the ID here
+  // prevents a web-app execution from accidentally binding to another sheet.
+  SPREADSHEET_ID: '1l6ZXb8ah7HrnE5D75nNtpu3IdQ-mpg1-M6RvsbBxJGk',
+
+  // Current deployed Apps Script web-app URL. This is documentation only;
+  // the GitHub admin page has its own copy in admin.js.
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec'
 };
 
 const CACHE_TTL_SECONDS = 45;
@@ -52,8 +60,8 @@ function handleRequest(e) {
     const callback = e && e.parameter ? String(e.parameter.callback || '').trim() : '';
 
     // Standalone browser Email Admin API.
-    // These endpoints use JSONP so a normal local .html file opened from
-    // disk can read the response without google.script.run or CORS.
+    // The GitHub admin page uses ordinary CORS/fetch requests. JSONP remains
+    // supported only for backward compatibility with older clients.
     if (action === 'adminLogin') {
       return apiResponse(e, adminLogin(e));
     }
@@ -147,7 +155,7 @@ function handleRequest(e) {
     if (action === 'adminPing') {
       return apiResponse(e, {
         success: true,
-        message: 'Admin JSONP is working',
+        message: 'JOTA-JOTI admin API is working',
         serverTime: new Date().toISOString()
       });
     }
@@ -560,23 +568,40 @@ function getAllPublicData() {
 
 function getSpreadsheet_() {
   const props = PropertiesService.getScriptProperties();
+  const configuredId = String(CONFIG.SPREADSHEET_ID || '').trim();
   const savedId = String(props.getProperty('JOTA_JOTI_SPREADSHEET_ID') || '').trim();
 
-  if (savedId) {
+  // Prefer the explicitly configured live spreadsheet. This makes the web app
+  // independent of whichever spreadsheet (if any) the Apps Script project is
+  // bound to.
+  const candidateIds = [];
+  [savedId, configuredId].forEach(function(id) {
+    if (id && candidateIds.indexOf(id) === -1) candidateIds.push(id);
+  });
+
+  for (let i = 0; i < candidateIds.length; i++) {
     try {
-      return SpreadsheetApp.openById(savedId);
+      const spreadsheet = SpreadsheetApp.openById(candidateIds[i]);
+      props.setProperty('JOTA_JOTI_SPREADSHEET_ID', spreadsheet.getId());
+      return spreadsheet;
     } catch (err) {
-      props.deleteProperty('JOTA_JOTI_SPREADSHEET_ID');
+      // Try the next configured ID, then report a clear error below.
     }
   }
 
+  // Last-resort fallback for first-time setup when this script is actually
+  // bound to the correct spreadsheet. Normal web-app requests should never
+  // need this path because CONFIG.SPREADSHEET_ID is now explicit.
   const active = SpreadsheetApp.getActiveSpreadsheet();
-  if (!active) {
-    throw new Error('JOTA-JOTI cannot find its Google Sheet. Open the Apps Script project from the correct spreadsheet and run setupEOISystem once.');
+  if (active) {
+    props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
+    return active;
   }
 
-  props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
-  return active;
+  throw new Error(
+    'JOTA-JOTI cannot open the configured Google Sheet. Confirm that the Apps Script account has access to spreadsheet ' +
+    CONFIG.SPREADSHEET_ID + '.'
+  );
 }
 
 function getSheetData(sheetName) {
@@ -625,9 +650,8 @@ function apiResponse(e, data) {
   const params = e && e.parameter ? e.parameter : {};
   const transport = String(params.transport || '').trim().toLowerCase();
 
-  // The standalone GitHub admin page uses a hidden iframe + postMessage
-  // transport. This avoids depending on browser execution of a JSONP script
-  // after Google's ContentService redirect to script.googleusercontent.com.
+  // Backward compatibility for older clients. The current admin page does
+  // not use iframe transport.
   if (transport === 'iframe') {
     return iframeResponse_(e, data);
   }
