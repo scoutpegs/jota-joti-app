@@ -1,0 +1,73 @@
+JOTA-JOTI BACKEND FIXES — APPLY TO Code.gs
+========================================
+
+1. Make the bound spreadsheet lookup reliable in a web-app request.
+
+ADD this helper once near the top of Code.gs:
+
+function getSpreadsheet_() {
+  const props = PropertiesService.getScriptProperties();
+  const savedId = String(props.getProperty('JOTA_JOTI_SPREADSHEET_ID') || '').trim();
+  if (savedId) {
+    try { return SpreadsheetApp.openById(savedId); }
+    catch (e) { props.deleteProperty('JOTA_JOTI_SPREADSHEET_ID'); }
+  }
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (!active) {
+    throw new Error('JOTA-JOTI cannot find its Google Sheet. Open the spreadsheet, run setupEOISystem once from Extensions > Apps Script, approve permissions, then redeploy the web app.');
+  }
+  props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
+  return active;
+}
+
+2. Replace every occurrence of:
+
+SpreadsheetApp.getActiveSpreadsheet()
+
+with:
+
+getSpreadsheet_()
+
+This affects diagnostics, sheet reads, admin functions, form setup, backups and other spreadsheet operations.
+
+3. Replace the OPEN ADMIN SENDER branch with this fail-safe version so MailApp authorization problems do not make the entire admin page blank:
+
+if (action === 'openAdminSender') {
+  let quota = null;
+  let sender = '';
+  try {
+    sender = String(Session.getEffectiveUser().getEmail() || '').trim();
+    quota = MailApp.getRemainingDailyQuota();
+  } catch (mailError) {
+    sender = String(Session.getEffectiveUser().getEmail() || '').trim();
+    quota = null;
+  }
+  return apiResponse(e, {
+    success: true,
+    sender: sender,
+    quota: quota,
+    organiser: CONFIG.SCOUT_GROUP
+  });
+}
+
+4. Do the same for the protected adminSender branch if you keep that endpoint.
+
+5. IMPORTANT FIRST-TIME AUTHORIZATION:
+Run setupEOISystem manually in the Apps Script editor once. Google must authorize SpreadsheetApp, MailApp, DriveApp, DocumentApp and ScriptApp. Then run testParentEmail to prove that MailApp can actually send before testing the GitHub admin page.
+
+6. DEPLOYMENT:
+Deploy -> Manage deployments -> Web app
+Execute as: Me
+Who has access: Anyone
+Copy the resulting /exec URL into API_URL in BOTH admin.js and script.js.
+
+7. HEALTH TEST:
+Open: YOUR_EXEC_URL?action=health
+Expected response starts with:
+{"success":true,"message":"JOTA-JOTI API is running"
+
+8. ADMIN TEST:
+Open the GitHub /admin URL. It should load users, sections, categories and sender information. Then click Check recipients before sending.
+
+9. EMAIL TEST:
+Use recipient type Parents, Pick by name, choose ONE test user with a known parent email, enter a subject/body, click Check recipients, then Send. The EmailLog sheet should gain a Sent row.

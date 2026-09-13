@@ -5,15 +5,31 @@ const API_URL='https://script.google.com/macros/s/AKfycbwa3R5odIbwsPRQHHSedx4mbw
 // The skip-the-countdown page lives at the same level as this file (skip.html),
 // resolved relative to wherever admin.html itself is hosted — so this keeps
 // working even if the site moves to a custom domain later.
-const SKIP_PAGE_URL = new URL('skip.html', window.location.href).href;
+const SKIP_PAGE_URL = new URL('skip', window.location.href).href;
 const TAGS=['{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{parentName}}','{{username}}','{{pin}}','{{participantID}}','{{youthSection}}','{{ageYear}}','{{ageGroup}}','{{email}}','{{youthEmail}}','{{parentEmail}}'];
 let users=[],sections=[],categories=[],groups=[],selected=[],allSelected=[],focusEl=null;
 const $=id=>document.getElementById(id);
 function showMsg(id,text,ok){const e=$(id);e.textContent=text;e.className='message '+(ok?'ok':'err')}
 function b64url(obj){const s=JSON.stringify(obj);const bytes=new TextEncoder().encode(s);let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function jsonp(action,params={}){return new Promise((resolve,reject)=>{const cb='jotaOpenAdminCb_'+Date.now()+'_'+Math.floor(Math.random()*100000);const script=document.createElement('script');const q=new URLSearchParams({action,callback:cb,_:Date.now(),...params});let timer=setTimeout(()=>{cleanup();reject(new Error('The Google Apps Script server did not respond.'))},30000);window[cb]=data=>{clearTimeout(timer);cleanup();if(data&&data.success===false)reject(new Error(data.error||'Request failed'));else resolve(data)};function cleanup(){delete window[cb];script.remove()}script.onerror=()=>{clearTimeout(timer);cleanup();reject(new Error('Could not reach the Google Apps Script API at '+API_URL+' — open that URL with ?action=health added on the end in a new browser tab. If it shows a Google error page instead of {"success":true,...}, the deployment is wrong or stale: redeploy (Deploy \u2192 Manage deployments \u2192 Web app, Execute as: me, Who has access: Anyone) and paste the new URL into API_URL at the top of this file.'))};script.src=API_URL+'?'+q.toString();document.body.appendChild(script)})}
-async function call(action,params={}){return jsonp(action,params)}
-async function loadAll(){const [u,s,c,g,me]=await Promise.all([call('openAdminUsers'),call('openAdminSections'),call('openAdminCategories'),call('openAdminGroups'),call('openAdminSender')]);users=u||[];sections=s||[];categories=c||[];groups=g||[];$('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';renderStats(me.quota);renderPeople();renderGroups();renderCategories();renderSavedGroups();refreshPreview()}
+async function call(action,params={}){
+  const legacy = {
+    openAdminUsers:'adminUsers',
+    openAdminSections:'adminSections',
+    openAdminCategories:'adminCategories',
+    openAdminGroups:'adminGroups',
+    openAdminSender:'adminSender',
+    openAdminPreview:'adminPreview',
+    openAdminSend:'adminSend'
+  }[action];
+  try {
+    return await jsonp(action,params);
+  } catch (first) {
+    if (!legacy || legacy===action) throw first;
+    return jsonp(legacy,params);
+  }
+}
+async function loadAll(){const [u,s,c,g,me]=await Promise.all([call('openAdminUsers'),call('openAdminSections'),call('openAdminCategories'),call('openAdminGroups').catch(()=>[]),call('openAdminSender')]);users=u||[];sections=s||[];categories=c||[];groups=g||[];$('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';renderStats(me.quota);renderPeople();renderGroups();renderCategories();renderSavedGroups();refreshPreview()}
 function activeUsers(){return users.filter(u=>String(u.Status||'').toLowerCase()!=='disabled')}
 function renderStats(q){const a=activeUsers();$('userCount').textContent=a.length;$('parentCount').textContent=a.filter(u=>validEmail(u.ParentEmail)).length;$('youthCount').textContent=a.filter(u=>validEmail(u.Email)).length;$('quota').textContent=q??'—'}
 function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim())}

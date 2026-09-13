@@ -67,3 +67,22 @@ You should see {"success":true,...}. If you see a Google sign-in or
 error page instead, the Apps Script deployment needs to be redone
 (Deploy → Manage deployments → Web app → Execute as: me → Who has
 access: Anyone), and the new URL pasted into admin.js and script.js.
+
+
+CLEAN URL FIX
+GitHub Pages does not natively map /skip to skip.html or /admin to admin.html. 404.html is included to load those files while keeping the clean URL in the address bar. Keep 404.html in the repository root.
+Required URLs after publishing:
+https://scoutpegs.github.io/jota-joti-app/       -> countdown (index.html)
+https://scoutpegs.github.io/jota-joti-app/skip  -> dashboard/login (skip.html)
+https://scoutpegs.github.io/jota-joti-app/admin -> email admin (admin.html)
+
+IMPORTANT BACKEND: this ZIP contains the website only. It does NOT contain Code.gs. The website's admin page calls the Apps Script actions openAdminUsers/openAdminSections/openAdminCategories/openAdminGroups/openAdminSender/openAdminPreview/openAdminSend. The exact Apps Script project currently deployed must implement those actions.
+
+
+BACKEND AUTHORIZATION CHECK
+---------------------------
+The website is ready, but Google Apps Script must be authorized before MailApp/Drive/Spreadsheet services can work from the web-app deployment. In Apps Script, run setupEOISystem once from the editor and approve every permission Google asks for. Then use Deploy -> Manage deployments -> Web app, Execute as Me, Who has access Anyone.
+
+After deployment, test YOUR /exec URL with ?action=health. Then test ?action=openAdminUsers&callback=testCallback in a browser console/page only after deployment is public. The admin page uses JSONP so it can work from GitHub Pages without CORS configuration.
+
+IMPORTANT: if the web app URL changes, replace API_URL in BOTH admin.js and script.js.
