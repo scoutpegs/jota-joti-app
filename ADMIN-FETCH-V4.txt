@@ -1,0 +1,27 @@
+JOTA-JOTI Admin Transport V4
+
+The standalone /admin page no longer uses JSONP or hidden iframes for its primary API transport.
+
+Why:
+Google Apps Script ContentService redirects responses to script.googleusercontent.com. The current
+Google response is ordinary JSON with Access-Control-Allow-Origin: *, while iframe embedding is blocked
+by frame-ancestors / X-Frame-Options. The browser-safe approach is normal fetch().
+
+Transport:
+- GET for adminPing, health, users, sections, categories, groups and sender/quota.
+- POST for preview and send. The POST uses application/x-www-form-urlencoded, which is a CORS-safelisted
+  request type and avoids an OPTIONS preflight.
+- fetch() follows the Apps Script redirect.
+- Send is never automatically retried through another transport.
+
+Deployment:
+1. Replace Code.gs with the supplied file.
+2. Save.
+3. Run setupEOISystem once.
+4. Deploy > Manage deployments > Edit the web app.
+5. Execute as: Me.
+6. Who has access: Anyone.
+7. Update the deployment.
+8. Replace admin.js on GitHub Pages with this V4 file.
+
+The /exec?action=health URL should return ordinary JSON when opened directly.

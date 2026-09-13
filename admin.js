@@ -2,11 +2,11 @@
    No sign-in is required. This calls the openAdmin* actions in Code.gs.
 
    Transport note:
-   Apps Script ContentService normally redirects responses from
-   script.google.com to a one-time script.googleusercontent.com URL. Modern
-   browsers can block a JSONP <script> response at that redirected URL.
-   The primary transport here is therefore a hidden iframe + postMessage.
-   JSONP is kept only as a read/preview fallback for older environments.
+   Apps Script ContentService intentionally redirects its response from
+   script.google.com to a one-time script.googleusercontent.com URL.
+   The admin client therefore uses ordinary cross-origin fetch(): GET for
+   read-only calls and a CORS-safelisted form POST for preview/send. This
+   avoids JSONP script execution and avoids iframe framing restrictions.
 */
 const API_URL='https://script.google.com/macros/s/AKfycbwa3R5odIbwsPRQHHSedx4mbwRrsAE3tWLcfZX1d4Nq_QNBBDozp2TFX1jfq1eSCLwP/exec';
 const SKIP_PAGE_URL = new URL('skip', window.location.href).href;
@@ -22,9 +22,7 @@ function b64url(obj){
   return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 
-const IFRAME_TIMEOUT_MS=15000;
-const JSONP_TIMEOUT_MS=9000;
-const JSONP_RETRIES=1;
+const FETCH_TIMEOUT_MS=20000;
 let requestCounter=0;
 
 function makeRequestId(){
@@ -33,135 +31,87 @@ function makeRequestId(){
 }
 
 function normaliseApiResult(data, action){
-  if(!data || typeof data!=='object') throw new Error('Apps Script '+action+' returned an invalid response.');
+  if(!data || typeof data!=='object') throw new Error('Apps Script '+action+' returned an invalid JSON response.');
   if(data.success===false) throw new Error(data.error||('Apps Script '+action+' failed.'));
   return data;
 }
 
-function iframeRequestOnce(action,params={}){
-  return new Promise((resolve,reject)=>{
-    const requestId=makeRequestId();
-    const iframe=document.createElement('iframe');
-    iframe.name='jotaJotiAdminTransport_'+requestId;
-    iframe.id=iframe.name;
-    iframe.title='JOTA-JOTI API transport';
-    iframe.setAttribute('aria-hidden','true');
-    iframe.style.cssText='position:fixed;width:1px;height:1px;left:-10px;top:-10px;border:0;opacity:0;pointer-events:none';
-
-    let settled=false;
-    let timer=null;
-    const cleanup=()=>{
-      window.removeEventListener('message',onMessage);
-      if(timer)clearTimeout(timer);
-      setTimeout(()=>iframe.remove(),0);
-    };
-    const finish=(fn,value)=>{
-      if(settled)return;
-      settled=true;
-      cleanup();
-      fn(value);
-    };
-    const onMessage=(event)=>{
-      const msg=event && event.data;
-      if(!msg || msg.type!=='jota-joti-admin-response' || msg.requestId!==requestId)return;
-      // The requestId is unpredictable and the message must come from this
-      // transport iframe. This is the important integrity check; the Apps
-      // Script response may originate from script.googleusercontent.com.
-      if(event.source!==iframe.contentWindow)return;
-      try{finish(resolve,normaliseApiResult(msg.data,action));}
-      catch(err){finish(reject,err)}
-    };
-
-    window.addEventListener('message',onMessage);
-    timer=setTimeout(()=>finish(reject,new Error(
-      'Apps Script '+action+' did not answer within '+Math.round(IFRAME_TIMEOUT_MS/1000)+' seconds. Check the web-app deployment (Execute as you, Anyone) and the Apps Script Executions log.'
-    )),IFRAME_TIMEOUT_MS);
-
-    document.body.appendChild(iframe);
-
-    // POST all admin calls. This avoids long URL limits when an HTML email is
-    // included in the preview/send payload and works with doPost(e).
-    const form=document.createElement('form');
-    form.method='POST';
-    form.action=API_URL;
-    form.target=iframe.name;
-    form.style.display='none';
-
-    const fields=Object.assign({},params||{}, {
-      action:action,
-      transport:'iframe',
-      rid:requestId
-    });
-    Object.keys(fields).forEach(key=>{
-      const input=document.createElement('input');
-      input.type='hidden';
-      input.name=key;
-      input.value=String(fields[key]??'');
-      form.appendChild(input);
-    });
-    document.body.appendChild(form);
-    try{form.submit();}catch(err){finish(reject,err)}
-    setTimeout(()=>form.remove(),0);
+function requestUrl(action, params={}){
+  const q=new URLSearchParams();
+  q.set('action',action);
+  Object.keys(params||{}).forEach(k=>{
+    const v=params[k];
+    if(v!==undefined && v!==null) q.set(k,String(v));
   });
+  return API_URL+'?'+q.toString();
 }
 
-function jsonpOnce(action,params={}){
-  return new Promise((resolve,reject)=>{
-    const cb='jotaOpenAdminCb_'+Date.now()+'_'+Math.floor(Math.random()*1000000);
-    const script=document.createElement('script');
-    const q=new URLSearchParams();
-    q.set('action',action);
-    q.set('callback',cb);
-    q.set('_',String(Date.now())+'_'+Math.random().toString(36).slice(2));
-    Object.keys(params||{}).forEach(k=>q.set(k,String(params[k])));
-    let settled=false;
-    const finish=(fn,value)=>{
-      if(settled)return;
-      settled=true;
-      clearTimeout(timer);
-      delete window[cb];
-      script.remove();
-      fn(value);
-    };
-    const timer=setTimeout(()=>finish(reject,new Error('The Apps Script '+action+' JSONP fallback timed out.')),JSONP_TIMEOUT_MS);
+async function fetchWithTimeout(url, options={}, action='request'){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),FETCH_TIMEOUT_MS);
+  try{
+    const response=await fetch(url,Object.assign({
+      redirect:'follow',
+      cache:'no-store',
+      credentials:'omit',
+      signal:controller.signal
+    },options,{signal:controller.signal}));
 
-    window[cb]=(data)=>{
-      try{finish(resolve,normaliseApiResult(data,action));}
-      catch(err){finish(reject,err)}
-    };
+    const text=await response.text();
+    let data=null;
+    try{data=JSON.parse(text);}catch(parseErr){
+      const preview=text.replace(/\s+/g,' ').trim().slice(0,240);
+      throw new Error(
+        'Apps Script '+action+' returned non-JSON data (HTTP '+response.status+'). '+
+        (preview?('Response started with: '+preview):'The response body was empty.')
+      );
+    }
 
-    script.async=true;
-    script.charset='utf-8';
-    script.referrerPolicy='no-referrer';
-    script.onerror=()=>finish(reject,new Error('Apps Script '+action+' JSONP fallback was blocked by the browser.'));
-    script.src=API_URL+'?'+q.toString();
-    document.head.appendChild(script);
-  });
+    if(!response.ok){
+      throw new Error('Apps Script '+action+' returned HTTP '+response.status+'. '+(data.error||data.message||''));
+    }
+    return normaliseApiResult(data,action);
+  }catch(err){
+    if(err && err.name==='AbortError'){
+      throw new Error('Apps Script '+action+' timed out after '+Math.round(FETCH_TIMEOUT_MS/1000)+' seconds.');
+    }
+    if(err instanceof TypeError){
+      throw new Error('The browser could not read the Apps Script response. Check that the Web App is deployed as "Execute as Me" and "Anyone", then try again. ('+err.message+')');
+    }
+    throw err;
+  }finally{clearTimeout(timer)}
 }
 
-async function jsonp(action,params={}){
-  let lastError=null;
-  for(let attempt=0;attempt<=JSONP_RETRIES;attempt++){
-    try{return await jsonpOnce(action,params)}catch(e){lastError=e;if(attempt<JSONP_RETRIES)await new Promise(r=>setTimeout(r,500))}
-  }
-  throw lastError||new Error('Apps Script request failed.');
+async function fetchGet(action,params={}){
+  return fetchWithTimeout(requestUrl(action,params),{method:'GET'},action);
+}
+
+async function fetchPost(action,params={}){
+  // application/x-www-form-urlencoded is a CORS-safelisted request type,
+  // which avoids an OPTIONS preflight that Apps Script web apps are not
+  // designed to answer. ContentService follows its normal redirect to
+  // script.googleusercontent.com; fetch explicitly follows that redirect.
+  const body=new URLSearchParams();
+  body.set('action',action);
+  Object.keys(params||{}).forEach(k=>{
+    const v=params[k];
+    if(v!==undefined && v!==null) body.set(k,String(v));
+  });
+  return fetchWithTimeout(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:body.toString()
+  },action);
 }
 
 async function call(action,params={}){
-  try{
-    return await iframeRequestOnce(action,params);
-  }catch(primaryError){
-    // Never retry a send through another transport: the Apps Script request
-    // could have completed even if the browser did not receive the response.
-    if(action==='openAdminSend')throw primaryError;
-
-    // Read-only / preview calls can safely try the legacy JSONP path as a
-    // compatibility fallback. This is intentionally not used for Send.
-    try{return await jsonp(action,params)}
-    catch(fallbackError){
-      throw new Error(primaryError.message+' JSONP fallback: '+fallbackError.message);
-    }
+  // Reads stay GET so they are easy to inspect directly in a new browser tab.
+  // Preview and Send use POST because their base64 HTML/email payloads can be
+  // much larger than a practical URL length.
+  if(action==='openAdminPreview' || action==='openAdminSend'){
+    return fetchPost(action,params);
   }
+  return fetchGet(action,params);
 }
 
 async function loadAll(){
@@ -250,5 +200,5 @@ function setupPreviewLink(){
     catch(e){input.select();showMsg('previewMsg','Could not auto-copy — the link is selected, press Ctrl/Cmd+C.',false)}
   };
 }
-async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. Connection is using the browser-safe Apps Script transport.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
+async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. Connected to Apps Script with normal fetch().',true)}catch(e){showMsg('emailMsg',e.message,false)}}
 boot();
