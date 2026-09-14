@@ -1,45 +1,55 @@
 # JOTA-JOTI Dashboard — Boulder Scout Group
 
-Unofficial dashboard for JOTA-JOTI 2026. A countdown page turns into a PIN-protected
-dashboard of categories and links in the final 24 hours before the event.
+Unofficial JOTA-JOTI 2026 website for Boulder Scout Group.
 
-## Structure
+## Public GitHub Pages files
 
-```
-index.html, style.css, script.js   → the website (deploy these + sw.js, manifest.json, photo1.png to GitHub Pages)
-google-apps-script/Code.gs         → the backend API (paste into Extensions → Apps Script on the Google Sheet)
-spreadsheet/JOTA-JOTI-Data.xlsx    → a copy of the live data (Users, Categories, Links, Logos, block lists)
-```
+Upload the files in this package to the root of the GitHub Pages repository:
 
-## Deploying the website (GitHub Pages)
+- `index.html` — main countdown/dashboard
+- `index (1).html` — parent setup guide, available through `/setup`
+- `skip.html` — testing page that skips the countdown
+- `admin.html` — admin interface shell; protected by the Apps Script admin session
+- `admin.js` — admin interface logic
+- `admin.css` — admin styling
+- `script.js` — main dashboard logic
+- `style.css` — main dashboard styling
+- `sw.js` — PWA service worker and clean-route handling
+- `404.html` — clean-route fallback for GitHub Pages
+- `manifest.json` — PWA metadata
+- `photo1.png` — PWA icon/logo
 
-1. Push `index.html`, `style.css`, `script.js`, `sw.js`, `manifest.json` and `photo1.png` to the root of this repo.
-2. In the repo settings, enable **Pages** → deploy from the `main` branch, root folder.
-3. The site is unofficial JOTA-JOTI dashboard software created by Boulder Scout Group.
+## Clean routes
 
-## Deploying the backend (Google Apps Script)
+- `/` → main countdown/dashboard
+- `/setup` → parent setup guide
+- `/skip` → dashboard test route
 
-1. Open the Google Sheet, then **Extensions → Apps Script**.
-2. Replace the script contents with `google-apps-script/Code.gs`.
-3. Run **JOTA-JOTI Admin → Run full setup** from the Sheet's menu (reload the Sheet first).
-4. **Deploy → New deployment → Web app**, execute as yourself, access "Anyone".
-5. Copy the deployment URL into `API_URL` at the top of `script.js`.
+The admin route is deliberately not documented in the public repository. Use the private deployment notes supplied with the project.
 
-## Admin tools (in the Google Sheet menu, "JOTA-JOTI Admin")
+## Important security rule
 
-- **Manage a scout's account** — search by PIN, Participant ID or name; edit a
-  child's name/email; resend the parent's account-details email; or send a
-  completion certificate once they've finished JOTA-JOTI.
-- **Clear cached data** — forces the dashboard to pull fresh data immediately
-  after editing the sheet (the API otherwise caches shared sheets for ~45
-  seconds so the site stays fast with lots of people using it at once).
-- **Create backup now** / automatic nightly backups to Drive.
+Do **not** upload the Google Apps Script backend, spreadsheet ID, private admin notes, or old ZIP backups to a public GitHub repository.
 
-## Notes
+The public admin page does not contain the admin password. It asks Apps Script for a short-lived admin session after the password is entered.
 
-- Scouts sign in with a 4-digit PIN only. Once signed in, the login is
-  remembered on that device — the app won't ask for the PIN again until
-  someone taps "Forget saved PIN" or logs out.
-- Categories, links and logos are always read live from the sheet on every
-  request (nothing about them is cached in the app itself beyond the short
-  server-side cache described above).
+## Backend
+
+The Apps Script backend is supplied separately as a private deployment package. It must be deployed as a Google Apps Script Web App running as the owner with access configured as required by the project.
+
+The protected admin endpoints are:
+
+- `adminLogin`
+- `adminUsers`
+- `adminSections`
+- `adminCategories`
+- `adminGroups`
+- `adminSender`
+- `adminPreview`
+- `adminSend`
+
+The old unauthenticated `openAdmin*` endpoints must not be used.
+
+## Updating
+
+The public site can be uploaded to GitHub Pages without exposing the private Apps Script source. When the Apps Script deployment URL changes, update the API URL in the public client files and redeploy the private backend separately.

@@ -1,15 +1,13 @@
-/* Standalone JOTA-JOTI admin client.
-   No sign-in is required. This calls the openAdmin* actions in Code.gs.
-
-   Transport note:
-   Apps Script ContentService intentionally redirects its response from
-   script.google.com to a one-time script.googleusercontent.com URL.
-   The admin client therefore uses ordinary cross-origin fetch(): GET for
-   read-only calls and a CORS-safelisted form POST for preview/send. This
-   avoids JSONP script execution and avoids iframe framing restrictions.
+/* JOTA-JOTI admin client.
+   The page is intentionally reached through the private route, but the
+   real protection is the Apps Script admin password + short-lived session.
+   No admin password is stored in this file.
 */
 const API_URL='https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec';
-const SKIP_PAGE_URL = new URL('skip', window.location.href).href;
+const ADMIN_TOKEN_KEY='jota_joti_admin_token_v1';
+const ADMIN_TOKEN_EXPIRY_KEY='jota_joti_admin_token_expiry_v1';
+let adminToken=sessionStorage.getItem(ADMIN_TOKEN_KEY)||'';
+let adminTokenExpiry=parseInt(sessionStorage.getItem(ADMIN_TOKEN_EXPIRY_KEY)||'0',10)||0;
 const TAGS=['{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{parentName}}','{{username}}','{{pin}}','{{participantID}}','{{youthSection}}','{{ageYear}}','{{ageGroup}}','{{email}}','{{youthEmail}}','{{parentEmail}}'];
 let users=[],sections=[],categories=[],groups=[],selected=[],allSelected=[],focusEl=null;
 const $=id=>document.getElementById(id);
@@ -39,8 +37,10 @@ function normaliseApiResult(data, action){
 function requestUrl(action, params={}){
   const q=new URLSearchParams();
   q.set('action',action);
-  Object.keys(params||{}).forEach(k=>{
-    const v=params[k];
+  const merged=Object.assign({}, params||{});
+  if(adminToken) merged.token=adminToken;
+  Object.keys(merged).forEach(k=>{
+    const v=merged[k];
     if(v!==undefined && v!==null) q.set(k,String(v));
   });
   return API_URL+'?'+q.toString();
@@ -93,6 +93,7 @@ async function fetchPost(action,params={}){
   // script.googleusercontent.com; fetch explicitly follows that redirect.
   const body=new URLSearchParams();
   body.set('action',action);
+  if(adminToken) body.set('token',adminToken);
   Object.keys(params||{}).forEach(k=>{
     const v=params[k];
     if(v!==undefined && v!==null) body.set(k,String(v));
@@ -108,36 +109,85 @@ async function call(action,params={}){
   // Reads stay GET so they are easy to inspect directly in a new browser tab.
   // Preview and Send use POST because their base64 HTML/email payloads can be
   // much larger than a practical URL length.
-  if(action==='openAdminPreview' || action==='openAdminSend'){
+  if(action==='adminPreview' || action==='adminSend'){
     return fetchPost(action,params);
   }
   return fetchGet(action,params);
 }
 
-async function loadAll(){
+
+async function adminLoginPrompt(){
+  if(adminToken && adminTokenExpiry > Date.now()) return true;
+
+  adminToken='';
+  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  sessionStorage.removeItem(ADMIN_TOKEN_EXPIRY_KEY);
+
+  let password = window.prompt('Enter the JOTA-JOTI admin password:');
+  if(password===null) return false;
+  password=password.trim();
+  if(!password) throw new Error('Admin password is required.');
+
+  const payload=b64url({password});
+  const result=await fetchGet('adminLogin',{payload});
+
+  if(!result?.success || !result.token) {
+    throw new Error('Admin sign-in failed.');
+  }
+
+  adminToken=String(result.token);
+  adminTokenExpiry=Date.now() + (Math.max(60,Number(result.expiresInSeconds||21600)-60)*1000);
+
+  sessionStorage.setItem(ADMIN_TOKEN_KEY,adminToken);
+  sessionStorage.setItem(ADMIN_TOKEN_EXPIRY_KEY,String(adminTokenExpiry));
+
+  return true;
+}
+
+async function callProtected(action,params={}){
+  if(!adminToken || adminTokenExpiry <= Date.now()){
+    const ok=await adminLoginPrompt();
+    if(!ok) throw new Error('Admin sign-in required.');
+  }
   try{
-    await call('adminPing');
+    return await call(action,params);
+  }catch(error){
+    const message=String(error?.message||error);
+    if(/admin sign-in required|admin session expired|invalid admin session/i.test(message)){
+      const ok=await adminLoginPrompt();
+      if(!ok) throw error;
+      return await call(action,params);
+    }
+    throw error;
+  }
+}
+
+async function loadAll(){
+  await adminLoginPrompt();
+
+  try{
+    await callProtected('adminPing');
     await call('health');
   }catch(e){
     throw new Error('Apps Script connection check failed: '+e.message);
   }
 
   let u=[];
-  try{u=await call('openAdminUsers');}
+  try{u=await callProtected('adminUsers');}
   catch(e){throw new Error('Users API failed after a healthy Apps Script check: '+e.message)}
   users=Array.isArray(u)?u:(Array.isArray(u.users)?u.users:(Array.isArray(u.data)?u.data:[]));
 
-  try{const r=await call('openAdminSections');sections=Array.isArray(r)?r:(r.sections||r.data||[]);}
+  try{const r=await callProtected('adminSections');sections=Array.isArray(r)?r:(r.sections||r.data||[]);}
   catch(e){sections=[];console.warn('Sections API failed:',e);}
 
-  try{const r=await call('openAdminCategories');categories=Array.isArray(r)?r:(r.categories||r.data||[]);}
+  try{const r=await callProtected('adminCategories');categories=Array.isArray(r)?r:(r.categories||r.data||[]);}
   catch(e){categories=[];console.warn('Categories API failed:',e);}
 
-  try{const r=await call('openAdminGroups');groups=Array.isArray(r)?r:(r.groups||r.data||[]);}
+  try{const r=await callProtected('adminGroups');groups=Array.isArray(r)?r:(r.groups||r.data||[]);}
   catch(e){groups=[];console.warn('Saved groups unavailable:',e);}
 
   let me={sender:'Admin',quota:'—'};
-  try{me=await call('openAdminSender')||me;}
+  try{me=await callProtected('adminSender')||me;}
   catch(e){console.warn('Sender/quota endpoint unavailable:',e);}
 
   $('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';
@@ -191,8 +241,8 @@ function choosePerson(i){const u=$('personOptions')._matches?.[i];if(!u)return;i
 function chooseSection(i){const x=$('sectionOptions')._matches?.[i];if(!x)return;$('sectionSearch').value=x.label||x.value;$('sectionSearch').dataset.value=x.value;$('sectionOptions').style.display='none';refreshPreview()}
 function chooseCategory(i){const x=$('activityOptions')._matches?.[i];if(!x)return;$('activitySearch').value=x.Title||x.CategoryKey;$('activitySearch').dataset.value=x.CategoryKey;$('activityOptions').style.display='none';refreshPreview()}
 function payload(){const subject=$('subject').value.trim(),body=$('body').value.trim(),s=scope(),t=targetType();if(!subject)throw Error('Enter a subject.');if(!body)throw Error('Write an HTML message.');if(subject.length>180)throw Error('Subject is too long.');if(body.length>60000)throw Error('Keep the HTML message under 60,000 characters.');const us=scopedUsers();if(!us.length)throw Error('No active users are selected.');const p={subject,htmlBody:body,scope:s,targetType:t};if(s==='selected'||s==='all')p.participantIds=us.map(u=>u.ParticipantID);if(s==='section'){if(!$('sectionSearch').dataset.value)throw Error('Choose a youth section.');p.ageGroup=$('sectionSearch').dataset.value}if(s==='activity'){if(!$('activitySearch').dataset.value)throw Error('Choose an activity category.');p.categoryKey=$('activitySearch').dataset.value}if(s==='group'){if(!$('groupSearch').dataset.value)throw Error('Choose a saved group.');p.groupKey=$('groupSearch').dataset.value}const drive=$('driveAttachment').value.trim();if(drive)p.attachments=[{driveUrl:drive}];p.certificate={placement:$('certificatePlacement').value||'none',title:$('certificateTitle').value.trim(),subtitle:$('certificateSubtitle').value.trim(),message:$('certificateMessage').value.trim(),footer:$('certificateFooter').value.trim()};return p}
-async function preview(){try{const p=payload();showMsg('emailMsg','Checking the live Users sheet…',true);const r=await call('openAdminPreview',{payload:b64url(p)});$('preview').textContent=`Ready: ${r.totalRecipients} individual email(s) · ${r.matchedUsers} matched user(s) · ${r.missingEmails} missing email(s)${r.warnings?.length?'\n'+r.warnings.join('\n'):''}`;showMsg('emailMsg','No email has been sent.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
-async function send(){try{const p=payload();if(!confirm('Send this email now to the live recipient list?'))return;showMsg('emailMsg','Sending… please wait. Do not press Send again.',true);const r=await call('openAdminSend',{payload:b64url(p)});let text=`Sent ${r.sent} of ${r.total} email(s).\nMatched users: ${r.matchedUsers}.`;if(r.missingEmails)text+=`\nMissing emails: ${r.missingEmails}.`;if(r.failed?.length)text+='\nFailures:\n'+r.failed.join('\n');showMsg('emailMsg',text,r.failed?.length===0);await loadAll()}catch(e){showMsg('emailMsg',e.message,false)}}
+async function preview(){try{const p=payload();showMsg('emailMsg','Checking the live Users sheet…',true);const r=await callProtected('adminPreview',{payload:b64url(p)});$('preview').textContent=`Ready: ${r.totalRecipients} individual email(s) · ${r.matchedUsers} matched user(s) · ${r.missingEmails} missing email(s)${r.warnings?.length?'\n'+r.warnings.join('\n'):''}`;showMsg('emailMsg','No email has been sent.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
+async function send(){try{const p=payload();if(!confirm('Send this email now to the live recipient list?'))return;showMsg('emailMsg','Sending… please wait. Do not press Send again.',true);const r=await callProtected('adminSend',{payload:b64url(p)});let text=`Sent ${r.sent} of ${r.total} email(s).\nMatched users: ${r.matchedUsers}.`;if(r.missingEmails)text+=`\nMissing emails: ${r.missingEmails}.`;if(r.failed?.length)text+='\nFailures:\n'+r.failed.join('\n');showMsg('emailMsg',text,r.failed?.length===0);await loadAll()}catch(e){showMsg('emailMsg',e.message,false)}}
 function clearComposer(){['subject','body','driveAttachment'].forEach(id=>$(id).value='');$('certificatePlacement').value='none';$('certificateTitle').value='CERTIFICATE OF COMPLETION';$('certificateSubtitle').value='JOTA-JOTI 2026';$('certificateMessage').value='This certifies that {{childFullName}} has successfully taken part in JOTA-JOTI 2026 with Boulder Scout Group.';$('certificateFooter').value='Issued by Boulder Scout Group';selected=[];allSelected=[];$('personSearch').value='';$('sectionSearch').value='';$('activitySearch').value='';$('groupSearch').value='';delete $('sectionSearch').dataset.value;delete $('activitySearch').dataset.value;delete $('groupSearch').dataset.value;document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();$('emailMsg').className='message';refreshPreview()}
 function insertTag(tag){const el=focusEl||$('body'),a=el.selectionStart||el.value.length,b=el.selectionEnd||el.value.length;el.value=el.value.slice(0,a)+tag+el.value.slice(b);el.focus();el.selectionStart=el.selectionEnd=a+tag.length}
 async function findScout(q){const n=norm(q);const list=activeUsers().filter(u=>matches(u,n)).slice(0,8);const box=$('findOptions');box.innerHTML=list.map((u,i)=>optionHTML(u,i)).join('')||'<div class="option"><span>No matching active users</span></div>';box._matches=list;box.style.display='block'}
@@ -221,5 +271,5 @@ function setupPreviewLink(){
     catch(e){input.select();showMsg('previewMsg','Could not auto-copy — the link is selected, press Ctrl/Cmd+C.',false)}
   };
 }
-async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Standalone admin loaded. Connected to Apps Script with normal fetch().',true)}catch(e){showMsg('emailMsg',e.message,false)}}
+async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Admin loaded. Connected to Apps Script with a protected session.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
 boot();
