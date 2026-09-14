@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#5a2c84">
+<title>JOTA-JOTI Parent Guide</title>
+<meta name="description" content="A full setup guide for parents: create your Scout's JOTA-JOTI account, install the app, allow the event's websites, and turn off screen time for the weekend.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --scout-purple:#5a2c84;
+    --scout-light-purple:#f3ebf8;
+    --bg-color:#f5f6f8;
+    --surface:#ffffff;
+    --text-main:#2c3e50;
+    --text-sub:#7f8c8d;
+    --border:#e2e5e9;
+    --danger:#e34b43;
+    --amber:#f0ad00;
+    --amber-bg:#fff8e6;
+    --amber-text:#6d4d00;
+    --green-bg:#eef7ee;
+    --green-text:#2d5f2d;
+    --font-display:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text-main); background:var(--bg-color); -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.header-title,.time-box span,.badge,.eoi-days{font-family:var(--font-display);}
+  a{color:var(--scout-purple);}
+  img{max-width:100%; display:block;}
+
+  .header{
+    background:var(--surface); padding:14px 18px; box-shadow:0 4px 15px rgba(0,0,0,0.06);
+    display:flex; justify-content:center; align-items:center; gap:16px; flex-wrap:wrap;
+    position:sticky; top:0; z-index:60; border-bottom:2px solid var(--scout-purple);
+  }
+  .header img{max-height:36px; object-fit:contain;}
+  .header-title{color:var(--scout-purple); font-weight:700; font-size:15px;}
+
+  .device-strip{
+    background:var(--scout-light-purple); border-bottom:1px solid #e6d9f0; position:sticky; top:64px; z-index:59;
+    padding:10px 12px; overflow-x:auto; white-space:nowrap;
+  }
+  .device-strip-inner{display:flex; gap:8px; max-width:650px; margin:0 auto; width:max-content; min-width:100%; justify-content:center;}
+  .device-btn{
+    display:inline-flex; align-items:center; gap:6px; background:var(--surface); border:1px solid #e6d9f0;
+    color:var(--scout-purple); padding:8px 13px; border-radius:999px; font-size:13px; font-weight:700;
+    cursor:pointer; font-family:inherit; transition:all .15s ease; flex:0 0 auto;
+  }
+  .device-btn svg{width:15px; height:15px;}
+  .device-btn:hover{background:var(--scout-light-purple);}
+  .device-btn.active{background:var(--scout-purple); color:#fff; border-color:var(--scout-purple);}
+  .device-btn .auto-tag{font-size:9px; font-weight:800; background:rgba(90,44,132,0.12); color:var(--scout-purple); padding:1px 6px; border-radius:6px;}
+  .device-btn.active .auto-tag{background:rgba(255,255,255,0.25); color:#fff;}
+
+  .container{max-width:650px; margin:0 auto; padding:24px 18px 10px;}
+
+  .prep-card{background:var(--surface); padding:24px 22px; border-radius:14px; box-shadow:0 4px 15px rgba(0,0,0,0.05); margin-bottom:18px;}
+  .prep-title{color:var(--scout-purple); font-size:28px; font-weight:900; margin:0 0 8px; letter-spacing:-0.5px;}
+  .prep-subtitle{color:var(--text-sub); font-size:14px; margin:0 0 6px; line-height:1.6;}
+  .dates-line{color:var(--text-main); font-size:14px; font-weight:700; margin:10px 0 0;}
+
+  .warning-box{margin:16px 0 0; padding:15px 16px; background:var(--amber-bg); border-left:5px solid var(--amber); border-radius:10px; color:var(--amber-text); text-align:left; font-size:14px; line-height:1.6;}
+  .danger-box{margin:16px 0 0; padding:15px 16px; background:#fdecea; border-left:5px solid var(--danger); border-radius:10px; color:#8a2a24; text-align:left; font-size:14px; line-height:1.6;}
+  .note-box{margin:14px 0 0; padding:13px 15px; background:var(--green-bg); border:1px solid #c7e3c7; border-radius:10px; color:var(--green-text); font-size:13.5px; line-height:1.6;}
+
+  .eoi-line{display:flex; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap;}
+  .eoi-days{background:var(--scout-purple); color:#fff; font-weight:800; font-size:13px; padding:6px 12px; border-radius:999px;}
+  .eoi-days.closed{background:var(--danger);}
+
+  .countdown-title{margin:22px 0 12px; color:var(--text-main); font-size:17px; font-weight:800;}
+  .countdown-container{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:0 0 4px;}
+  .time-box{background:var(--scout-light-purple); border-radius:12px; padding:14px 6px; text-align:center;}
+  .time-box span{display:block; color:var(--scout-purple); font-size:26px; line-height:1; font-weight:900; font-variant-numeric:tabular-nums;}
+  .time-box label{display:block; margin-top:7px; color:var(--scout-purple); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+
+  .jump-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:18px;}
+  .badge-link{background:var(--scout-light-purple); color:var(--scout-purple); font-size:12.5px; padding:7px 13px; border-radius:12px; font-weight:800; text-decoration:none; letter-spacing:0.2px;}
+  .badge-link:hover{background:#e9d9f4;}
+
+  section{padding:28px 0 4px;}
+  .step-heading{display:flex; align-items:center; gap:10px; margin-bottom:4px;}
+  .step-num{width:30px; height:30px; border-radius:50%; background:var(--scout-purple); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:0 0 auto;}
+  h2{color:var(--scout-purple); font-size:20px; font-weight:800; margin:0; letter-spacing:0.2px;}
+  h2.plain-title{display:block; margin-bottom:4px;}
+  .section-sub{color:var(--text-sub); font-size:13.5px; margin:6px 0 16px; line-height:1.6;}
+  h3{font-size:15px; margin:18px 0 8px; color:var(--text-main); font-weight:800;}
+  h3:first-child{margin-top:0;}
+
+  ol.steps, ul.steps{margin:0; padding-left:1.15em;}
+  ol.steps li, ul.steps li{margin-bottom:11px; padding-left:2px; font-size:14.5px; line-height:1.65;}
+  ol.steps li:last-child, ul.steps li:last-child{margin-bottom:0;}
+
+  .info-table{width:100%; border-collapse:collapse; margin:8px 0 4px; font-size:13.5px;}
+  .info-table th{text-align:left; color:var(--text-sub); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:800; padding:6px 8px; border-bottom:2px solid var(--border);}
+  .info-table td{padding:9px 8px; border-bottom:1px solid var(--border); vertical-align:top;}
+  .info-table td:first-child{font-weight:700; white-space:nowrap; color:var(--scout-purple);}
+
+  .cta-btn{display:inline-block; background:var(--scout-purple); color:#fff; border:none; padding:13px 20px; border-radius:14px; font-size:14.5px; font-weight:700; cursor:pointer; text-decoration:none; margin-top:4px; transition:all .2s;}
+  .cta-btn:hover{background:#4a246d;}
+  .cta-secondary{background:var(--bg-color); color:var(--text-main); border:2px solid var(--scout-light-purple);}
+  .cta-secondary:hover{background:var(--scout-light-purple);}
+
+  .device-current-label{display:flex; align-items:center; gap:7px; font-size:12px; font-weight:800; color:var(--scout-purple); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;}
+  .device-current-label svg{width:15px; height:15px;}
+
+  .apps-grid{display:grid; grid-template-columns:1fr; gap:12px;}
+  .app-card{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.03);}
+  .app-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:6px;}
+  .app-name{font-weight:800; font-size:15px; color:var(--text-main);}
+  .app-tag{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; padding:4px 10px; border-radius:999px; white-space:nowrap;}
+  .tag-required{background:var(--scout-light-purple); color:var(--scout-purple);}
+  .tag-free{background:var(--green-bg); color:var(--green-text);}
+  .tag-paid{background:#fbe6e0; color:#a03a1f;}
+  .app-desc{font-size:13.5px; color:var(--text-sub); margin:0 0 8px; line-height:1.55;}
+  .app-need{font-size:13px; color:var(--text-main); background:var(--bg-color); border-left:3px solid var(--scout-purple); padding:9px 11px; border-radius:0 10px 10px 0; line-height:1.55;}
+
+  .checklist{list-style:none; margin:0; padding:0;}
+  .checklist li{display:flex; gap:12px; align-items:flex-start; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:13px 15px; margin-bottom:8px; cursor:pointer; user-select:none;}
+  .checklist li:hover{border-color:var(--scout-purple);}
+  .checklist .box{flex:0 0 auto; width:20px; height:20px; border-radius:6px; border:2px solid var(--scout-purple); margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff;}
+  .checklist li.checked .box{background:var(--scout-purple);}
+  .checklist li.checked .label{color:var(--text-sub); text-decoration:line-through;}
+  .checklist .label{font-size:13.5px; line-height:1.5;}
+
+  .faq-item{border:1px solid var(--border); border-radius:14px; margin-bottom:8px; background:var(--surface); overflow:hidden;}
+  .faq-q{width:100%; text-align:left; background:none; border:none; padding:14px 16px; font-family:inherit; font-size:14px; font-weight:700; color:var(--scout-purple); cursor:pointer; display:flex; justify-content:space-between; gap:10px; align-items:center;}
+  .faq-q .chev{transition:transform .15s ease; flex:0 0 auto;}
+  .faq-item.open .faq-q .chev{transform:rotate(180deg);}
+  .faq-a{max-height:0; overflow:hidden; transition:max-height .2s ease;}
+  .faq-a-inner{padding:0 16px 15px; font-size:13.5px; color:var(--text-sub); line-height:1.6;}
+
+  .install-note{display:flex; gap:10px; align-items:flex-start; background:#fff8e6; border:1px solid #f1d58a; border-radius:12px; padding:12px 14px; margin-bottom:14px; font-size:13.5px; color:#6d4d00; line-height:1.55;}
+  .install-note.ok{background:var(--green-bg); border-color:#c7e3c7; color:var(--green-text);}
+
+  .official-link{display:inline-flex; align-items:center; gap:6px; margin-top:14px; font-size:13px; font-weight:700; color:var(--scout-purple); text-decoration:none; background:var(--scout-light-purple); padding:9px 14px; border-radius:12px;}
+  .official-link:hover{background:#e9d9f4;}
+  .official-link svg{width:14px; height:14px; flex:0 0 auto;}
+
+  .shot-slot{margin-top:14px; border-radius:12px; overflow:hidden; border:1px solid var(--border); background:#fff;}
+  .shot-scroll{max-height:430px; overflow-y:auto; overscroll-behavior:contain; padding:8px; background:#f8f9fb;}
+  .shot-scroll::-webkit-scrollbar{width:9px;}
+  .shot-scroll::-webkit-scrollbar-thumb{background:#cfc3dc; border-radius:999px; border:2px solid #f8f9fb;}
+  .shot-frame{margin:0 0 8px;}
+  .shot-frame:last-child{margin-bottom:0;}
+  .shot-link{display:block; text-decoration:none;}
+  .shot-slot img{width:100%; height:auto; display:block; border-radius:10px; border:1px solid var(--border); background:#fff;}
+  .shot-caption{font-size:11.5px; color:var(--text-sub); text-align:center; padding:8px 5px 2px;}
+  .shot-fallback{display:none; align-items:center; gap:10px; border:2px dashed #d9c8e8; background:#fbf8fd; color:var(--text-sub); font-size:12.5px; border-radius:12px; padding:14px; line-height:1.5;}
+  .shot-fallback svg{width:22px; height:22px; flex:0 0 auto; color:var(--scout-purple);}
+
+  .mock-row{display:flex; gap:14px; overflow-x:auto; padding:6px 2px 12px; scroll-snap-type:x mandatory;}
+  .site-mock{flex:0 0 auto; width:230px; scroll-snap-align:start; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#fff; box-shadow:0 4px 15px rgba(0,0,0,0.06);}
+  .site-mock-head{background:#fff; border-bottom:2px solid var(--scout-purple); padding:8px; display:flex; justify-content:center; gap:6px; align-items:center;}
+  .site-mock-head img{max-height:16px; width:auto;}
+  .site-mock-body{padding:14px 12px; min-height:230px;}
+  .mock-label{font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--scout-purple); text-align:center; padding:6px 0 2px; background:var(--scout-light-purple);}
+  .mock-title{font-size:12px; font-weight:800; color:var(--text-main); text-align:center; margin-bottom:3px;}
+  .mock-sub{font-size:9.5px; color:var(--text-sub); text-align:center; margin-bottom:10px;}
+  .mock-pin-row{display:flex; justify-content:center; gap:6px; margin-bottom:10px;}
+  .mock-pin-dot{width:20px; height:20px; border-radius:6px; border:1.5px solid var(--scout-purple); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:var(--scout-purple);}
+  .mock-pin-dot.filled{background:var(--scout-purple); color:#fff;}
+  .mock-numpad{display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:10px;}
+  .mock-key{background:var(--bg-color); border-radius:7px; text-align:center; font-size:10px; font-weight:700; padding:6px 0; color:var(--text-main);}
+  .mock-btn{display:block; text-align:center; font-size:8.5px; font-weight:800; letter-spacing:0.3px; padding:6px; border-radius:8px; margin-top:5px;}
+  .mock-btn.ghost{background:var(--bg-color); color:var(--text-sub);}
+  .mock-greet{font-size:10px; color:var(--text-sub); text-align:center; margin-bottom:8px;}
+  .mock-greet strong{color:var(--scout-purple); display:block; font-size:13px;}
+  .mock-cat-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
+  .mock-cat{background:var(--scout-light-purple); color:var(--scout-purple); font-size:9px; font-weight:800; text-align:center; padding:12px 4px; border-radius:9px;}
+  .mock-cd-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin:10px 0;}
+  .mock-cd-box{background:var(--scout-light-purple); border-radius:7px; text-align:center; padding:6px 2px;}
+  .mock-cd-box span{display:block; color:var(--scout-purple); font-size:12px; font-weight:900;}
+  .mock-cd-box label{display:block; font-size:6.5px; font-weight:800; color:var(--scout-purple); text-transform:uppercase; margin-top:2px;}
+  .mock-callouts{margin:0; padding-left:1.1em; font-size:12.5px; color:var(--text-sub); line-height:1.6;}
+  .mock-callouts li{margin-bottom:6px;}
+  .mock-callouts strong{color:var(--text-main);}
+
+  .flow-card{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.03); margin-top:14px;}
+  .flow-title{font-weight:900; color:var(--scout-purple); font-size:15px; margin:0 0 10px;}
+  .flow-steps{display:grid; gap:9px; margin:0; padding:0; list-style:none; counter-reset:flow;}
+  .flow-steps li{counter-increment:flow; display:flex; gap:10px; align-items:flex-start; font-size:13.5px; line-height:1.55;}
+  .flow-steps li::before{content:counter(flow); flex:0 0 auto; width:24px; height:24px; border-radius:50%; background:var(--scout-purple); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900;}
+  .email-box{margin-top:14px; padding:15px 16px; background:#eef7ee; border:1px solid #c7e3c7; border-radius:12px; color:#2d5f2d; font-size:13.5px; line-height:1.6;}
+  .email-box strong{display:block; margin-bottom:4px;}
+  .app-actions{display:flex; flex-wrap:wrap; gap:7px; margin-top:10px;}
+  .app-link{display:inline-flex; align-items:center; gap:6px; background:var(--scout-light-purple); color:var(--scout-purple); padding:8px 10px; border-radius:10px; text-decoration:none; font-size:12px; font-weight:800;}
+  .app-link:hover{background:#e9d9f4;}
+  .app-link.secondary{background:var(--bg-color); color:var(--text-main);}
+  .quicklinks{display:grid; grid-template-columns:1fr; gap:8px;}
+  .quicklink{display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; text-decoration:none; color:var(--text-main); font-size:13.5px; font-weight:700;}
+  .quicklink:hover{border-color:var(--scout-purple);}
+  .quicklink span.sub{display:block; font-weight:500; color:var(--text-sub); font-size:12px; margin-top:2px;}
+  .quicklink .arrow{color:var(--scout-purple); font-size:16px; flex:0 0 auto;}
+
+  .form-mock{max-width:230px; margin:14px auto 0; border-radius:14px; overflow:hidden; border:1px solid var(--border); box-shadow:0 4px 15px rgba(0,0,0,0.06);}
+  .form-mock-top{background:#5b5fc7; color:#fff; padding:9px 12px; font-size:11px; font-weight:800;}
+  .form-mock-body{background:#fff; padding:14px 12px;}
+  .form-mock-q{font-size:11px; font-weight:700; color:var(--text-main); margin-bottom:6px;}
+  .form-mock-input{background:var(--bg-color); border:1px solid var(--border); border-radius:6px; height:30px; margin-bottom:10px;}
+  .form-mock-btn{background:#5b5fc7; color:#fff; font-size:10px; font-weight:800; text-align:center; padding:7px; border-radius:7px; width:70px;}
+
+  .free-banner{background:var(--scout-purple); color:#fff; border-radius:14px; padding:16px 18px; margin-top:16px; font-size:14px; line-height:1.6;}
+  .free-banner strong{display:block; font-size:15px; margin-bottom:4px;}
+
+  footer{padding:34px 0 90px; text-align:center; color:var(--text-sub); font-size:12px;}
+  footer .disclaim{max-width:52ch; margin:0 auto 10px; line-height:1.6;}
+
+  .credit-pill{position:fixed; bottom:12px; right:12px; z-index:70; background:rgba(90,44,132,0.94); color:#fff; font-size:10px; font-weight:700; padding:5px 11px; border-radius:999px; letter-spacing:0.3px; box-shadow:0 2px 10px rgba(0,0,0,0.18); pointer-events:none;}
+
+  @media (max-width:400px){
+    .countdown-container{gap:6px;}
+    .time-box{padding:11px 4px;}
+    .time-box span{font-size:21px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="header" id="main-nav">
+  <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="Scouts Australia">
+  <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="JOTA-JOTI">
+  <span class="header-title">Parent Guide</span>
+</div>
+
+<div class="device-strip">
+  <div class="device-strip-inner" id="deviceRow"></div>
+</div>
+
+<div class="container">
+
+  <div class="prep-card">
+    <h1 class="prep-title">Getting ready for JOTA-JOTI</h1>
+    <p class="prep-subtitle">This page walks you through everything to sort out before the weekend: setting up your Scout's account, installing the app properly, allowing the event's websites, and turning off screen time limits so nothing gets in the way.</p>
+    <p class="dates-line">JOTA-JOTI 2026: 16 to 18 October</p>
+
+    <div class="danger-box" id="deadlineBox">
+      <strong>Expressions of interest close Friday 9 October 2026</strong>, one week before JOTA-JOTI. This isn't a soft deadline. If the form hasn't been submitted and your Scout's account set up by then, they won't be able to take part this year.
+      <div class="eoi-line"><span class="eoi-days" id="eoiDaysChip"></span></div>
+    </div>
+
+    <div class="free-banner">
+      <strong>Nothing to buy, no device required</strong>
+      Everything for JOTA-JOTI is free. If your Scout doesn't have a suitable phone, tablet, or computer at home, the group will have a device ready for them to use on the day, just let a leader know ahead of time.
+    </div>
+
+    <div class="countdown-title">Countdown to JOTA-JOTI</div>
+    <div class="countdown-container">
+      <div class="time-box"><span id="cd-days">00</span><label>Days</label></div>
+      <div class="time-box"><span id="cd-hours">00</span><label>Hours</label></div>
+      <div class="time-box"><span id="cd-mins">00</span><label>Mins</label></div>
+      <div class="time-box"><span id="cd-secs">00</span><label>Secs</label></div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-title">The easiest way through this guide</div>
+      <ol class="flow-steps">
+        <li>Submit the Expression of Interest for each Scout.</li>
+        <li>Wait for the account-details email. It is sent later after the form is processed.</li>
+        <li>Install the portal on the Scout's device if the device requires it.</li>
+        <li>Allow the portal and approved activity sites through the device's family or content controls.</li>
+        <li>Test the 4-digit PIN before the weekend, then use the checklist to finish the easy jobs.</li>
+      </ol>
+    </div>
+
+    <div class="jump-row">
+      <a class="badge-link" href="#account">1. Account &amp; sign-up</a>
+      <a class="badge-link" href="#install">2. Installing it</a>
+      <a class="badge-link" href="#allow">3. Allow the websites</a>
+      <a class="badge-link" href="#screentime">4. Adjust screen time</a>
+      <a class="badge-link" href="#activities">Activities so far</a>
+      <a class="badge-link" href="#checklist">Everything else</a>
+      <a class="badge-link" href="#faq">Something's wrong</a>
+      <a class="badge-link" href="#links">All links</a>
+    </div>
+  </div>
+
+  <section id="account">
+    <div class="step-heading"><span class="step-num">1</span><h2>Submit the form and set up the account</h2></div>
+    <p class="section-sub">This part is the same on every device. Do it first, then move down the page in order.</p>
+
+    <div class="prep-card">
+      <h3>Fill in the Expression of Interest</h3>
+      <p style="font-size:14px; color:var(--text-main); margin:0 0 10px; line-height:1.65;">
+        This is an <strong>Expression of Interest</strong>. It starts the setup process for your Scout, but it is not the final event registration or confirmation. Do this first because it has a deadline.
+      </p>
+      <a class="cta-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSeBhtFuVNzjqtAFOeluNfiA1hFPr1JXXfSx9xZcnivSV1fiUw/viewform?usp=header" target="_blank" rel="noopener">Open the sign-up form</a>
+      <div class="note-box">If you have more than one child taking part, submit a separate form for each one. Every Scout gets their own account and their own PIN.</div>
+
+      <h3>After you submit the form, watch for your email</h3>
+      <div class="email-box">
+        <strong>You will receive an email later with your Scout's account details.</strong>
+        The account email is prepared after the Expression of Interest is submitted. It may not arrive immediately, so there is no need to submit the form again just because you have not seen the email straight away. Check your inbox and spam/junk folder.
+      </div>
+      <p style="font-size:14px; margin:12px 0 8px; line-height:1.65;">
+        The email will contain the information you need for the portal, including:
+      </p>
+      <table class="info-table">
+        <tr><th>Field</th><th>What it's for</th></tr>
+        <tr><td>PIN</td><td>The 4-digit code your Scout types in to log into the dashboard. This is the only one they'll need day to day.</td></tr>
+        <tr><td>Username</td><td>Part of the account record, not something you need to type in on this site.</td></tr>
+        <tr><td>Password</td><td>Also part of the account record. Keep it with the rest of the details in case it's needed later.</td></tr>
+        <tr><td>Participant ID</td><td>Used by leaders to look your Scout up if anything needs fixing or resending.</td></tr>
+      </table>
+      <div class="note-box">Keep the whole email somewhere you won't lose it. A photo of it, or a note stuck somewhere visible at home, works well.</div>
+
+      <h3>Log in</h3>
+      <p style="font-size:14px; margin:0; line-height:1.65;">
+        Open the JOTA-JOTI site and enter the 4-digit PIN on the number pad. On a shared family device, there's a <strong>Continue as Guest</strong> option too, which lets you look around without using an account, and a <strong>Not you? Forget saved PIN</strong> link if someone else's login has been remembered on the device and needs clearing first.
+      </p>
+    </div>
+
+    <div class="prep-card">
+      <h3 style="margin-top:0;">Why the site might look like a countdown timer</h3>
+      <p style="font-size:14px; margin:0 0 12px; line-height:1.65;">
+        After you log in, you'll see a countdown, not the full dashboard. That's normal. It switches to the full dashboard by itself in the last 24 hours before JOTA-JOTI starts. You don't need to do anything for that to happen.
+      </p>
+      <p style="font-size:14px; margin:0; line-height:1.65;">
+        There's also a box on that same countdown page called <strong>Activity Suggestions</strong>. Tapping it opens a short form where your Scout can suggest something for the group to try during the weekend.
+      </p>
+      <div class="form-mock">
+        <div class="form-mock-top">JOTA-JOTI Activity Suggestions</div>
+        <div class="form-mock-body">
+          <div class="form-mock-q">What would you like the group to try?</div>
+          <div class="form-mock-input"></div>
+          <div class="form-mock-btn">Submit</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="prep-card">
+      <h3 style="margin-top:0;">What it actually looks like on screen</h3>
+      <p style="font-size:13.5px; color:var(--text-sub); margin:0 0 4px; line-height:1.6;">These are built from the real page, so the colours and layout match what your Scout will actually see. Swipe sideways to see all three.</p>
+      <div class="mock-row">
+
+        <div class="site-mock">
+          <div class="site-mock-head">
+            <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="">
+            <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="">
+          </div>
+          <div class="mock-label">Screen 1</div>
+          <div class="site-mock-body">
+            <div class="mock-title">JOTA-JOTI Prep Portal</div>
+            <div class="mock-sub">Countdown to JOTA-JOTI 2026</div>
+            <div class="mock-cd-grid">
+              <div class="mock-cd-box"><span>08</span><label>Days</label></div>
+              <div class="mock-cd-box"><span>14</span><label>Hrs</label></div>
+              <div class="mock-cd-box"><span>02</span><label>Min</label></div>
+              <div class="mock-cd-box"><span>47</span><label>Sec</label></div>
+            </div>
+            <div class="mock-btn ghost">TAP HERE TO OPEN SUGGESTION FORM</div>
+          </div>
+        </div>
+
+        <div class="site-mock">
+          <div class="site-mock-head">
+            <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="">
+            <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="">
+          </div>
+          <div class="mock-label">Screen 2</div>
+          <div class="site-mock-body">
+            <div class="mock-title">Enter Scout PIN</div>
+            <div class="mock-sub">JOTA-JOTI Dashboard</div>
+            <div class="mock-pin-row">
+              <span class="mock-pin-dot filled">1</span>
+              <span class="mock-pin-dot filled">2</span>
+              <span class="mock-pin-dot"></span>
+              <span class="mock-pin-dot"></span>
+            </div>
+            <div class="mock-numpad">
+              <span class="mock-key">1</span><span class="mock-key">2</span><span class="mock-key">3</span>
+              <span class="mock-key">4</span><span class="mock-key">5</span><span class="mock-key">6</span>
+              <span class="mock-key">7</span><span class="mock-key">8</span><span class="mock-key">9</span>
+              <span class="mock-key"></span><span class="mock-key">0</span><span class="mock-key">DEL</span>
+            </div>
+            <div class="mock-btn ghost">CONTINUE AS GUEST</div>
+            <div class="mock-btn ghost">I DON'T HAVE AN ACCOUNT</div>
+          </div>
+        </div>
+
+        <div class="site-mock">
+          <div class="site-mock-head">
+            <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="">
+            <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="">
+          </div>
+          <div class="mock-label">Screen 3, final 24 hrs</div>
+          <div class="site-mock-body">
+            <div class="mock-greet">Welcome<strong>Scout's name</strong></div>
+            <div class="mock-cat-grid">
+              <div class="mock-cat">Chat</div>
+              <div class="mock-cat">Minecraft</div>
+              <div class="mock-cat">Games</div>
+              <div class="mock-cat">Geography</div>
+              <div class="mock-cat">Radio</div>
+              <div class="mock-cat">Scouting</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <ol class="mock-callouts">
+        <li><strong>Screen 1</strong> is what appears the moment you log in, any time before the final day. It's just a timer, this is normal and not a fault.</li>
+        <li><strong>Screen 2</strong> is the PIN pad. Type the 4-digit PIN from the account email, either by tapping the number buttons or typing it on a real keyboard. It logs in automatically the moment the fourth digit is entered, there's no separate submit button. The device can also remember the PIN afterwards.</li>
+        <li><strong>Screen 3</strong> only appears in the final 24 hours before JOTA-JOTI. Tapping a category opens the links and activities inside it.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="step-heading"><span class="step-num">2</span><h2>Install it properly</h2></div>
+    <p class="section-sub">How this works is different depending on the device, and on phones and tablets it isn't optional.</p>
+    <div class="device-current-label" id="installDeviceLabel"></div>
+    <div class="prep-card" id="installContent"></div>
+  </section>
+
+  <section id="allow">
+    <div class="step-heading"><span class="step-num">3</span><h2>Allow the JOTA-JOTI website</h2></div>
+    <p class="section-sub">Do this after installation. Allow the dashboard first, then the activity sites your Scout will actually use. You do not need to remove all family safety controls.</p>
+    <div class="device-current-label" id="allowDeviceLabel"></div>
+    <div class="prep-card" id="allowContent"></div>
+  </section>
+
+  <section id="screentime">
+    <div class="step-heading"><span class="step-num">4</span><h2>Adjust screen time for the weekend</h2></div>
+    <p class="section-sub">JOTA-JOTI runs across the weekend, so a daily limit can get in the way partway through. Adjust the weekend schedule or add extra time while keeping your normal content filters in place. You can put everything back on Monday.</p>
+    <div class="device-current-label" id="screentimeDeviceLabel"></div>
+    <div class="prep-card" id="screentimeContent"></div>
+    <div class="warning-box">Set yourself a reminder for Monday to restore the normal time limits, so things return to normal for school nights.</div>
+  </section>
+
+  <section id="activities">
+    <h2 class="plain-title">Activities so far</h2>
+    <p class="section-sub">
+      This is only a preview, not the finished list. More activities are still being added and this page will change closer to the event, so don't take it as final. If your Scout has something they'd like the group to try, there's a suggestion form on the countdown page mentioned in step one.
+    </p>
+    <div class="apps-grid" id="appsGrid"></div>
+    <div class="free-banner"><strong>You do not need to buy anything just to use this guide.</strong>Most activities are browser-based. Games such as Minecraft or Terraria are optional and should only be used if your Scout already has them or a leader has confirmed that activity. There is still plenty to do without buying a game.</div>
+  </section>
+
+  <section id="checklist">
+    <h2 class="plain-title">Everything else worth sorting out</h2>
+    <p class="section-sub">Small things that make the weekend run more smoothly. Tap one off as you go.</p>
+    <ul class="checklist" id="checklistList"></ul>
+  </section>
+
+  <section id="faq">
+    <h2 class="plain-title">If something's not working</h2>
+    <div id="faqList"></div>
+    <p class="section-sub" style="margin-top:18px;">Still stuck? A leader can look your Scout up by name or Participant ID and resend the account details, or help work through it with you.</p>
+  </section>
+
+  <section id="links">
+    <h2 class="plain-title">Every link in one place</h2>
+    <p class="section-sub">Everything mentioned above, gathered here so you don't have to go hunting back through the page.</p>
+    <div class="quicklinks">
+      <a class="quicklink" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">JOTA-JOTI Dashboard<span class="sub">The site itself, where the PIN is entered</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://docs.google.com/forms/d/e/1FAIpQLSeBhtFuVNzjqtAFOeluNfiA1hFPr1JXXfSx9xZcnivSV1fiUw/viewform?usp=header" target="_blank" rel="noopener">Expression of Interest form<span class="sub">Start here, closes Friday 9 October 2026</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=gXfc8yPc9ESBMN-xL3puQOEgpr2QQJxNtZk93bKXPUZUMzBBTzg3TlBSVEJMTzBFMUJWRjJUQTRUVy4u" target="_blank" rel="noopener">Activity Suggestions form<span class="sub">On the countdown page, for ideas from your Scout</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://support.apple.com/en-us/108806" target="_blank" rel="noopener">Apple: Screen Time for iPhone/iPad<span class="sub">Official steps and screenshots</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://support.google.com/families/answer/7087030?hl=en" target="_blank" rel="noopener">Google: Family Link website controls<span class="sub">Official steps and screenshots, covers Android and Chromebook</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://support.microsoft.com/en-us/family-safety/filter-websites-and-searches-using-microsoft-family-safety" target="_blank" rel="noopener">Microsoft: Family Safety web filters<span class="sub">Official steps and screenshots</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://family.microsoft.com" target="_blank" rel="noopener">family.microsoft.com<span class="sub">Sign in here to manage a child's Windows account</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://chat.jotajoti.info/home" target="_blank" rel="noopener">JOTA-JOTI Event Chat<span class="sub">Official event chat listed for the weekend</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://webchat.scoutlink.net/" target="_blank" rel="noopener">ScoutLink Webchat<span class="sub">Scout communication webchat</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://www.jotajoti.info/live" target="_blank" rel="noopener">JOTA-JOTI Live<span class="sub">Live event programme and information</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://www.jotajoti.info/challenges-valley" target="_blank" rel="noopener">Challenges Valley<span class="sub">Official challenge/activity area</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://minecraft.scoutlink.net/" target="_blank" rel="noopener">JOTA-JOTI Minecraft Hub<span class="sub">Minecraft connection information</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://scoutwired.org/minecraft/" target="_blank" rel="noopener">ScoutWired Minecraft<span class="sub">Optional ScoutWired Minecraft activity</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://scoutwired.org/terraria/" target="_blank" rel="noopener">ScoutWired Terraria<span class="sub">Optional activity information</span><span class="arrow">&#8594;</span></a>
+      <a class="quicklink" href="https://www.jotajoti.info/" target="_blank" rel="noopener">JOTA-JOTI Official Website<span class="sub">Official event website</span><span class="arrow">&#8594;</span></a>
+    </div>
+  </section>
+
+</div>
+
+<div class="quicklinks" style="max-width:650px; margin:0 auto 12px; padding:0 18px;">
+  <a class="quicklink" href="#main-nav">Back to top <span class="arrow">&#8593;</span></a>
+</div>
+
+<footer>
+  <p class="disclaim">Unofficial guide put together for Boulder Scout Group families ahead of JOTA-JOTI 2026. It isn't affiliated with Apple, Google, Microsoft, or the apps and websites listed above, and menu wording may vary slightly depending on your software version.</p>
+</footer>
+
+<div class="credit-pill">Boulder Scout Group · JOTA-JOTI 2026</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ======================================================================
+     PHOTO URLS — direct image URLs sourced from hi.txt.
+     Each device section uses one relevant screenshot for the install,
+     website-permission, and screen-time step.
+     ====================================================================== */
+  var PHOTO_URLS = {
+    "ios-install": ["https://static0.howtogeekimages.com/wordpress/wp-content/uploads/2025/09/img_0474.PNG", "https://help.apple.com/assets/69DD569682238CF8EC0621E2/69DD569982238CF8EC0621E9/en_AU/11381f8cae7f04b1c2e253e6b3b9ead5.png"],
+    "ios-allow": "https://help.apple.com/assets/69DD569682238CF8EC0621E2/69DD569982238CF8EC0621E9/en_AU/11381f8cae7f04b1c2e253e6b3b9ead5.png",
+    "ios-screentime": "https://help.apple.com/assets/69DD569682238CF8EC0621E2/69DD569982238CF8EC0621E9/en_AU/11381f8cae7f04b1c2e253e6b3b9ead5.png",
+    "android-install": ["https://static0.howtogeekimages.com/wordpress/wp-content/uploads/2025/09/screenshot_20250925-163904.png", "https://www.internetmatters.org/wp-content/uploads/2025/01/google-family-link-restrict-content-5-291x300.webp"],
+    "android-allow": "https://www.internetmatters.org/wp-content/uploads/2025/01/google-family-link-restrict-content-5-291x300.webp",
+    "android-screentime": "https://www.internetmatters.org/wp-content/uploads/2025/01/google-family-link-screen-time-usage-291x300.webp",
+    "windows-install": ["https://static0.howtogeekimages.com/wordpress/wp-content/uploads/2025/09/screenshot_20250925-163831.png", "https://static0.makeuseofimages.com/wordpress/wp-content/uploads/2023/02/content-filters.jpg"],
+    "windows-allow": "https://static0.makeuseofimages.com/wordpress/wp-content/uploads/2023/02/content-filters.jpg",
+    "windows-screentime": "https://static0.makeuseofimages.com/wordpress/wp-content/uploads/2023/02/edit-time-limit-windows.jpg",
+    "mac-install": "https://static0.howtogeekimages.com/wordpress/wp-content/uploads/2025/09/screenshot_20250925-163831.png",
+    "mac-allow": "https://help.apple.com/assets/69DD569682238CF8EC0621E2/69DD569982238CF8EC0621E9/en_AU/11381f8cae7f04b1c2e253e6b3b9ead5.png",
+    "mac-screentime": "https://help.apple.com/assets/69DD569682238CF8EC0621E2/69DD569982238CF8EC0621E9/en_AU/11381f8cae7f04b1c2e253e6b3b9ead5.png",
+    "chromebook-install": "https://static0.howtogeekimages.com/wordpress/wp-content/uploads/2025/09/screenshot_20250925-163904.png",
+    "chromebook-allow": "https://www.internetmatters.org/wp-content/uploads/2025/01/google-family-link-restrict-content-5-291x300.webp",
+    "chromebook-screentime": "https://www.internetmatters.org/wp-content/uploads/2025/01/google-family-link-screen-time-usage-291x300.webp"
+  };
+
+  var ICONS = {
+    ios:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><line x1="10.5" y1="19" x2="13.5" y2="19"/></svg>',
+    android:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2.5"/><line x1="9" y1="20" x2="9" y2="21.5"/><line x1="15" y1="20" x2="15" y2="21.5"/><line x1="9" y1="7" x2="15" y2="7"/></svg>',
+    windows:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="1.5"/><line x1="8" y1="20.5" x2="16" y2="20.5"/><line x1="12" y1="17" x2="12" y2="20.5"/></svg>',
+    mac:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="12" rx="1.5"/><path d="M8 20.5h8"/><path d="M12 16.5v4"/></svg>',
+    chromebook:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="11" rx="1.5"/><circle cx="12" cy="10.5" r="1.6"/><path d="M2 19.5h20l-1.4-2.5H3.4z"/></svg>'
+  };
+
+  var DEVICES = [
+    { id:"ios", label:"iPhone / iPad" },
+    { id:"android", label:"Android" },
+    { id:"windows", label:"Windows" },
+    { id:"mac", label:"Mac" },
+    { id:"chromebook", label:"Chromebook" }
+  ];
+
+  var EVENT_SITE = "https://scoutpegs.github.io/jota-joti-app/";
+
+  /* -------- install guide: iOS and Android must install, desktop doesn't -------- */
+  var INSTALL_GUIDES = {
+    ios: {
+      required:true,
+      steps:[
+        "Open Safari. This has to be Safari, not Chrome or Firefox.",
+        "Go to " + EVENT_SITE,
+        "Tap the <strong>Share</strong> button (the square with an arrow).",
+        "Tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.",
+        "Open JOTA-JOTI from the new icon on the Home Screen from now on."
+      ]
+    },
+    android: {
+      required:true,
+      steps:[
+        "Open Chrome (or Samsung Internet).",
+        "Go to " + EVENT_SITE,
+        "Tap the menu button (usually three dots).",
+        "Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.",
+        "Open JOTA-JOTI from the new icon on the Home Screen from now on."
+      ]
+    },
+    windows: {
+      required:false,
+      steps:[
+        "Open " + EVENT_SITE + " in any browser. It works straight away, nothing to install.",
+        "Want a shortcut? In Chrome or Edge, click the install icon in the address bar."
+      ]
+    },
+    mac: {
+      required:false,
+      steps:[
+        "Open " + EVENT_SITE + " in any browser. It works straight away, nothing to install.",
+        "Want a shortcut? Use the browser's menu to add it to the Dock."
+      ]
+    },
+    chromebook: {
+      required:false,
+      steps:[
+        "Open " + EVENT_SITE + " in Chrome. It works straight away, nothing to install.",
+        "Want a shortcut? Tap the menu, then <strong>Install app</strong>."
+      ]
+    }
+  };
+
+  var ALLOW_GUIDES = {
+    ios:{
+      steps:[
+        "Open <strong>Settings &gt; Screen Time</strong>.",
+        "Tap <strong>Content &amp; Privacy Restrictions</strong>, turn it on.",
+        "Tap <strong>App Store, Media, Web &amp; Games &gt; Web Content</strong>.",
+        "Tap <strong>Add Website</strong> and add the JOTA-JOTI link, plus any activity links your Scout will use."
+      ],
+      remote:"Managing from your own phone instead? Go to <strong>Settings &gt; your name &gt; Family Sharing</strong>, tap your child, then <strong>Screen Time</strong>.",
+      official:"https://support.apple.com/en-us/108806", officialLabel:"See Apple's own guide with pictures"
+    },
+    android:{
+      steps:[
+        "Open the <strong>Family Link</strong> app on your own phone.",
+        "Tap your child's name.",
+        "Tap <strong>Controls &gt; Google Chrome and Web</strong>.",
+        "Choose <strong>Allow all sites</strong>, or pick <strong>Only allow approved sites</strong> and add the event links there."
+      ],
+      remote:"No Family Link set up? Check <strong>Settings &gt; Digital Wellbeing</strong> on your child's own phone instead.",
+      official:"https://support.google.com/families/answer/7087030?hl=en", officialLabel:"See Google's own guide with pictures"
+    },
+    windows:{
+      steps:[
+        "Go to <a href=\"https://family.microsoft.com\" target=\"_blank\" rel=\"noopener\">family.microsoft.com</a> and sign in, or open the Family Safety app.",
+        "Select your family member, then <strong>Content filters</strong>.",
+        "Turn on <strong>Only use allowed websites</strong>.",
+        "Add the JOTA-JOTI link and event links to the allowed list."
+      ],
+      remote:"This only works in Microsoft Edge while signed in with your child's Microsoft account. Other browsers get blocked once filtering is on, you can unblock a browser under App and game filters if needed.",
+      official:"https://support.microsoft.com/en-us/family-safety/filter-websites-and-searches-using-microsoft-family-safety", officialLabel:"See Microsoft's own guide with pictures"
+    },
+    mac:{
+      steps:[
+        "Open <strong>System Settings &gt; Screen Time</strong>.",
+        "Turn on <strong>Content &amp; Privacy</strong>.",
+        "Go to <strong>Content Restrictions &gt; Web Content</strong>.",
+        "Add the event links under <strong>Always Allow</strong>."
+      ],
+      remote:"Managing it remotely? Go to <strong>System Settings &gt; Family</strong> on your own Mac or iPhone.",
+      official:"https://support.apple.com/en-us/108806", officialLabel:"See Apple's own guide with pictures"
+    },
+    chromebook:{
+      steps:[
+        "Open the <strong>Family Link</strong> app on your own phone.",
+        "Tap your child's name.",
+        "Tap <strong>Controls &gt; Google Chrome and Web</strong>.",
+        "Choose <strong>Allow all sites</strong>, or pick <strong>Only allow approved sites</strong> and add the event links there."
+      ],
+      remote:"Same Google account as an Android phone? This setting applies to both.",
+      official:"https://support.google.com/chromebook/answer/7680868?hl=en", officialLabel:"See Google's own guide with pictures"
+    }
+  };
+
+  var SCREENTIME_GUIDES = {
+    ios:{ steps:[
+      "Open <strong>Settings &gt; Screen Time</strong>.",
+      "Turn off <strong>Downtime</strong>.",
+      "Check <strong>App Limits</strong> and turn those off too."
+    ]},
+    android:{ steps:[
+      "Open <strong>Family Link</strong>, tap your child.",
+      "Tap <strong>Controls &gt; Screen time</strong>.",
+      "Turn off the daily limit, or add bonus time."
+    ]},
+    windows:{ steps:[
+      "Open <strong>Family Safety</strong> (app or family.microsoft.com).",
+      "Tap your child, then <strong>Screen time</strong>.",
+      "Turn off the schedule for Saturday and Sunday."
+    ]},
+    mac:{ steps:[
+      "Open <strong>Screen Time</strong> in System Settings.",
+      "Turn off <strong>Downtime</strong>.",
+      "Check <strong>App Limits</strong> and turn those off too."
+    ]},
+    chromebook:{ steps:[
+      "Open <strong>Family Link</strong>, tap your child.",
+      "Tap <strong>Controls &gt; Screen time</strong>.",
+      "Turn off the daily limit, or add bonus time."
+    ]}
+  };
+
+  var APPS = [
+    { name:"JOTA-JOTI Dashboard", tag:"Required", tagClass:"tag-required",
+      desc:"The group's main portal. Your Scout uses the 4-digit PIN from the account email to open their dashboard and approved activity links.",
+      need:"Everyone taking part should have the dashboard working before the weekend.", url:"https://scoutpegs.github.io/jota-joti-app/", label:"Open dashboard" },
+    { name:"JOTA-JOTI Event Chat", tag:"Event chat", tagClass:"tag-free",
+      desc:"The official JOTA-JOTI event chat listed for the weekend. It runs in a browser.",
+      need:"Access may depend on the event's account and the permissions shown in the portal.", url:"https://chat.jotajoti.info/home", label:"Open event chat" },
+    { name:"ScoutLink Webchat", tag:"Chat", tagClass:"tag-free",
+      desc:"A Scout communication webchat for talking with other Scouts and Guides online.",
+      need:"No separate desktop program is needed for the webchat.", url:"https://webchat.scoutlink.net/", label:"Open ScoutLink" },
+    { name:"JOTA-JOTI Live", tag:"Event", tagClass:"tag-free",
+      desc:"The official JOTA-JOTI live programme and event information.",
+      need:"Useful for checking what is happening during the event.", url:"https://www.jotajoti.info/live", label:"Open live page" },
+    { name:"Challenges Valley", tag:"Activities", tagClass:"tag-free",
+      desc:"The official JOTA-JOTI challenge/activity area.",
+      need:"Your Scout can use it when it appears in the event programme or dashboard.", url:"https://www.jotajoti.info/challenges-valley", label:"Open Challenges Valley" },
+    { name:"JOTA-JOTI Minecraft Hub", tag:"Minecraft", tagClass:"tag-free",
+      desc:"Minecraft information from ScoutLink, including connection instructions and server details.",
+      need:"Minecraft is optional. Do not buy anything just for this guide; ask a leader first if your Scout does not already have the game.", url:"https://minecraft.scoutlink.net/", label:"Open Minecraft hub" },
+    { name:"ScoutWired Minecraft", tag:"Minecraft", tagClass:"tag-free",
+      desc:"Another Scout/Guide Minecraft network listed in the project data.",
+      need:"Use only if this activity is included for your Scout; it is not a requirement for JOTA-JOTI.", url:"https://scoutwired.org/minecraft/", label:"Open Minecraft guide" },
+    { name:"ScoutWired Terraria", tag:"Optional game", tagClass:"tag-paid",
+      desc:"ScoutWired's Terraria activity information.",
+      need:"Optional only. Do not buy the game for this guide; use it only if the activity is confirmed by a leader.", url:"https://scoutwired.org/terraria/", label:"Open Terraria guide" },
+    { name:"JOTA-JOTI Official Website", tag:"Reference", tagClass:"tag-free",
+      desc:"Official JOTA-JOTI website and event information.",
+      need:"Use this for official event information and updates.", url:"https://www.jotajoti.info/", label:"Open official site" },
+    { name:"World Scouting JOTA-JOTI", tag:"Reference", tagClass:"tag-free",
+      desc:"World Scouting's JOTA-JOTI information page.",
+      need:"Useful background and official Scouting information.", url:"https://www.scout.org/jota-joti", label:"Open World Scouting" },
+    { name:"ScoutLink Help", tag:"Help", tagClass:"tag-free",
+      desc:"Help and FAQ information for ScoutLink webchat and related services.",
+      need:"Use this if a ScoutLink page or activity does not behave as expected.", url:"https://scoutlink.net/help/", label:"Open help" }
+  ];
+
+  var CHECKLIST = [
+    "Charge the device fully before the weekend, and know where the charger will be during the event",
+    "Have your App Store, Play Store, or Microsoft account password on hand in case a download needs approving",
+    "Make sure there's enough free storage if anything needs to be installed",
+    "If it's a school-issued device, check it isn't locked to a school profile that blocks personal use on weekends",
+    "Check whether your home Wi-Fi router has its own content filter, since it may need the same sites allowed separately",
+    "Grab headphones or a mic if any of the weekend's activities use voice chat",
+    "Save your leader's contact details somewhere handy in case of tech trouble on the day",
+    "Confirm the account email arrived and the PIN has actually been tested before the weekend, not on the morning of",
+    "If you have more than one Scout taking part, keep each child's PIN and login separate so they don't mix them up",
+    "Note Monday in your calendar as the day to turn screen time limits back on"
+  ];
+
+  var FAQ = [
+    { q:"The deadline has passed, what now?",
+      a:"Expressions of interest submitted after Friday 9 October 2026 can't be processed in time for this year's event. Get in touch with a leader directly if there are exceptional circumstances, but the safest option is always to submit well before the deadline." },
+    { q:"The account email hasn't arrived",
+      a:"Check spam or junk first and make sure the Expression of Interest was submitted using an email address you actually check. The account email is sent later after the form is processed, so it is not necessarily immediate. If it is still missing, ask a leader to resend it. They can look your Scout up by name or Participant ID." },
+    { q:"The PIN isn't working",
+      a:"Check for typos first, it's four digits, no letters. If it still doesn't work, a leader can confirm or reset it for you." },
+    { q:"On my phone it just keeps showing an install screen and won't go any further",
+      a:"On iPhone, iPad and Android this is expected: the site has to be added to the Home Screen before it opens properly, it won't work sitting in a browser tab. On iPhone specifically, make sure you're using Safari, not Chrome or Firefox, since only Safari can add it to the Home Screen." },
+    { q:"I changed the parental control settings but the site's still blocked",
+      a:"Some changes take a few minutes to apply, and occasionally need the device restarted or the browser closed and reopened. If it's still stuck, double check the exact web address was added correctly, not a shortened or misspelled version." },
+    { q:"Do we need to buy anything?",
+      a:"No. The dashboard and most linked activities run in a normal browser at no cost. The only possible exception is Minecraft, and only if the group runs a session and your Scout doesn't already own it." },
+    { q:"What do we do after the weekend?",
+      a:"Switch screen time limits back to normal, that's it. Any allowed websites can stay in place or be removed later, they won't cause problems sitting there unused." }
+  ];
+
+  /* ================= state and rendering ================= */
+  var currentDevice = null;
+  var detectedId = null;
+
+  function deviceLabel(id){ for (var i=0;i<DEVICES.length;i++){ if (DEVICES[i].id===id) return DEVICES[i].label; } return id; }
+
+  function safeUrl(url){ return String(url).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function shotSlot(name){
+    var urls = PHOTO_URLS[name];
+    if (!Array.isArray(urls)) urls = urls && String(urls).trim() ? [String(urls).trim()] : [];
+    if (!urls.length) urls = ['screenshots/' + name + '.jpg'];
+    var frames = urls.map(function(url, i){
+      var u = safeUrl(url);
+      return '<div class="shot-frame"><a class="shot-link" href="' + u + '" target="_blank" rel="noopener" title="Open photo full size">' +
+        '<img src="' + u + '" alt="' + deviceLabel(currentDevice || 'device') + ' guide screenshot ' + (i+1) + '" loading="lazy" ' +
+        'onerror="this.style.display=\'none\'; this.parentElement.parentElement.style.display=\'none\';">' +
+        '</a><div class="shot-caption">Tap the photo to open it full size</div></div>';
+    }).join('');
+    return '<div class="shot-slot"><div class="shot-scroll">' + frames +
+      '<div class="shot-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10.5" r="1.6"/><path d="M3 16l5-4 4 3 4-3 5 4"/></svg>' +
+      '<span>Photos could not be loaded. Use the official guide link below, or check the internet connection and try again.</span></div></div></div>';
+  }
+
+  function detectDevice(){
+    var ua = navigator.userAgent || "";
+    var platform = navigator.platform || "";
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isIOS) return "ios";
+    if (/CrOS/.test(ua)) return "chromebook";
+    if (/Android/.test(ua)) return "android";
+    if (/Macintosh/.test(ua)) return "mac";
+    if (/Windows/.test(ua)) return "windows";
+    return "ios";
+  }
+
+  function renderDeviceRow(){
+    var row = document.getElementById('deviceRow');
+    row.innerHTML = "";
+    DEVICES.forEach(function(d){
+      var btn = document.createElement('button');
+      btn.type = "button";
+      btn.className = "device-btn" + (d.id === currentDevice ? " active" : "");
+      btn.innerHTML = ICONS[d.id] + '<span>' + d.label + '</span>' + (d.id === detectedId ? '<span class="auto-tag">auto</span>' : '');
+      btn.addEventListener('click', function(){ setDevice(d.id); });
+      row.appendChild(btn);
+    });
+  }
+
+  function eventSiteLink(){
+    return '<a class="official-link" href="' + EVENT_SITE + '" target="_blank" rel="noopener">Open the JOTA-JOTI dashboard</a>';
+  }
+
+  function renderInstall(){
+    var g = INSTALL_GUIDES[currentDevice];
+    var html = g.required
+      ? '<div class="install-note"><strong>Heads up:</strong>&nbsp;on ' + deviceLabel(currentDevice) + ', this step is not optional. The site won\'t open properly until it\'s installed to the Home Screen.</div>'
+      : '<div class="install-note ok"><strong>Good news:</strong>&nbsp;on ' + deviceLabel(currentDevice) + ', nothing is forced. The site just opens and works normally in a browser tab.</div>';
+    html += '<ol class="steps">' + g.steps.map(function(s){ return '<li>' + s.replaceAll(EVENT_SITE, '<a href=\"' + EVENT_SITE + '\" target=\"_blank\" rel=\"noopener\">JOTA-JOTI dashboard</a>') + '</li>'; }).join('') + '</ol>';
+    html += shotSlot(currentDevice + '-install');
+    document.getElementById('installContent').innerHTML = html;
+    document.getElementById('installDeviceLabel').innerHTML = ICONS[currentDevice] + ' Showing steps for ' + deviceLabel(currentDevice);
+  }
+
+  function renderAllow(){
+    var g = ALLOW_GUIDES[currentDevice];
+    var html = '<ol class="steps">' + g.steps.map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol>';
+    html += '<div class="note-box"><strong>Note:</strong> ' + g.remote + '</div>';
+    html += shotSlot(currentDevice + '-allow');
+    if (g.official){
+      html += '<a class="official-link" href="' + g.official + '" target="_blank" rel="noopener">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5"/><path d="M19 5l-8 8"/><path d="M12 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/></svg>' +
+        g.officialLabel + '</a>';
+    }
+    document.getElementById('allowContent').innerHTML = html;
+    document.getElementById('allowDeviceLabel').innerHTML = ICONS[currentDevice] + ' Showing steps for ' + deviceLabel(currentDevice);
+  }
+
+  function renderScreentime(){
+    var g = SCREENTIME_GUIDES[currentDevice];
+    var html = '<ol class="steps">' + g.steps.map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol>';
+    html += shotSlot(currentDevice + '-screentime');
+    document.getElementById('screentimeContent').innerHTML = html;
+    document.getElementById('screentimeDeviceLabel').innerHTML = ICONS[currentDevice] + ' Showing steps for ' + deviceLabel(currentDevice);
+  }
+
+  function setDevice(id){
+    currentDevice = id;
+    renderDeviceRow();
+    renderInstall();
+    renderAllow();
+    renderScreentime();
+  }
+
+  function renderApps(){
+    document.getElementById('appsGrid').innerHTML = APPS.map(function(a){
+      return '<div class="app-card">' +
+        '<div class="app-top"><span class="app-name">' + a.name + '</span><span class="app-tag ' + a.tagClass + '">' + a.tag + '</span></div>' +
+        '<p class="app-desc">' + a.desc + '</p>' +
+        '<div class="app-need">' + a.need + '</div>' +
+        '<div class="app-actions">' + (a.url ? '<a class="app-link" href="' + a.url + '" target="_blank" rel="noopener">' + a.label + ' &#8599;</a>' : '') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderChecklist(){
+    var list = document.getElementById('checklistList');
+    list.innerHTML = CHECKLIST.map(function(item,i){ return '<li data-i="' + i + '"><span class="box"></span><span class="label">' + item + '</span></li>'; }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('li'), function(li){
+      li.addEventListener('click', function(){
+        li.classList.toggle('checked');
+        li.querySelector('.box').textContent = li.classList.contains('checked') ? '\u2713' : '';
+      });
+    });
+  }
+
+  function renderFaq(){
+    var wrap = document.getElementById('faqList');
+    wrap.innerHTML = FAQ.map(function(item){
+      return '<div class="faq-item"><button type="button" class="faq-q">' + item.q + '<span class="chev">&#9662;</span></button>' +
+        '<div class="faq-a"><div class="faq-a-inner">' + item.a + '</div></div></div>';
+    }).join('');
+    Array.prototype.forEach.call(wrap.querySelectorAll('.faq-item'), function(item){
+      var btn = item.querySelector('.faq-q');
+      var panel = item.querySelector('.faq-a');
+      btn.addEventListener('click', function(){
+        var isOpen = item.classList.contains('open');
+        Array.prototype.forEach.call(wrap.querySelectorAll('.faq-item'), function(other){
+          other.classList.remove('open');
+          other.querySelector('.faq-a').style.maxHeight = null;
+        });
+        if (!isOpen){ item.classList.add('open'); panel.style.maxHeight = panel.scrollHeight + 'px'; }
+      });
+    });
+  }
+
+  /* ---------- dates ---------- */
+  var EVENT_START = new Date(2026, 9, 16, 0, 0, 0); // 16 Oct 2026
+  var EOI_DEADLINE = new Date(2026, 9, 9, 23, 59, 59); // 9 Oct 2026
+
+  function pad(n){ return n < 10 ? "0" + n : "" + n; }
+
+  function tickCountdown(){
+    var now = new Date();
+    var diff = EVENT_START - now;
+    if (diff < 0) diff = 0;
+    var days = Math.floor(diff / 86400000);
+    var hours = Math.floor((diff % 86400000) / 3600000);
+    var mins = Math.floor((diff % 3600000) / 60000);
+    var secs = Math.floor((diff % 60000) / 1000);
+    document.getElementById('cd-days').textContent = pad(days);
+    document.getElementById('cd-hours').textContent = pad(hours);
+    document.getElementById('cd-mins').textContent = pad(mins);
+    document.getElementById('cd-secs').textContent = pad(secs);
+  }
+
+  function renderEoiChip(){
+    var now = new Date();
+    var msPerDay = 86400000;
+    var startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var diffDays = Math.ceil((EOI_DEADLINE - startOfToday) / msPerDay);
+    var chip = document.getElementById('eoiDaysChip');
+    if (diffDays > 1){ chip.textContent = diffDays + " days left to submit"; }
+    else if (diffDays === 1){ chip.textContent = "Last day to submit"; }
+    else if (diffDays === 0){ chip.textContent = "Closes today"; }
+    else { chip.textContent = "Expressions of interest are now closed"; chip.classList.add('closed'); }
+  }
+
+  detectedId = detectDevice();
+  currentDevice = detectedId;
+  renderDeviceRow();
+  renderInstall();
+  renderAllow();
+  renderScreentime();
+  renderApps();
+  renderChecklist();
+  renderFaq();
+  renderEoiChip();
+  tickCountdown();
+  setInterval(tickCountdown, 1000);
+
+})();
+</script>
+</body>
+</html>
