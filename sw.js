@@ -1,60 +1,188 @@
-// JOTA-JOTI Dashboard PWA service worker.
-const CACHE_NAME = 'jota-joti-shell-v6';
-const APP_SHELL = ['./index.html', './manifest.json', './photo1.png'];
+// JOTA-JOTI Dashboard PWA service worker
+
+const CACHE_NAME = 'jota-joti-shell-v7';
+
+const APP_SHELL = [
+  './index.html',
+  './index(1).html',
+  './admin.html',
+  './manifest.json',
+  './photo1.png'
+];
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(keys =>
+        Promise.all(
+          keys
+            .filter(key => key !== CACHE_NAME)
+            .map(key => caches.delete(key))
+        )
+      )
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', event => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
+  const request = event.request;
 
-  const url = new URL(req.url);
+  // Only handle normal GET requests.
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+
+  // Ignore requests going to another website.
   if (url.origin !== self.location.origin) return;
 
-  // Every navigation (whatever path or extra text is in the address bar)
-  // resolves to the real app shell, never to whatever incidental path was
-  // actually requested — EXCEPT for the two other real pages this site has,
-  // /skip and /admin, which must load their own separate HTML files rather
-  // than being redirected back to the countdown/dashboard page.
-  if (req.mode === 'navigate') {
-    const path = url.pathname.replace(/\/+$/, '');
-    const isOtherRealPage = /\/(skip|admin)(\.html)?$/.test(path);
-    if (isOtherRealPage) return;
+  /*
+   * ---------------------------------------------------------
+   * PAGE ROUTING
+   * ---------------------------------------------------------
+   *
+   * /setup
+   *       -> index(1).html
+   *
+   * /admin@5-6-4-3
+   *       -> admin.html
+   *
+   * Everything else
+   *       -> index.html
+   */
 
+  if (request.mode === 'navigate') {
+    const path = url.pathname
+      .replace(/\/+$/, '')
+      .toLowerCase();
+
+    // -----------------------------------------
+    // SETUP PAGE
+    // /setup
+    // -----------------------------------------
+    if (path === '/setup' || path.endsWith('/setup')) {
+      event.respondWith(
+        loadPage('./index(1).html')
+      );
+      return;
+    }
+
+    // -----------------------------------------
+    // HIDDEN ADMIN PAGE
+    // /admin@5-6-4-3
+    // -----------------------------------------
+    if (
+      path === '/admin@5-6-4-3' ||
+      path.endsWith('/admin@5-6-4-3')
+    ) {
+      event.respondWith(
+        loadPage('./admin.html')
+      );
+      return;
+    }
+
+    // -----------------------------------------
+    // BLOCK /admin
+    // -----------------------------------------
+    //
+    // Don't let normal /admin requests expose
+    // the admin page.
+    //
+    if (
+      path === '/admin' ||
+      path.endsWith('/admin') ||
+      path === '/admin.html' ||
+      path.endsWith('/admin.html')
+    ) {
+      event.respondWith(
+        Response.redirect(
+          new URL('./', self.location.origin).href,
+          302
+        )
+      );
+      return;
+    }
+
+    // -----------------------------------------
+    // EVERYTHING ELSE
+    // Main application
+    // -----------------------------------------
     event.respondWith(
-      fetch('./index.html')
-        .then(response => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put('./index.html', copy)).catch(() => {});
-          }
-          return response;
-        })
-        .catch(() => caches.match('./index.html'))
+      loadPage('./index.html')
     );
+
     return;
   }
 
-  const isAppShellFile = url.pathname.endsWith('/manifest.json')
-    || url.pathname.endsWith('/photo1.png')
-    || url.pathname.endsWith('/index.html');
-  if (!isAppShellFile) return;
+  /*
+   * ---------------------------------------------------------
+   * STATIC FILES
+   * ---------------------------------------------------------
+   */
 
-  event.respondWith(caches.match(req).then(cached => cached || fetch(req)));
+  const pathname = url.pathname.toLowerCase();
+
+  const isAppFile =
+    pathname.endsWith('/index.html') ||
+    pathname.endsWith('/index(1).html') ||
+    pathname.endsWith('/admin.html') ||
+    pathname.endsWith('/manifest.json') ||
+    pathname.endsWith('/photo1.png');
+
+  if (!isAppFile) return;
+
+  event.respondWith(
+    caches.match(request)
+      .then(cached => cached || fetch(request))
+  );
 });
+
+
+/*
+ * ---------------------------------------------------------
+ * PAGE LOADER
+ * ---------------------------------------------------------
+ *
+ * Tries the live file first so updates on GitHub Pages
+ * are picked up, then falls back to the cached version.
+ */
+async function loadPage(file) {
+  try {
+    const response = await fetch(file, {
+      cache: 'no-cache'
+    });
+
+    if (response && response.ok) {
+      const copy = response.clone();
+
+      caches.open(CACHE_NAME)
+        .then(cache => cache.put(file, copy))
+        .catch(() => {});
+
+      return response;
+    }
+  } catch (error) {
+    // Offline - use cache below.
+  }
+
+  const cached = await caches.match(file);
+
+  if (cached) {
+    return cached;
+  }
+
+  return caches.match('./index.html');
+}
