@@ -42,6 +42,12 @@ self.addEventListener('fetch', event => {
   if (request.mode === 'navigate') {
     const path = url.pathname.replace(/\/+$/, '').toLowerCase();
 
+// Skip route handler
+    if (path.endsWith('/skip') || path.endsWith('/skip.html')) {
+      event.respondWith(loadPage('./skip.html'));
+      return;
+    }
+    
     // Parent setup guide
     if (path.endsWith('/setup')) {
       event.respondWith(loadPage('./index(1).html'));
