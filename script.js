@@ -47,7 +47,88 @@
         }
 
         const SAVED_PIN_KEY = 'jotajoti_saved_pin';
+        const DASH_CACHE_KEY = 'jotajoti_dashboard_cache_v1';
+        const DASH_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
         let lastAttemptedPin = '';
+
+        /* ==========================================================
+           FAST START
+           ----------------------------------------------------------
+           Apps Script answers in about a second and a half on a good
+           connection, longer on phone data. Two things fix that:
+
+           1. Fire the sign in request the moment this file runs,
+              before the page has even finished setting itself up, so
+              it overlaps with everything else instead of waiting.
+           2. Keep the last dashboard in localStorage so the app can
+              paint straight away and quietly update itself once the
+              real answer lands.
+           ========================================================== */
+
+        let loginPrefetch = null;
+        let loginPrefetchPin = '';
+
+        (function warmUpConnection() {
+            try {
+                ['https://script.googleusercontent.com', 'https://script.google.com'].forEach(host => {
+                    const link = document.createElement('link');
+                    link.rel = 'preconnect';
+                    link.href = host;
+                    link.crossOrigin = 'anonymous';
+                    document.head.appendChild(link);
+                });
+            } catch (_) {}
+        })();
+
+        (function startLoginPrefetch() {
+            try {
+                const pin = localStorage.getItem(SAVED_PIN_KEY);
+                if (!pin || !/^\d{4}$/.test(pin)) return;
+                loginPrefetchPin = pin;
+                loginPrefetch = fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
+                    .then(r => r.json())
+                    .catch(() => null);
+            } catch (_) {}
+        })();
+
+        async function loginRequest(pin) {
+            if (loginPrefetch && loginPrefetchPin === pin) {
+                const pending = loginPrefetch;
+                loginPrefetch = null;
+                loginPrefetchPin = '';
+                const early = await pending;
+                if (early) return early;
+            }
+            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
+            return await response.json();
+        }
+
+        function saveDashboardCache(pin, data) {
+            if (!pin || pin === 'guest' || !data) return;
+            try {
+                localStorage.setItem(DASH_CACHE_KEY, JSON.stringify({ pin, data, savedAt: Date.now() }));
+            } catch (_) {}
+        }
+
+        function loadDashboardCache(pin) {
+            try {
+                const raw = localStorage.getItem(DASH_CACHE_KEY);
+                if (!raw) return null;
+                const saved = JSON.parse(raw);
+                if (!saved || saved.pin !== pin || !saved.data) return null;
+                if (saved.savedAt && Date.now() - Number(saved.savedAt) > DASH_CACHE_MAX_AGE_MS) return null;
+                const d = saved.data;
+                return {
+                    categories: Array.isArray(d.categories) ? d.categories : [],
+                    links: Array.isArray(d.links) ? d.links : [],
+                    logos: Array.isArray(d.logos) ? d.logos : []
+                };
+            } catch (_) { return null; }
+        }
+
+        function clearDashboardCache() {
+            try { localStorage.removeItem(DASH_CACHE_KEY); } catch (_) {}
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
             initializeCombinedPortal();
@@ -66,7 +147,9 @@
                 setDashboardView(restored ? 'categories' : 'login');
                 openDashboardMode({source:'startup', preserveView:true, animate:false});
                 if (restored) {
-                    showSessionRefreshLoader('Refreshing your dashboard…');
+                    // With a cached dashboard the screen is already correct, so
+                    // the update happens quietly instead of behind an overlay.
+                    if (!dashboardData) showSessionRefreshLoader('Refreshing your dashboard…');
                     refreshRememberedSession({keepOnFailure:true});
                 } else {
                     restoreSavedSessionForDashboard();
@@ -146,7 +229,8 @@
             document.getElementById('prelogin-note').style.display = 'block';
             document.getElementById('back-to-timer-button').style.display = 'block';
             document.getElementById('signup-button').style.display = 'block';
-            checkConnection();
+            // Kept off the critical path so it does not compete with sign in.
+            window.setTimeout(checkConnection, 1200);
             updateTopNavigation();
         }
 
@@ -284,6 +368,8 @@
                 if (!saved || saved.pin!==pin || !saved.user) return false;
                 if (saved.savedAt && Date.now()-Number(saved.savedAt)>AUTH_SESSION_MAX_AGE_MS) return false;
                 sessionUser=saved.user; rememberedSessionLoaded=true;
+                const cachedDashboard=loadDashboardCache(pin);
+                if (cachedDashboard) dashboardData=cachedDashboard;
                 document.getElementById('forget-btn').style.display='block';
                 updatePortalGreeting(); updateTopNavigation();
                 return true;
@@ -294,7 +380,7 @@
             try { localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({pin,user,savedAt:Date.now()})); } catch (_) {}
         }
 
-        function clearRememberedSession() { localStorage.removeItem(AUTH_SESSION_KEY); rememberedSessionLoaded=false; }
+        function clearRememberedSession() { localStorage.removeItem(AUTH_SESSION_KEY); clearDashboardCache(); rememberedSessionLoaded=false; }
 
         function restoreSavedSessionForTimer() {
             const savedPin=localStorage.getItem(SAVED_PIN_KEY);
@@ -316,8 +402,7 @@
             if (!pin || !/^\d{4}$/.test(pin)) return;
             backgroundRefreshInFlight=true;
             try {
-                const response=await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`,{cache:'no-store'});
-                const data=await response.json();
+                const data=await loginRequest(pin);
                 if (!data || !data.success || !data.user) {
                     clearRememberedSession(); localStorage.removeItem(SAVED_PIN_KEY);
                     sessionUser=null; dashboardData=null; setDashboardView('login'); updateTopNavigation();
@@ -327,6 +412,7 @@
                 sessionUser=data.user;
                 dashboardData={categories:Array.isArray(data.categories)?data.categories:[],links:Array.isArray(data.links)?data.links:[],logos:Array.isArray(data.logos)?data.logos:[]};
                 saveRememberedSession(pin,sessionUser);
+                saveDashboardCache(pin,dashboardData);
                 updatePortalGreeting(); updateTopNavigation();
                 if (isFinalDayOrLater()) {
                     if (dashboardView==='login') dashboardView='categories';
@@ -667,6 +753,8 @@
             localStorage.removeItem(SAVED_PIN_KEY);
             localStorage.removeItem('jotajoti_saved_user');
             clearRememberedSession();
+            loginPrefetch = null;
+            loginPrefetchPin = '';
             document.getElementById('forget-btn').style.display = 'none';
             resetLoginForm();
             sessionUser = null;
@@ -689,9 +777,7 @@
             loader.style.display='flex';
 
             try {
-                const url = `${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`;
-                const response = await fetch(url, { cache: 'no-store' });
-                const data = await response.json();
+                const data = await loginRequest(pin);
 
                 if (!data.success || !data.user) {
                     clearRememberedSession();
@@ -722,6 +808,7 @@
                 if (pin !== 'guest') {
                     localStorage.setItem(SAVED_PIN_KEY, pin);
                     saveRememberedSession(pin, sessionUser);
+                    saveDashboardCache(pin, dashboardData);
                 }
             } catch (error) {
                 resetLoginForm();

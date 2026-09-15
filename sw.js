@@ -1,5 +1,5 @@
 // JOTA-JOTI Dashboard PWA service worker
-const CACHE_NAME = 'jota-joti-shell-v8';
+const CACHE_NAME = 'jota-joti-shell-v9';
 
 const APP_SHELL = [
   './index.html',
@@ -7,13 +7,19 @@ const APP_SHELL = [
   './admin.html',
   './skip.html',
   './manifest.json',
-  './photo1.png'
+  './photo1.png',
+  './style.css',
+  './script.js',
+  './admin.css',
+  './admin.js'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_SHELL))
+      // One missing file used to abort addAll, which meant the whole service
+      // worker failed to install. Each file is now cached independently.
+      .then(cache => Promise.all(APP_SHELL.map(url => cache.add(url).catch(() => {}))))
       .then(() => self.skipWaiting())
   );
 });
@@ -78,13 +84,17 @@ self.addEventListener('fetch', event => {
     pathname.endsWith('/admin.html') ||
     pathname.endsWith('/skip.html') ||
     pathname.endsWith('/manifest.json') ||
-    pathname.endsWith('/photo1.png');
+    pathname.endsWith('/photo1.png') ||
+    pathname.endsWith('/style.css') ||
+    pathname.endsWith('/script.js') ||
+    pathname.endsWith('/admin.css') ||
+    pathname.endsWith('/admin.js');
 
   if (!isAppFile) return;
 
-  event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request))
-  );
+  // Network first so a fresh deploy always wins, with the cached copy as a
+  // fallback when the connection is slow or gone. Nothing ever goes stale.
+  event.respondWith(networkFirst(request));
 });
 
 async function loadPage(file) {
@@ -101,4 +111,19 @@ async function loadPage(file) {
   } catch (_) {}
 
   return (await caches.match(file)) || (await caches.match('./index.html'));
+}
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => {});
+    }
+    return response;
+  } catch (_) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    throw _;
+  }
 }
