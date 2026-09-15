@@ -1,4 +1,4 @@
-        const API_URL = "https://script.google.com/macros/s/AKfycbwa3R5odIbwsPRQHHSedx4mbwRrsAE3tWLcfZX1d4Nq_QNBBDozp2TFX1jfq1eSCLwP/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbxVuaODBuBIpa49j1Se_l9bNEC9RGHFK_H_4QSQ6Uo73ezriIDn4h_anjJCicYBXfJX/exec";
 
         /* ==========================================================
            COMBINED PORTAL CONFIGURATION

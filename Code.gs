@@ -28,10 +28,31 @@ const CONFIG = {
 
   // Current deployed Apps Script web-app URL. This is documentation only;
   // the GitHub admin page has its own copy in admin.js.
-  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec'
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbxVuaODBuBIpa49j1Se_l9bNEC9RGHFK_H_4QSQ6Uo73ezriIDn4h_anjJCicYBXfJX/exec'
 };
 
-const CACHE_TTL_SECONDS = 45;
+/* ------------------------------------------------------------
+   CACHING
+   ------------------------------------------------------------
+   The old value here was 45 seconds, which meant nearly every
+   visitor triggered a fresh read of the whole spreadsheet. The
+   cache is now cleared the instant anything is edited (see onEdit
+   at the bottom of this file), so it is safe to hold data far
+   longer.
+   ------------------------------------------------------------ */
+
+const CACHE_TTL_SECONDS = 21600;   // kept so older code paths still work
+const CACHE_TTL_PUBLIC  = 21600;   // 6 hours: Categories, Links, Logos, Blocked*
+const CACHE_TTL_USERS   = 600;     // 10 minutes: Users
+const USER_INDEX_KEY    = 'userindex_v2';
+
+/* One web request equals one Apps Script execution. These let a single
+   request open the spreadsheet once instead of five or six times, which
+   was the single biggest cause of slow page loads. */
+var SS_ = null;
+var SHEET_CACHE_ = {};
+var SHEET_DATA_MEMO_ = {};
+var USER_INDEX_MEMO_ = null;
 const CACHEABLE_SHEETS = [
   CONFIG.CATEGORIES_SHEET,
   CONFIG.LINKS_SHEET,
@@ -175,15 +196,8 @@ function handleRequest(e) {
     }
 
     if (action === 'login' || action === 'user') {
-      if (String(pin).trim().toLowerCase() === 'guest') {
-        return getUserDashboard('guest');
-      }
-
-      const result = loginUser(pin);
-      if (!result.success) {
-        return jsonResponse(result);
-      }
-
+      // getUserDashboard already checks the PIN, the Status column and guest
+      // mode, so calling loginUser first just did all the work twice.
       return getUserDashboard(pin);
     }
 
@@ -226,7 +240,6 @@ function handleRequest(e) {
         logos: '?action=logos',
         blocks: '?action=blocks',
         all: '?action=all',
-        adminPing: '?action=adminPing&callback=...',
         adminPing: '?action=adminPing',
         adminLogin: '?action=adminLogin&payload=...&callback=...',
         adminUsers: '?action=adminUsers&token=...&callback=...',
@@ -350,125 +363,114 @@ function showAdminPanel() {
    CACHING (keeps the dashboard fast for many people at once)
    ============================================================ */
 
+
 function getCachedSheetData(sheetName) {
-  const cache = CacheService.getScriptCache();
-  const metaKey = 'sheet_' + sheetName + '_meta';
-  const meta = cache.get(metaKey);
-
-  if (meta !== null) {
-    const chunkCount = parseInt(meta, 10) || 0;
-    const keys = [];
-    for (let i = 0; i < chunkCount; i++) keys.push('sheet_' + sheetName + '_' + i);
-    const chunks = cache.getAll(keys);
-    let json = '';
-    let complete = true;
-    for (let i = 0; i < chunkCount; i++) {
-      const part = chunks['sheet_' + sheetName + '_' + i];
-      if (part === undefined) { complete = false; break; }
-      json += part;
-    }
-    if (complete) {
-      try { return JSON.parse(json); } catch (e) { /* fall through to a fresh read */ }
-    }
-  }
-
-  const data = getSheetData(sheetName);
-  cacheSheetData(sheetName, data);
-  return data;
+  return getCachedSheets_([sheetName])[sheetName] || [];
 }
+
 
 function cacheSheetData(sheetName, data) {
   try {
-    const json = JSON.stringify(data);
-    const chunkSize = 90000;
-    const chunks = [];
-    for (let i = 0; i < json.length; i += chunkSize) chunks.push(json.slice(i, i + chunkSize));
-
     const payload = {};
-    payload['sheet_' + sheetName + '_meta'] = String(chunks.length);
-    chunks.forEach(function(chunk, i) { payload['sheet_' + sheetName + '_' + i] = chunk; });
-
-    CacheService.getScriptCache().putAll(payload, CACHE_TTL_SECONDS);
+    putChunked_(payload, 'sheet_' + sheetName, JSON.stringify(data));
+    CacheService.getScriptCache().putAll(
+      payload,
+      sheetName === CONFIG.USERS_SHEET ? CACHE_TTL_USERS : CACHE_TTL_PUBLIC
+    );
   } catch (err) {
-    // Caching is best-effort. A failure here should never break the API response.
+    // Caching is best-effort. A failure here should never break the response.
   }
 }
 
+
 function clearSheetCache() {
+  SHEET_DATA_MEMO_ = {};
+  USER_INDEX_MEMO_ = null;
+
+  // Was six lookups plus six deletes. Now one of each.
   const cache = CacheService.getScriptCache();
-  CACHEABLE_SHEETS.forEach(function(name) {
-    const meta = cache.get('sheet_' + name + '_meta');
-    if (meta === null) return;
-    const count = parseInt(meta, 10) || 0;
-    const keys = ['sheet_' + name + '_meta'];
-    for (let i = 0; i < count; i++) keys.push('sheet_' + name + '_' + i);
-    cache.removeAll(keys);
+  const bases = CACHEABLE_SHEETS.map(function(name) { return 'sheet_' + name; });
+  bases.push(USER_INDEX_KEY);
+
+  const metas = cache.getAll(bases.map(function(b) { return b + '_meta'; })) || {};
+  const keys = [];
+
+  bases.forEach(function(base) {
+    keys.push(base + '_meta');
+    const meta = metas[base + '_meta'];
+    const count = (meta === undefined || meta === null) ? 0 : (parseInt(meta, 10) || 0);
+    for (let i = 0; i < count; i++) keys.push(base + '_' + i);
   });
+
+  if (keys.length) cache.removeAll(keys);
 }
 
 /* ============================================================
    USER DASHBOARD & DATA RETRIEVAL
    ============================================================ */
 
+
 function getUserDashboard(pin) {
-  if (!pin) {
-    return jsonResponse({ success: false, error: 'PIN is required' });
+  const rawPin = String(pin || '').trim();
+  if (!rawPin) return jsonResponse({ success: false, error: 'PIN required' });
+
+  // Check the PIN before touching any sheet, so a wrong PIN comes back
+  // immediately instead of loading the whole dashboard first.
+  const isGuest = rawPin.toLowerCase() === 'guest';
+  let user;
+
+  if (isGuest) {
+    user = {
+      ParticipantID: '', PIN: 'guest', Name: 'Guest Scout', Username: 'GuestScout',
+      Email: '', Password: '', AllowedCategories: '*', Status: 'Active',
+      PaperworkStatus: 'Not Required'
+    };
+  } else {
+    user = getUserIndex_()[rawPin.toLowerCase()];
+
+    if (!user) return jsonResponse({ success: false, error: 'PIN not found' });
+
+    if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
+      return jsonResponse({ success: false, error: 'This account has been disabled.' });
+    }
   }
 
-  const categories = getCachedSheetData(CONFIG.CATEGORIES_SHEET);
-  const links = getCachedSheetData(CONFIG.LINKS_SHEET);
-  const logos = getCachedSheetData(CONFIG.LOGOS_SHEET);
-  const blockedCategories = getCachedSheetData(CONFIG.BLOCKED_CATEGORIES_SHEET);
+  // All four sheets in one cache round trip instead of eight.
+  const sheets = getCachedSheets_([
+    CONFIG.CATEGORIES_SHEET,
+    CONFIG.LINKS_SHEET,
+    CONFIG.LOGOS_SHEET,
+    CONFIG.BLOCKED_CATEGORIES_SHEET
+  ]);
 
-  let user;
+  const categories = sheets[CONFIG.CATEGORIES_SHEET] || [];
+  const links = sheets[CONFIG.LINKS_SHEET] || [];
+  const logos = sheets[CONFIG.LOGOS_SHEET] || [];
+  const blockedCategories = sheets[CONFIG.BLOCKED_CATEGORIES_SHEET] || [];
+
   let allowedCategories = [];
+  const rawCategories = String(user.AllowedCategories || '');
 
-  if (String(pin).trim().toLowerCase() === 'guest') {
-    user = {
-      PIN: 'guest', Name: 'Guest Scout', Username: 'GuestScout', Email: '',
-      ParentEmail: '', AllowedCategories: '*', Status: 'Active', PaperworkStatus: 'Not Required'
-    };
+  if (rawCategories.trim() === '*' || !rawCategories.trim()) {
     allowedCategories = categories
       .map(function(category) { return String(category.CategoryKey || '').trim().toLowerCase(); })
       .filter(function(key) { return key !== ''; });
   } else {
-    const users = getCachedSheetData(CONFIG.USERS_SHEET);
-
-    user = users.find(function(row) {
-      return String(row.PIN || '').trim().toLowerCase() === String(pin).trim().toLowerCase();
-    });
-
-    if (!user) {
-      return jsonResponse({ success: false, error: 'PIN not found' });
-    }
-
-    const status = String(user.Status || '').trim().toLowerCase();
-    if (status === 'disabled') {
-      return jsonResponse({ success: false, error: 'This account has been disabled.' });
-    }
-
-    const rawCategories = String(user.AllowedCategories || '');
-    if (rawCategories.trim() === '*' || !rawCategories.trim()) {
-      allowedCategories = categories.map(function(category) {
-        return String(category.CategoryKey || '').trim().toLowerCase();
-      });
-    } else {
-      allowedCategories = rawCategories.split(',').map(function(item) {
-        return String(item).trim().toLowerCase();
-      }).filter(function(item) { return item !== ''; });
-    }
+    allowedCategories = rawCategories.split(',').map(function(item) {
+      return String(item).trim().toLowerCase();
+    }).filter(function(item) { return item !== ''; });
   }
 
-  const blockedCategoryKeys = [];
+  const blocked = {};
   blockedCategories.forEach(function(row) {
-    if (parseBoolean(row.Active)) {
-      const key = String(row.CategoryKey || '').trim().toLowerCase();
-      if (key) blockedCategoryKeys.push(key);
-    }
+    if (!parseBoolean(row.Active)) return;
+    const key = String(row.CategoryKey || '').trim().toLowerCase();
+    if (key) blocked[key] = true;
   });
 
-  allowedCategories = allowedCategories.filter(function(key) {
-    return blockedCategoryKeys.indexOf(key) === -1;
+  const allowed = {};
+  allowedCategories.forEach(function(key) {
+    if (key && !blocked[key]) allowed[key] = true;
   });
 
   const logoMap = {};
@@ -477,50 +479,52 @@ function getUserDashboard(pin) {
     if (key) logoMap[key] = String(logo.LogoURL || '').trim();
   });
 
-  const filteredCategories = categories
-    .filter(function(category) {
-      const key = String(category.CategoryKey || '').trim().toLowerCase();
-      return allowedCategories.indexOf(key) !== -1;
-    })
-    .map(function(category) {
-      const logoKey = String(category.LogoKey || '').trim();
-      let logoURL = String(category.LogoURL || '').trim();
-      if (logoKey && logoMap[logoKey]) logoURL = logoMap[logoKey];
-      return {
-        CategoryKey: category.CategoryKey || '', Title: category.Title || '',
-        LogoKey: logoKey, LogoURL: logoURL, Description: category.Description || ''
-      };
+  const filteredCategories = [];
+  categories.forEach(function(category) {
+    const key = String(category.CategoryKey || '').trim().toLowerCase();
+    if (!allowed[key]) return;
+    const logoKey = String(category.LogoKey || '').trim();
+    filteredCategories.push({
+      CategoryKey: category.CategoryKey || '',
+      Title: category.Title || '',
+      LogoKey: logoKey,
+      LogoURL: (logoKey && logoMap[logoKey]) ? logoMap[logoKey] : String(category.LogoURL || '').trim(),
+      Description: category.Description || ''
     });
+  });
 
-  const filteredLinks = links
-    .filter(function(link) {
-      const categoryKey = String(link.CategoryKey || '').trim().toLowerCase();
-      return allowedCategories.indexOf(categoryKey) !== -1;
-    })
-    .map(function(link) {
-      const logoKey = String(link.LogoKey || '').trim();
-      let logoURL = String(link.LogoURL || '').trim();
-      if (logoKey && logoMap[logoKey]) logoURL = logoMap[logoKey];
-      return {
-        LinkID: link.LinkID || '', CategoryKey: link.CategoryKey || '', Title: link.Title || '',
-        URL: link.URL || '', CanEmbed: parseBoolean(link.CanEmbed),
-        RequiresLogin: parseAccessLevel(link.RequiresLogin),
-        RequiresEmail: parseAccessLevel(link.RequiresEmail),
-        ParentApproval: parseBoolean(link.ParentApproval), LeaderApproved: parseBoolean(link.LeaderApproved),
-        Moderated: parseBoolean(link.Moderated), Active: parseBoolean(link.Active),
-        LogoKey: logoKey, LogoURL: logoURL, BlockStatus: link.BlockStatus || '', Notes: link.Notes || ''
-      };
+  const filteredLinks = [];
+  links.forEach(function(link) {
+    const categoryKey = String(link.CategoryKey || '').trim().toLowerCase();
+    if (!allowed[categoryKey]) return;
+    const logoKey = String(link.LogoKey || '').trim();
+    filteredLinks.push({
+      LinkID: link.LinkID || '', CategoryKey: link.CategoryKey || '', Title: link.Title || '',
+      URL: link.URL || '', CanEmbed: parseBoolean(link.CanEmbed),
+      RequiresLogin: parseAccessLevel(link.RequiresLogin),
+      RequiresEmail: parseAccessLevel(link.RequiresEmail),
+      ParentApproval: parseBoolean(link.ParentApproval),
+      LeaderApproved: parseBoolean(link.LeaderApproved),
+      Moderated: parseBoolean(link.Moderated), Active: parseBoolean(link.Active),
+      LogoKey: logoKey,
+      LogoURL: (logoKey && logoMap[logoKey]) ? logoMap[logoKey] : String(link.LogoURL || '').trim(),
+      BlockStatus: link.BlockStatus || '', Notes: link.Notes || ''
     });
-
-  const safeUser = {
-    ParticipantID: user.ParticipantID || '', PIN: user.PIN || '', Name: user.Name || '',
-    Username: user.Username || '', Email: resolveUserEmail(user), Password: String(user.Password || ''),
-    AllowedCategories: user.AllowedCategories || '', Status: user.Status || '', PaperworkStatus: user.PaperworkStatus || ''
-  };
+  });
 
   return jsonResponse({
-    success: true, user: safeUser, categories: filteredCategories, links: filteredLinks,
-    logos: logos, unofficial: true, organiser: CONFIG.SCOUT_GROUP
+    success: true,
+    user: {
+      ParticipantID: user.ParticipantID || '', PIN: user.PIN || '', Name: user.Name || '',
+      Username: user.Username || '', Email: String(user.Email || '').trim(),
+      Password: String(user.Password || ''), AllowedCategories: user.AllowedCategories || '',
+      Status: user.Status || '', PaperworkStatus: user.PaperworkStatus || ''
+    },
+    categories: filteredCategories,
+    links: filteredLinks,
+    logos: logos,
+    unofficial: true,
+    organiser: CONFIG.SCOUT_GROUP
   });
 }
 
@@ -528,25 +532,25 @@ function getUserDashboard(pin) {
    LOGIN VERIFICATION
    ============================================================ */
 
+
 function loginUser(pin) {
-  if (!pin) return { success: false, error: 'PIN required' };
+  const rawPin = String(pin || '').trim();
+  if (!rawPin) return { success: false, error: 'PIN required' };
 
-  const users = getCachedSheetData(CONFIG.USERS_SHEET);
-  const user = users.find(function(row) {
-    return String(row.PIN || '').trim().toLowerCase() === String(pin).trim().toLowerCase();
-  });
-
+  const user = getUserIndex_()[rawPin.toLowerCase()];
   if (!user) return { success: false, error: 'PIN not found' };
 
-  const status = String(user.Status || '').trim().toLowerCase();
-  if (status === 'disabled') return { success: false, error: 'This account has been disabled.' };
+  if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
+    return { success: false, error: 'This account has been disabled.' };
+  }
 
   return {
     success: true,
     user: {
       ParticipantID: user.ParticipantID || '', PIN: user.PIN || '', Name: user.Name || '',
-      Username: user.Username || '', Email: resolveUserEmail(user),
-      AllowedCategories: user.AllowedCategories || '', Status: user.Status || '', PaperworkStatus: user.PaperworkStatus || ''
+      Username: user.Username || '', Email: String(user.Email || '').trim(),
+      AllowedCategories: user.AllowedCategories || '', Status: user.Status || '',
+      PaperworkStatus: user.PaperworkStatus || ''
     }
   };
 }
@@ -555,47 +559,62 @@ function loginUser(pin) {
    PUBLIC DATA & SHEET HELPERS
    ============================================================ */
 
+
 function getAllPublicData() {
+  const sheets = getCachedSheets_([
+    CONFIG.CATEGORIES_SHEET,
+    CONFIG.LINKS_SHEET,
+    CONFIG.LOGOS_SHEET,
+    CONFIG.BLOCKED_URLS_SHEET,
+    CONFIG.BLOCKED_CATEGORIES_SHEET
+  ]);
+
   return jsonResponse({
     success: true,
-    categories: getCachedSheetData(CONFIG.CATEGORIES_SHEET),
-    links: getCachedSheetData(CONFIG.LINKS_SHEET),
-    logos: getCachedSheetData(CONFIG.LOGOS_SHEET),
-    blockedURLs: getCachedSheetData(CONFIG.BLOCKED_URLS_SHEET),
-    blockedCategories: getCachedSheetData(CONFIG.BLOCKED_CATEGORIES_SHEET)
+    categories: sheets[CONFIG.CATEGORIES_SHEET] || [],
+    links: sheets[CONFIG.LINKS_SHEET] || [],
+    logos: sheets[CONFIG.LOGOS_SHEET] || [],
+    blockedURLs: sheets[CONFIG.BLOCKED_URLS_SHEET] || [],
+    blockedCategories: sheets[CONFIG.BLOCKED_CATEGORIES_SHEET] || []
   });
 }
 
+
 function getSpreadsheet_() {
-  const props = PropertiesService.getScriptProperties();
+  if (SS_) return SS_;
+
+  // The old version ran a Script Properties read AND a write on every call,
+  // and every getSheetData call triggered it. That was roughly ten extra
+  // service round trips per page load for no benefit.
   const configuredId = String(CONFIG.SPREADSHEET_ID || '').trim();
-  const savedId = String(props.getProperty('JOTA_JOTI_SPREADSHEET_ID') || '').trim();
-
-  // Prefer the explicitly configured live spreadsheet. This makes the web app
-  // independent of whichever spreadsheet (if any) the Apps Script project is
-  // bound to.
-  const candidateIds = [];
-  [savedId, configuredId].forEach(function(id) {
-    if (id && candidateIds.indexOf(id) === -1) candidateIds.push(id);
-  });
-
-  for (let i = 0; i < candidateIds.length; i++) {
+  if (configuredId) {
     try {
-      const spreadsheet = SpreadsheetApp.openById(candidateIds[i]);
-      props.setProperty('JOTA_JOTI_SPREADSHEET_ID', spreadsheet.getId());
-      return spreadsheet;
+      SS_ = SpreadsheetApp.openById(configuredId);
+      return SS_;
     } catch (err) {
-      // Try the next configured ID, then report a clear error below.
+      // fall through to the slower lookups below
     }
   }
 
-  // Last-resort fallback for first-time setup when this script is actually
-  // bound to the correct spreadsheet. Normal web-app requests should never
-  // need this path because CONFIG.SPREADSHEET_ID is now explicit.
+  const props = PropertiesService.getScriptProperties();
+  const savedId = String(props.getProperty('JOTA_JOTI_SPREADSHEET_ID') || '').trim();
+
+  if (savedId && savedId !== configuredId) {
+    try {
+      SS_ = SpreadsheetApp.openById(savedId);
+      return SS_;
+    } catch (err) {
+      // fall through
+    }
+  }
+
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) {
-    props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
-    return active;
+    SS_ = active;
+    if (savedId !== active.getId()) {
+      props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
+    }
+    return SS_;
   }
 
   throw new Error(
@@ -604,29 +623,35 @@ function getSpreadsheet_() {
   );
 }
 
+
 function getSheetData(sheetName) {
-  const spreadsheet = getSpreadsheet_();
-  let sheet = spreadsheet.getSheetByName(sheetName);
-
-  if (!sheet) {
-    const sheets = spreadsheet.getSheets();
-    sheet = sheets.find(s => s.getName().toLowerCase() === sheetName.toLowerCase());
+  if (Object.prototype.hasOwnProperty.call(SHEET_DATA_MEMO_, sheetName)) {
+    return SHEET_DATA_MEMO_[sheetName];
   }
-  if (!sheet) throw new Error('Sheet not found: ' + sheetName);
 
+  const sheet = getSheet_(sheetName);
   const values = sheet.getDataRange().getValues();
-  if (!values || values.length < 2) return [];
 
-  const headers = values[0].map(header => String(header).trim());
+  if (!values || values.length < 2) {
+    SHEET_DATA_MEMO_[sheetName] = [];
+    return SHEET_DATA_MEMO_[sheetName];
+  }
+
+  const headers = values[0].map(function(header) { return String(header).trim(); });
   const rows = [];
 
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
     const item = {};
-    for (let j = 0; j < headers.length; j++) item[headers[j]] = row[j];
-    const hasData = row.some(val => String(val).trim() !== '');
+    let hasData = false;
+    for (let j = 0; j < headers.length; j++) {
+      item[headers[j]] = row[j];
+      if (!hasData && String(row[j]).trim() !== '') hasData = true;
+    }
     if (hasData) rows.push(item);
   }
+
+  SHEET_DATA_MEMO_[sheetName] = rows;
   return rows;
 }
 
@@ -1213,17 +1238,27 @@ select{width:100%;padding:9px;border:1px solid #ccc;border-radius:6px;font-size:
 
 <script>
 let currentId=null, focusField='emailBody', allUsers=[], activeSuggestion=-1, selectedRecipients=[], recipActiveSuggestion=-1;
-let ageGroups=[], activities=[];
+let ageGroups=[], activities=[], lastUserLoad=0;
 
 function esc(v){const d=document.createElement('div');d.textContent=v==null?'':String(v);return d.innerHTML;}
 function msg(id,text,ok){const m=document.getElementById(id);m.textContent=text;m.className='msg '+(ok?'ok':'err');}
 function hideSuggestionsDelayed(){setTimeout(()=>document.getElementById('suggestions').style.display='none',150);}
 function hideRecipientSuggestionsDelayed2(){setTimeout(()=>document.getElementById('recipSuggestions').style.display='none',150);}
-function loadDirectory(){google.script.run.withSuccessHandler(function(list){allUsers=list||[];refreshPreview();}).withFailureHandler(e=>msg('msg',e.message||String(e),false)).adminListUsers();}
-function loadSelectors(){
-  google.script.run.withSuccessHandler(x=>{ageGroups=x||[];renderAgeGroups();}).withFailureHandler(e=>{ageGroups=[];renderSectionOptions([]);}).adminListAgeGroups();
-  google.script.run.withSuccessHandler(x=>{activities=x||[];renderActivityOptions(activities);}).withFailureHandler(e=>{activities=[];renderActivityOptions([]);}).adminListCategories();
+function loadEverything(){
+  lastUserLoad=Date.now();
+  google.script.run.withSuccessHandler(function(b){
+    allUsers=(b&&b.users)||[];
+    ageGroups=(b&&b.ageGroups)||[];
+    activities=(b&&b.categories)||[];
+    renderAgeGroups();
+    renderActivityOptions(activities);
+    refreshPreview();
+  }).withFailureHandler(function(e){
+    msg('msg',e.message||String(e),false);
+  }).adminBootstrap();
 }
+function loadDirectory(){loadEverything();}
+function loadSelectors(){}
 function renderAgeGroups(){
   document.getElementById('sectionSearch').value='';
   renderSectionOptions(ageGroups);
@@ -1254,18 +1289,7 @@ function onScopeChange(){
   }
   if(mode==='section'){
     document.getElementById('sectionWrap').classList.remove('hidden');
-    // Section choices are always refreshed from the Users sheet.
-    google.script.run
-      .withSuccessHandler(function(x){
-        ageGroups=x||[];
-        renderAgeGroups();
-      })
-      .withFailureHandler(function(e){
-        ageGroups=[];
-        renderSectionOptions([]);
-        msg('emailMsg',e.message||String(e),false);
-      })
-      .adminListAgeGroups();
+    renderAgeGroups();
   }
   if(mode==='activity'){
     document.getElementById('activityWrap').classList.remove('hidden');
@@ -1337,15 +1361,10 @@ function doResend(){if(!currentId)return;msg('msg','Sending account email…',tr
 function doCertificate(){if(!currentId)return;msg('msg','Sending certificate…',true);google.script.run.withSuccessHandler(()=>msg('msg','Completion certificate sent to the parent.',true)).withFailureHandler(onError).adminSendCertificate(currentId);}
 
 function openRecipientOptions(){
-  // Refresh from the live Users sheet every time the recipient picker is opened.
-  google.script.run
-    .withSuccessHandler(function(list){
-      allUsers=list||[];
-      renderRecipientOptions();
-      refreshPreview();
-    })
-    .withFailureHandler(function(e){ msg('emailMsg',e.message||String(e),false); })
-    .adminListUsers();
+  // Show instantly from what is already loaded, and only go back to the
+  // server if the list is more than a minute old.
+  renderRecipientOptions();
+  if(Date.now()-lastUserLoad>60000) loadEverything();
 }
 
 function renderRecipientOptions(){
@@ -1387,19 +1406,26 @@ function onRecipientKeydown(e){const box=document.getElementById('recipSuggestio
 function addRecipientByIndex(i){const box=document.getElementById('recipSuggestions'),u=box._matches&&box._matches[i];if(!u)return;selectedRecipients.push(u);document.getElementById('recipQuery').value='';box.style.display='none';renderRecipientChips();refreshPreview();}
 function removeRecipient(id){selectedRecipients=selectedRecipients.filter(r=>String(r.ParticipantID)!==String(id));renderRecipientChips();refreshPreview();}
 function renderRecipientChips(){
-  const html=selectedRecipients.map(r=>
-    '<span class="chip">'+
-      esc(r.Name||r.PIN||'Scout')+
-      '<button type="button" title="Remove" onclick="removeRecipient(\''+
-      String(r.ParticipantID).replace(/'/g,"\\'")+
-      '\')">×</button>'+
-    '</span>'
-  ).join('');
-
-  const recip=document.getElementById('recipChips');
-  const all=document.getElementById('allChips');
-  if(recip) recip.innerHTML=html;
-  if(all) all.innerHTML=html;
+  // Built with real DOM nodes instead of an onclick string. The old version
+  // put a quoted ID inside an inline onclick attribute inside a JS string
+  // inside a template literal, and the escaping collapsed on the way out,
+  // which broke this whole script block.
+  [document.getElementById('recipChips'),document.getElementById('allChips')].forEach(function(box){
+    if(!box) return;
+    box.innerHTML='';
+    selectedRecipients.forEach(function(r){
+      const chip=document.createElement('span');
+      chip.className='chip';
+      chip.appendChild(document.createTextNode(r.Name||r.PIN||'Scout'));
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.title='Remove';
+      btn.textContent='\\u00d7';
+      btn.addEventListener('click',function(){ removeRecipient(r.ParticipantID); });
+      chip.appendChild(btn);
+      box.appendChild(chip);
+    });
+  });
 }
 function selectedModeRecipients(){
   const mode=document.querySelector('input[name="targetType"]:checked').value;
@@ -1458,7 +1484,7 @@ function doPreview(){
       if(r.warnings&&r.warnings.length){
         lines.push('Warnings: '+r.warnings.join(' | '));
       }
-      document.getElementById('preview').textContent=lines.join('\n');
+      document.getElementById('preview').textContent=lines.join('\\n');
       msg('emailMsg','Recipient check complete. Nothing has been sent.',true);
     })
     .withFailureHandler(function(e){
@@ -1488,11 +1514,11 @@ function doSendEmail(){
       }
 
       const confirmText=
-        'SEND EMAIL\n\n'+
-        'Individual emails: '+pre.totalRecipients+'\n'+
-        'Users matched: '+pre.matchedUsers+'\n'+
-        'Missing emails: '+pre.missingEmails+'\n\n'+
-        'Each selected person will receive their own personalised email.\n\nContinue?';
+        'SEND EMAIL\\n\\n'+
+        'Individual emails: '+pre.totalRecipients+'\\n'+
+        'Users matched: '+pre.matchedUsers+'\\n'+
+        'Missing emails: '+pre.missingEmails+'\\n\\n'+
+        'Each selected person will receive their own personalised email.\\n\\nContinue?';
 
       if(!window.confirm(confirmText)) return;
 
@@ -1507,7 +1533,7 @@ function doSendEmail(){
             .withSuccessHandler(function(r){
               let t='Sent '+r.sent+' of '+r.total+' individual email(s).';
               if(r.failed&&r.failed.length){
-                t+='\nFailures: '+r.failed.join(' | ');
+                t+='\\nFailures: '+r.failed.join(' | ');
               }
               msg('emailMsg',t,!r.failed||r.failed.length===0);
             })
@@ -1529,7 +1555,7 @@ function clearComposer(){document.getElementById('emailSubject').value='';docume
 function doExportList(){msg('exportMsg','Building PDF…',true);google.script.run.withSuccessHandler(url=>{msg('exportMsg','PDF ready.',true);window.open(url,'_blank');}).withFailureHandler(e=>msg('exportMsg',e.message||String(e),false)).adminGenerateAccountListPdf();}
 function onError(e){msg('msg',e.message||String(e),false);}
 
-loadDirectory();loadSelectors();onScopeChange();renderRecipientChips();
+loadEverything();onScopeChange();renderRecipientChips();
 </script></body></html>`;
 }
 
@@ -2100,10 +2126,11 @@ function getEmailSenderSettings() {
   };
 }
 
+
 function pauseBetweenBulkSends() {
-  // Small pause for legitimate mailing-list style sends. This is not a spam-filter bypass;
-  // it simply avoids hammering the mail service with a tight loop.
-  Utilities.sleep(150);
+  // Was Utilities.sleep(150) per message. On a 120 message send that is
+  // 18 seconds of the 6 minute execution limit spent doing nothing.
+  // MailApp already paces itself.
 }
 
 function ensureEmailLogHeaders(sheet) {
@@ -2582,4 +2609,201 @@ function createBackupTrigger() {
   ScriptApp.newTrigger('scheduledBackup').timeBased().everyDays(1).atHour(3).create();
   Logger.log('Daily backup trigger created (runs around 3am).');
   return 'Daily backup trigger created (runs around 3am).';
+}
+
+
+/* ============================================================
+   SPEED HELPERS
+   ============================================================
+   Added as part of the performance work. Nothing above needs to
+   change to use these.
+   ============================================================ */
+
+function getSheet_(sheetName) {
+  if (SHEET_CACHE_[sheetName]) return SHEET_CACHE_[sheetName];
+
+  const spreadsheet = getSpreadsheet_();
+  let sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    const wanted = String(sheetName).toLowerCase();
+    sheet = spreadsheet.getSheets().find(function(s) {
+      return s.getName().toLowerCase() === wanted;
+    }) || null;
+  }
+  if (!sheet) throw new Error('Sheet not found: ' + sheetName);
+
+  SHEET_CACHE_[sheetName] = sheet;
+  return sheet;
+}
+
+function putChunked_(payload, key, text) {
+  const chunkSize = 90000;
+  const chunks = [];
+  for (let i = 0; i < text.length; i += chunkSize) {
+    chunks.push(text.slice(i, i + chunkSize));
+  }
+  payload[key + '_meta'] = String(chunks.length);
+  chunks.forEach(function(chunk, i) { payload[key + '_' + i] = chunk; });
+}
+
+function getChunkedMany_(keys) {
+  const out = {};
+  if (!keys || !keys.length) return out;
+
+  const cache = CacheService.getScriptCache();
+  const metas = cache.getAll(keys.map(function(k) { return k + '_meta'; })) || {};
+
+  const counts = {};
+  const chunkKeys = [];
+  keys.forEach(function(k) {
+    const meta = metas[k + '_meta'];
+    const count = (meta === undefined || meta === null) ? 0 : (parseInt(meta, 10) || 0);
+    counts[k] = count;
+    for (let i = 0; i < count; i++) chunkKeys.push(k + '_' + i);
+  });
+
+  const chunks = chunkKeys.length ? (cache.getAll(chunkKeys) || {}) : {};
+
+  keys.forEach(function(k) {
+    const count = counts[k];
+    if (!count) { out[k] = null; return; }
+    let text = '';
+    for (let i = 0; i < count; i++) {
+      const part = chunks[k + '_' + i];
+      if (part === undefined || part === null) { text = null; break; }
+      text += part;
+    }
+    out[k] = text;
+  });
+
+  return out;
+}
+
+function getCachedSheets_(sheetNames) {
+  const names = [];
+  (sheetNames || []).forEach(function(n) { if (names.indexOf(n) === -1) names.push(n); });
+
+  const out = {};
+  const wanted = [];
+  names.forEach(function(n) {
+    if (Object.prototype.hasOwnProperty.call(SHEET_DATA_MEMO_, n)) out[n] = SHEET_DATA_MEMO_[n];
+    else wanted.push(n);
+  });
+  if (!wanted.length) return out;
+
+  let texts = {};
+  try {
+    texts = getChunkedMany_(wanted.map(function(n) { return 'sheet_' + n; }));
+  } catch (err) {
+    texts = {};
+  }
+
+  const misses = [];
+  wanted.forEach(function(n) {
+    const text = texts['sheet_' + n];
+    if (!text) { misses.push(n); return; }
+    try {
+      const data = JSON.parse(text);
+      out[n] = data;
+      SHEET_DATA_MEMO_[n] = data;
+    } catch (err) {
+      misses.push(n);
+    }
+  });
+
+  if (misses.length) {
+    const publicPayload = {};
+    const usersPayload = {};
+
+    misses.forEach(function(n) {
+      const data = getSheetData(n);
+      out[n] = data;
+      try {
+        putChunked_(
+          n === CONFIG.USERS_SHEET ? usersPayload : publicPayload,
+          'sheet_' + n,
+          JSON.stringify(data)
+        );
+      } catch (err) {
+        // caching is best effort
+      }
+    });
+
+    try {
+      const cache = CacheService.getScriptCache();
+      if (Object.keys(publicPayload).length) cache.putAll(publicPayload, CACHE_TTL_PUBLIC);
+      if (Object.keys(usersPayload).length) cache.putAll(usersPayload, CACHE_TTL_USERS);
+    } catch (err) {
+      // ignore
+    }
+  }
+
+  return out;
+}
+
+function getUserIndex_() {
+  // A login only needs one row out of Users, but the old code cached and
+  // parsed every column of every row. This is a small PIN keyed lookup.
+  if (USER_INDEX_MEMO_) return USER_INDEX_MEMO_;
+
+  try {
+    const text = getChunkedMany_([USER_INDEX_KEY])[USER_INDEX_KEY];
+    if (text) {
+      USER_INDEX_MEMO_ = JSON.parse(text);
+      return USER_INDEX_MEMO_;
+    }
+  } catch (err) {
+    // rebuild below
+  }
+
+  const index = {};
+  getSheetData(CONFIG.USERS_SHEET).forEach(function(user) {
+    const key = String(user.PIN || '').trim().toLowerCase();
+    if (!key) return;
+    index[key] = {
+      ParticipantID: user.ParticipantID || '',
+      PIN: user.PIN || '',
+      Name: user.Name || '',
+      Username: user.Username || '',
+      Email: String(user.Email || '').trim(),
+      Password: String(user.Password || ''),
+      AllowedCategories: user.AllowedCategories || '',
+      Status: user.Status || '',
+      PaperworkStatus: user.PaperworkStatus || ''
+    };
+  });
+
+  try {
+    const payload = {};
+    putChunked_(payload, USER_INDEX_KEY, JSON.stringify(index));
+    CacheService.getScriptCache().putAll(payload, CACHE_TTL_USERS);
+  } catch (err) {
+    // ignore
+  }
+
+  USER_INDEX_MEMO_ = index;
+  return index;
+}
+
+function adminBootstrap() {
+  // Opening the admin panel used to fire three separate server calls, each
+  // opening the spreadsheet again and two of them reading all of Users.
+  return {
+    users: adminListUsers(),
+    ageGroups: adminListAgeGroups(),
+    categories: adminListCategories()
+  };
+}
+
+function onEdit(e) {
+  // This is what makes the long cache times safe. Edit any of the cached
+  // sheets by hand and the cache clears straight away, so the next page
+  // load sees the change immediately.
+  try {
+    const name = e && e.range ? e.range.getSheet().getName() : '';
+    if (name && CACHEABLE_SHEETS.indexOf(name) !== -1) clearSheetCache();
+  } catch (err) {
+    // never let this block an edit
+  }
 }
