@@ -1438,3 +1438,61 @@
         window.assertDashboardUiStable=assertDashboardUiStable;
 
         window.addEventListener('load', registerAppServiceWorker);
+
+        /* ==========================================================
+           JID World Tracker — corner launcher + slide-in overlay
+           Works no matter what screen the dashboard is currently on
+           (countdown, login, dashboard, embed, etc). Drag the mouse
+           into the top-right corner to open it, or tap the tab on
+           touch devices. Close with the X, the Escape key, or the
+           tab itself.
+           ========================================================== */
+        (function setupTrackerCorner() {
+            const TRACK_PAGE = './track.html';
+            const CORNER_ZONE = 32; // px from the top-right corner that opens it
+
+            const tab = document.getElementById('tracker-corner-tab');
+            const overlay = document.getElementById('tracker-overlay');
+            const closeBtn = document.getElementById('tracker-overlay-close');
+            const frame = document.getElementById('tracker-overlay-frame');
+            if (!tab || !overlay || !closeBtn || !frame) return;
+
+            let frameLoaded = false;
+
+            function openTracker() {
+                if (!frameLoaded) {
+                    frame.src = TRACK_PAGE;
+                    frameLoaded = true;
+                }
+                overlay.classList.add('is-open');
+                overlay.setAttribute('aria-hidden', 'false');
+                tab.classList.remove('is-armed');
+            }
+
+            function closeTracker() {
+                overlay.classList.remove('is-open');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
+
+            tab.addEventListener('click', openTracker);
+            closeBtn.addEventListener('click', closeTracker);
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
+                    closeTracker();
+                }
+            });
+
+            document.addEventListener('mousemove', (event) => {
+                if (overlay.classList.contains('is-open')) return;
+                const nearRight = event.clientX >= window.innerWidth - CORNER_ZONE;
+                const nearTop = event.clientY <= CORNER_ZONE;
+                const armed = nearRight && nearTop;
+                tab.classList.toggle('is-armed', armed);
+                if (armed) openTracker();
+            });
+
+            // Mouse can leave the window without a mousemove event firing
+            // again inside it, so make sure the tab doesn't stay "armed".
+            document.addEventListener('mouseleave', () => tab.classList.remove('is-armed'));
+        })();

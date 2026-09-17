@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JOTA-JOTI JID Global Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Satisfy&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050505; /* Deep dark background */
+            color: #f8fafc;
+            overflow: hidden; 
+            margin: 0;
+            padding: 0;
+            background-image: radial-gradient(circle at 50% 50%, #111827 0%, #000000 100%);
+        }
+
+        #map-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        .country-path {
+            stroke: #333333; 
+            stroke-width: 0.5px;
+            transition: fill 0.4s ease, stroke-width 0.2s ease;
+            cursor: pointer;
+        }
+
+        .country-path:hover {
+            stroke: #fbbf24; /* Amber */
+            stroke-width: 1.5px;
+        }
+
+        .glass-panel {
+            background: rgba(15, 15, 15, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+
+        /* Custom Scrollbar for modal lists */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Tooltip styling */
+        #tooltip {
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+    </style>
+</head>
+<body class="relative w-full h-screen">
+
+    <!-- Map Container -->
+    <div id="map-container"></div>
+
+    <!-- UI: Top Right Panel (Challenges) -->
+    <div class="absolute top-4 right-4 sm:top-8 sm:right-8 z-20">
+        <button id="btn-challenges" class="glass-panel px-5 py-2.5 rounded-full text-sm font-bold text-amber-400 hover:bg-white/10 transition-colors flex items-center gap-2 shadow-lg border border-amber-500/30">
+            <i class="fa-solid fa-trophy"></i> Mini Challenges
+        </button>
+    </div>
+
+    <!-- UI: Top Left Panel (Input) -->
+    <div class="absolute top-4 left-4 sm:top-8 sm:left-8 w-[calc(100%-2rem)] sm:w-[380px] glass-panel rounded-2xl p-6 z-10 flex flex-col gap-4">
+        <form id="jid-form" class="flex flex-col gap-3">
+            <label for="jid-input" class="text-sm font-medium text-zinc-300 flex justify-between items-center">
+                <span>Enter 6-Char JID Code:</span>
+            </label>
+            <div class="flex gap-2">
+                <input type="text" id="jid-input" maxlength="6" placeholder="e.g. 3AU42A" class="flex-1 bg-black/40 border border-white/10 text-white rounded-lg px-4 py-2 font-mono tracking-widest focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-600 transition-all">
+                <button type="submit" id="jid-submit-btn" class="bg-amber-600/80 hover:bg-amber-500 text-white px-5 py-2 rounded-lg font-medium transition-colors backdrop-blur-md border border-amber-400/50 shadow-lg">Add</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- UI: Bottom Right Panel (Stats) -->
+    <div class="absolute bottom-4 right-2 sm:bottom-6 sm:right-4 glass-panel rounded-2xl p-5 z-10 min-w-[280px]">
+        <h2 class="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4 border-b border-white/10 pb-2">Global Progress</h2>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col">
+                <span class="text-3xl font-bold text-teal-400" id="stat-jids">0</span>
+                <span class="text-xs text-zinc-400 mt-1">Total JIDs</span>
+            </div>
+            <div class="flex flex-col border-l border-white/10 pl-4">
+                <span class="text-3xl font-bold text-emerald-400" id="stat-countries">0</span>
+                <span class="text-xs text-zinc-400 mt-1">Countries</span>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
+            <div class="flex flex-col">
+                <span class="text-lg font-semibold text-amber-400/80" id="stat-remaining">195</span>
+                <span class="text-xs text-zinc-400">Countries Left</span>
+            </div>
+            <div class="flex gap-2">
+                <button id="btn-cert" class="text-xs text-teal-400 hover:text-teal-300 transition-colors bg-teal-950/30 px-3 py-1.5 rounded-md border border-teal-900/50 flex items-center gap-1" title="Download Certificate">
+                    <i class="fa-solid fa-award"></i> Cert
+                </button>
+                <button id="btn-clear" class="text-xs text-red-400/80 hover:text-red-300 transition-colors bg-red-950/30 px-3 py-1.5 rounded-md border border-red-900/50">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to dashboard (only shown when this page is opened on its own, not inside the app) -->
+    <a id="back-to-dashboard" href="./" class="hidden absolute bottom-4 left-2 sm:bottom-6 sm:left-4 glass-panel rounded-full px-4 py-2 z-10 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/10 transition-colors items-center gap-2">
+        <i class="fa-solid fa-arrow-left"></i> Dashboard
+    </a>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="absolute bg-[#111] text-white px-3 py-2 rounded-lg text-sm font-medium shadow-xl border border-white/10 opacity-0 z-20 pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-10px]">
+        <span id="tooltip-country" class="font-bold">Country</span>
+        <span id="tooltip-count" class="ml-2 bg-teal-600/50 px-2 py-0.5 rounded-full text-xs border border-teal-500/30">0</span>
+    </div>
+
+    <!-- JID List Modal -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div id="modal-content" class="bg-[#111] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md mx-4 transform scale-95 transition-transform duration-300 flex flex-col max-h-[80vh]">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-white/5 rounded-t-2xl">
+                <div>
+                    <h3 class="text-xl font-bold text-white" id="modal-title">Country Name</h3>
+                    <p class="text-sm text-teal-400 mt-1"><span id="modal-count">0</span> JIDs Collected</p>
+                </div>
+                <button id="modal-close" class="text-zinc-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-1 bg-black/20">
+                <ul id="modal-jid-list" class="space-y-2">
+                    <!-- JID items injected here -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gamification Bingo Modal -->
+    <div id="bingo-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div id="bingo-content" class="glass-panel border border-amber-500/50 rounded-3xl shadow-2xl p-8 max-w-md mx-4 text-center transform scale-90 transition-transform duration-300">
+            <div class="text-6xl mb-2 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 mb-2 uppercase tracking-widest">Challenge Complete!</h2>
+            <p class="text-base text-zinc-200 mb-4" id="bingo-reason">Achievement Unlocked description here.</p>
+            <div class="bg-black/40 border border-amber-400/30 rounded-xl p-4 mb-6">
+                <p class="text-lg font-medium text-white">Find <span class="text-amber-400 font-bold font-mono text-xl">Hunter</span> to claim your prize!</p>
+            </div>
+            <button id="bingo-close" class="px-8 py-3 rounded-full bg-amber-500/80 hover:bg-amber-400 text-white font-bold text-lg transition-transform hover:scale-105 shadow-lg w-full border border-amber-400">Awesome!</button>
+        </div>
+    </div>
+
+    <!-- Challenges List Modal -->
+    <div id="challenges-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55] hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div id="challenges-content" class="bg-[#111] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg mx-4 transform scale-95 transition-transform duration-300 flex flex-col max-h-[85vh]">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-white/5 rounded-t-2xl">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="fa-solid fa-trophy text-amber-400"></i> Mini Challenges</h3>
+                <button id="challenges-close" class="text-zinc-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-1 bg-black/20">
+                <div id="challenges-list" class="flex flex-col gap-3">
+                    <!-- Challenges injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cert Name Prompt Modal -->
+    <div id="cert-name-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="glass-panel border border-white/10 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <h3 class="text-lg font-bold text-white mb-2">Generate Certificate</h3>
+            <p class="text-sm text-zinc-400 mb-4">Enter your name as it should appear on the certificate.</p>
+            <input type="text" id="cert-name-input" placeholder="Your Name" class="w-full bg-black/40 border border-white/10 text-white rounded-lg px-4 py-2 mb-6 focus:outline-none focus:border-teal-500 text-center">
+            <div class="flex gap-3 justify-center">
+                <button id="cert-cancel" class="flex-1 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-medium transition-colors border border-white/10">Cancel</button>
+                <button id="cert-confirm" class="flex-1 px-4 py-2 rounded-lg bg-teal-600/80 hover:bg-teal-500 text-white font-medium transition-colors border border-teal-500/50 shadow-lg">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-4 right-4 sm:top-8 sm:right-8 z-[70] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="glass-panel border border-white/10 rounded-xl shadow-2xl p-6 max-w-sm mx-4 text-center">
+            <i class="fa-solid fa-triangle-exclamation text-4xl text-amber-500 mb-4"></i>
+            <h3 class="text-lg font-bold text-white mb-2">Clear all data?</h3>
+            <p class="text-sm text-zinc-400 mb-6">This action cannot be undone. All your collected JIDs will be wiped.</p>
+            <div class="flex gap-3 justify-center">
+                <button id="confirm-cancel" class="flex-1 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-medium transition-colors border border-white/10">Cancel</button>
+                <button id="confirm-yes" class="flex-1 px-4 py-2 rounded-lg bg-red-600/80 hover:bg-red-500 text-white font-medium transition-colors border border-red-500/50 shadow-lg">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WOSM Region mappings for Character 1
+        const wosmRegions = {
+            "1": "Africa",
+            "2": "Arab Region",
+            "3": "Asia-Pacific",
+            "4": "Eurasia",
+            "5": "Europe",
+            "6": "Interamerica",
+            "7": "Special Stations"
+        };
+
+        // Complete mapping of ISO 2-letter codes to correct WOSM region (1-6)
+        // Used to enforce "make sure the number works with the letter"
+        const countryRegionMap = {
+            // Region 1: Africa
+            "AO":1, "BJ":1, "BW":1, "BF":1, "BI":1, "CM":1, "CV":1, "CF":1, "TD":1, "KM":1, "CG":1, "CD":1, "CI":1, "DJ":1, "GQ":1, "ER":1, "SZ":1, "ET":1, "GA":1, "GM":1, "GH":1, "GN":1, "GW":1, "KE":1, "LS":1, "LR":1, "MG":1, "MW":1, "ML":1, "MR":1, "MU":1, "MZ":1, "NA":1, "NE":1, "NG":1, "RW":1, "ST":1, "SN":1, "SC":1, "SL":1, "SO":1, "ZA":1, "SS":1, "TG":1, "UG":1, "TZ":1, "ZM":1, "ZW":1,
+            // Region 2: Arab
+            "DZ":2, "BH":2, "EG":2, "IQ":2, "JO":2, "KW":2, "LB":2, "LY":2, "MA":2, "OM":2, "PS":2, "QA":2, "SA":2, "SY":2, "TN":2, "AE":2, "YE":2, "SD":2,
+            // Region 3: Asia-Pacific
+            "AF":3, "AU":3, "BD":3, "BT":3, "BN":3, "KH":3, "CN":3, "FJ":3, "IN":3, "ID":3, "JP":3, "KI":3, "KP":3, "KR":3, "LA":3, "MY":3, "MV":3, "MH":3, "FM":3, "MN":3, "MM":3, "NR":3, "NP":3, "NZ":3, "PK":3, "PW":3, "PG":3, "PH":3, "WS":3, "SG":3, "SB":3, "LK":3, "TW":3, "TJ":3, "TH":3, "TL":3, "TO":3, "TV":3, "VU":3, "VN":3,
+            // Region 4: Eurasia
+            "AM":4, "AZ":4, "BY":4, "GE":4, "KZ":4, "KG":4, "MD":4, "RU":4, "TM":4, "UA":4, "UZ":4,
+            // Region 5: Europe
+            "AL":5, "AD":5, "AT":5, "BE":5, "BA":5, "BG":5, "HR":5, "CY":5, "CZ":5, "DK":5, "EE":5, "FI":5, "FR":5, "DE":5, "GR":5, "HU":5, "IS":5, "IE":5, "IT":5, "LV":5, "LI":5, "LT":5, "LU":5, "MK":5, "MT":5, "MC":5, "ME":5, "NL":5, "NO":5, "PL":5, "PT":5, "RO":5, "SM":5, "RS":5, "SK":5, "SI":5, "ES":5, "SE":5, "CH":5, "TR":5, "GB":5, "VA":5, "UK":5,
+            // Region 6: Interamerica
+            "AG":6, "AR":6, "BS":6, "BB":6, "BZ":6, "BO":6, "BR":6, "CA":6, "CL":6, "CO":6, "CR":6, "CU":6, "DM":6, "DO":6, "EC":6, "SV":6, "GD":6, "GT":6, "GY":6, "HT":6, "HN":6, "JM":6, "MX":6, "NI":6, "PA":6, "PY":6, "PE":6, "KN":6, "LC":6, "VC":6, "SR":6, "TT":6, "US":6, "UY":6, "VE":6
+        };
+
+        // Map 2-letter ISO ccTLD to 3-letter ISO (used in D3 GeoJSON)
+        const iso2to3 = {
+            "AF":"AFG","AL":"ALB","DZ":"DZA","AS":"ASM","AD":"AND","AO":"AGO","AI":"AIA","AQ":"ATA","AG":"ATG","AR":"ARG","AM":"ARM","AW":"ABW","AU":"AUS","AT":"AUT","AZ":"AZE",
+            "BS":"BHS","BH":"BHR","BD":"BGD","BB":"BRB","BY":"BLR","BE":"BEL","BZ":"BLZ","BJ":"BEN","BM":"BMU","BT":"BTN","BO":"BOL","BA":"BIH","BW":"BWA","BV":"BVT","BR":"BRA",
+            "IO":"IOT","BN":"BRN","BG":"BGR","BF":"BFA","BI":"BDI","KH":"KHM","CM":"CMR","CA":"CAN","CV":"CPV","KY":"CYM","CF":"CAF","TD":"TCD","CL":"CHL","CN":"CHN","CX":"CXR",
+            "CC":"CCK","CO":"COL","KM":"COM","CG":"COG","CD":"COD","CK":"COK","CR":"CRI","CI":"CIV","HR":"HRV","CU":"CUB","CY":"CYP","CZ":"CZE","DK":"DNK","DJ":"DJI","DM":"DMA",
+            "DO":"DOM","EC":"ECU","EG":"EGY","SV":"SLV","GQ":"GNQ","ER":"ERI","EE":"EST","ET":"ETH","FK":"FLK","FO":"FRO","FJ":"FJI","FI":"FIN","FR":"FRA","GF":"GUF","PF":"PYF",
+            "TF":"ATF","GA":"GAB","GM":"GMB","GE":"GEO","DE":"DEU","GH":"GHA","GI":"GIB","GR":"GRC","GL":"GRL","GD":"GRD","GP":"GLP","GU":"GUM","GT":"GTM","GN":"GIN","GW":"GNB",
+            "GY":"GUY","HT":"HTI","HM":"HMD","VA":"VAT","HN":"HND","HK":"HKG","HU":"HUN","IS":"ISL","IN":"IND","ID":"IDN","IR":"IRN","IQ":"IRQ","IE":"IRL","IL":"ISR","IT":"ITA",
+            "JM":"JAM","JP":"JPN","JO":"JOR","KZ":"KAZ","KE":"KEN","KI":"KIR","KP":"PRK","KR":"KOR","KW":"KWT","KG":"KGZ","LA":"LAO","LV":"LVA","LB":"LBN","LS":"LSO","LR":"LBR",
+            "LY":"LBY","LI":"LIE","LT":"LTU","LU":"LUX","MO":"MAC","MK":"MKD","MG":"MDG","MW":"MWI","MY":"MYS","MV":"MDV","ML":"MLI","MT":"MLT","MH":"MHL","MQ":"MTQ","MR":"MRT",
+            "MU":"MUS","YT":"MYT","MX":"MEX","FM":"FSM","MD":"MDA","MC":"MCO","MN":"MNG","MS":"MSR","MA":"MAR","MZ":"MOZ","MM":"MMR","NA":"NAM","NR":"NRU","NP":"NPL","NL":"NLD",
+            "AN":"ANT","NC":"NCL","NZ":"NZL","NI":"NIC","NE":"NER","NG":"NGA","NU":"NIU","NF":"NFK","MP":"MNP","NO":"NOR","OM":"OMN","PK":"PAK","PW":"PLW","PS":"PSE","PA":"PAN",
+            "PG":"PNG","PY":"PRY","PE":"PER","PH":"PHL","PN":"PCN","PL":"POL","PT":"PRT","PR":"PRI","QA":"QAT","RE":"REU","RO":"ROU","RU":"RUS","RW":"RWA","SH":"SHN","KN":"KNA",
+            "LC":"LCA","PM":"SPM","VC":"VCT","WS":"WSM","SM":"SMR","ST":"STP","SA":"SAU","SN":"SEN","SC":"SYC","SL":"SLE","SG":"SGP","SK":"SVK","SI":"SVN","SB":"SLB","SO":"SOM",
+            "ZA":"ZAF","GS":"SGS","ES":"ESP","LK":"LKA","SD":"SDN","SR":"SUR","SJ":"SJM","SZ":"SWZ","SE":"SWE","CH":"CHE","SY":"SYR","TW":"TWN","TJ":"TJK","TZ":"TZA","TH":"THA",
+            "TL":"TLS","TG":"TGO","TK":"TKL","TO":"TON","TT":"TTO","TN":"TUN","TR":"TUR","TM":"TKM","TC":"TCA","TV":"TUV","UG":"UGA","UA":"UKR","AE":"ARE","GB":"GBR","US":"USA",
+            "UM":"UMI","UY":"URY","UZ":"UZB","VU":"VUT","VE":"VEN","VN":"VNM","VG":"VGB","VI":"VIR","WF":"WLF","EH":"ESH","YE":"YEM","ZM":"ZMB","ZW":"ZWE","UK":"GBR"
+        };
+
+        // Pre-compute Region to ISO3 mapping for 'Continent Conqueror' challenge
+        const regionToIso3 = {};
+        for (const [cc, region] of Object.entries(countryRegionMap)) {
+            const iso3 = iso2to3[cc];
+            if (iso3) {
+                if (!regionToIso3[region]) regionToIso3[region] = new Set();
+                regionToIso3[region].add(iso3);
+            }
+        }
+
+        // Re-balanced Harder Mini-Challenges to prevent easy spam rewards
+        const MINI_CHALLENGES = [
+            // Tier 1 - Entry Milestones
+            { id: 'first_blood', title: 'Global Scout', desc: 'Collect your first 5 JIDs.', icon: 'fa-globe-americas', check: (s) => s.totalJids >= 5 },
+            { id: 'tri_state', title: 'Tri-State Explorer', desc: 'Collect JIDs from 5 different countries.', icon: 'fa-map', check: (s) => s.totalCountries >= 5 },
+            { id: 'local_expert', title: 'Local Champion', desc: 'Collect 10 JIDs from a single country.', icon: 'fa-location-dot', check: (s) => s.maxJidsInCountry >= 10 },
+            { id: 'border_crosser', title: 'Cross-Continental', desc: 'Collect JIDs from 3 different WOSM regions.', icon: 'fa-plane', check: (s) => s.totalRegions >= 3 },
+            // Tier 2 - Medium Effort
+            { id: 'ten_jids', title: 'Dedicated Operator', desc: 'Collect 15 total JIDs.', icon: 'fa-certificate', check: (s) => s.totalJids >= 15 },
+            { id: 'three_in_row', title: 'Pattern Recognition', desc: 'Collect a JID with 3 sequential or repeating characters.', icon: 'fa-bolt', check: (s) => s.hasThreeInRow },
+            { id: 'lucky_seven', title: 'International Scout', desc: 'Collect JIDs from 10 different countries.', icon: 'fa-flag', check: (s) => s.totalCountries >= 10 },
+            { id: 'special_region_7', title: 'Special Agent', desc: 'Collect 3 Special Projects (Region 7) JIDs.', icon: 'fa-user-secret', check: (s) => s.region7Count >= 3 },
+            { id: 'half_dozen_regions', title: 'WOSM Networker', desc: 'Collect JIDs from 5 different WOSM regions.', icon: 'fa-compass', check: (s) => s.totalRegions >= 5 },
+            { id: 'twenty_five_jids', title: 'Quarter Century', desc: 'Collect 30 total JIDs.', icon: 'fa-coins', check: (s) => s.totalJids >= 30 },
+            // Tier 3 - Hard
+            { id: 'all_7_regions', title: 'Global Ambassador', desc: 'Collect at least one JID from all 7 WOSM regions.', icon: 'fa-earth-americas', check: (s) => s.totalRegions >= 7 },
+            { id: 'fifty_jids', title: 'Nifty Fifty', desc: 'Collect 60 total JIDs.', icon: 'fa-star', check: (s) => s.totalJids >= 60 },
+            { id: 'twenty_five_countries', title: 'Silver Jubilee', desc: 'Collect JIDs from 25 different countries.', icon: 'fa-medal', check: (s) => s.totalCountries >= 25 },
+            { id: 'continent_conqueror', title: 'Continent Conqueror', desc: 'Collect every country in at least one WOSM region.', icon: 'fa-map-location-dot', check: (s) => s.continentConquered },
+            { id: 'century_club', title: 'Century Club', desc: 'Collect 100 total JIDs.', icon: 'fa-crown', check: (s) => s.totalJids >= 100 },
+            // Tier 4 - Veteran Mastery
+            { id: 'fifty_countries', title: 'Halfway Hero', desc: 'Collect JIDs from 50 different countries.', icon: 'fa-globe', check: (s) => s.totalCountries >= 50 },
+            { id: 'master_of_one', title: 'Master of One', desc: 'Collect 30 JIDs from a single country.', icon: 'fa-monument', check: (s) => s.maxJidsInCountry >= 30 },
+            { id: 'obsessive_collector', title: 'JOTA Legend', desc: 'Collect 200 total JIDs.', icon: 'fa-gem', check: (s) => s.totalJids >= 200 },
+            { id: 'world_traveler', title: 'World Traveler', desc: 'Collect JIDs from 75 different countries.', icon: 'fa-plane-departure', check: (s) => s.totalCountries >= 75 },
+            { id: 'the_jota_god', title: 'JOTA-JOTI Deity', desc: 'Collect 350 total JIDs.', icon: 'fa-rocket', check: (s) => s.totalJids >= 350 }
+        ];
+
+        // Application State
+        let appState = {
+            jids: {}, 
+            achievements: {} 
+        };
+        const TOTAL_WORLD_COUNTRIES = 195;
+        let geoData = null;
+        let maxJidsInOneCountry = 1;
+
+        // Anti-Spam Rate Limiting variables
+        let lastSubmissionTime = 0;
+        const SUBMISSION_COOLDOWN_MS = 2500; // 2.5 second cooldown between submissions
+
+        function loadState() {
+            const saved = localStorage.getItem('jotaJotiState_v3');
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                    if (!appState.achievements) appState.achievements = {};
+                    for (const code in appState.jids) {
+                        if (appState.jids[code].length > maxJidsInOneCountry) {
+                            maxJidsInOneCountry = appState.jids[code].length;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to load state", e);
+                }
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem('jotaJotiState_v3', JSON.stringify(appState));
+        }
+
+        const svg = d3.select("#map-container")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%");
+
+        const g = svg.append("g");
+        const projection = d3.geoNaturalEarth1();
+        const path = d3.geoPath().projection(projection);
+
+        const zoom = d3.zoom()
+            .scaleExtent([1, 8])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        function resizeMap() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            svg.attr("width", width).attr("height", height);
+            projection.scale(width / 5.5).translate([width / 2, height / 1.8]);
+            if (geoData) {
+                g.selectAll("path").attr("d", path);
+            }
+        }
+        window.addEventListener('resize', resizeMap);
+
+        function getCountryColor(iso3Code) {
+            if (!iso3Code) return "transparent";
+            const count = appState.jids[iso3Code] ? appState.jids[iso3Code].length : 0;
+            if (count === 0) return "rgba(100, 100, 100, 0.6)"; // Brighter grey for uncollected countries
+            
+            const colorScale = d3.scaleLinear()
+                .domain([1, Math.max(5, maxJidsInOneCountry)])
+                .range(["#0f766e", "#2dd4bf"]); // Deep Teal to Bright Cyan
+
+            return colorScale(count);
+        }
+
+        d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(data => {
+            geoData = data;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            projection.scale(width / 5.5).translate([width / 2, height / 1.8]);
+
+            g.selectAll("path")
+                .data(data.features)
+                .enter().append("path")
+                .attr("class", "country-path")
+                .attr("d", path)
+                .attr("id", d => d.id || "unknown")
+                .attr("fill", d => getCountryColor(d.id))
+                .on("mouseover", handleMouseOver)
+                .on("mousemove", handleMouseMove)
+                .on("mouseout", handleMouseOut)
+                .on("click", handleCountryClick);
+
+            updateStats();
+        }).catch(err => {
+            console.error("Failed to load map data:", err);
+            showToast("Failed to load map data. Please check your connection.", "error");
+        });
+
+        const tooltip = document.getElementById("tooltip");
+        const tooltipCountry = document.getElementById("tooltip-country");
+        const tooltipCount = document.getElementById("tooltip-count");
+
+        function handleMouseOver(event, d) {
+            const count = (d.id && appState.jids[d.id]) ? appState.jids[d.id].length : 0;
+            tooltipCountry.textContent = d.properties.name || "Unknown Region";
+            tooltipCount.textContent = count;
+            tooltip.style.opacity = 1;
+        }
+
+        function handleMouseMove(event) {
+            tooltip.style.left = event.pageX + "px";
+            tooltip.style.top = event.pageY - 10 + "px";
+        }
+
+        function handleMouseOut() {
+            tooltip.style.opacity = 0;
+        }
+
+        function handleCountryClick(event, d) {
+            if (event.defaultPrevented) return;
+            if (!d.id) return;
+            const count = appState.jids[d.id] ? appState.jids[d.id].length : 0;
+            if (count > 0) {
+                openModal(d.properties.name || "Unknown Region", d.id);
+            } else {
+                showToast(`No JIDs collected for ${d.properties.name || "this region"} yet.`, 'info');
+            }
+        }
+
+        const jidRegex = /^[1-7][A-Z]{2}[0-9]{2}[A-Z]$/;
+
+        document.getElementById("jid-form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            
+            // Anti-Spam Throttle Guard
+            const now = Date.now();
+            if (now - lastSubmissionTime < SUBMISSION_COOLDOWN_MS) {
+                const waitSec = Math.ceil((SUBMISSION_COOLDOWN_MS - (now - lastSubmissionTime)) / 1000);
+                showToast(`Anti-Spam: Please wait ${waitSec}s before adding another code.`, "warning");
+                return;
+            }
+
+            const input = document.getElementById("jid-input");
+            const jidRaw = input.value.trim().toUpperCase();
+            
+            if (!jidRaw) return;
+
+            if (!jidRegex.test(jidRaw)) {
+                showToast("Invalid format! Enter a valid 6-char JID (e.g. 3AU42A).", "error");
+                return;
+            }
+
+            const regionChar = jidRaw[0];               
+            const countryCcTLD = jidRaw.substring(1, 3); 
+            const bingoNumber = jidRaw.substring(3, 5);  
+            const checkLetter = jidRaw[5];               
+
+            const expectedRegion = countryRegionMap[countryCcTLD];
+            if (expectedRegion && regionChar !== '7' && regionChar !== String(expectedRegion)) {
+                showToast(`Validation Failed: ${countryCcTLD} is in Region ${expectedRegion}. Special codes use Region 7.`, 'error');
+                return;
+            }
+
+            const iso3 = iso2to3[countryCcTLD];
+            if (!iso3) {
+                showToast(`Unrecognized country code '${countryCcTLD}'.`, 'error');
+                return;
+            }
+
+            // Update timestamp upon successful attempt
+            lastSubmissionTime = Date.now();
+
+            addJid(iso3, jidRaw, regionChar, countryCcTLD, bingoNumber, checkLetter);
+            input.value = "";
+        });
+
+        function addJid(iso3, jid, regionChar, countryCcTLD, bingoNumber, checkLetter) {
+            if (!geoData) {
+                showToast("Map data is still loading...", "warning");
+                return;
+            }
+
+            const feature = geoData.features.find(f => f.id === iso3);
+            const countryName = (feature && feature.properties) ? feature.properties.name : iso3;
+
+            if (!appState.jids[iso3]) {
+                appState.jids[iso3] = [];
+            }
+            
+            if (appState.jids[iso3].includes(jid)) {
+                showToast(`${jid} is already collected!`, 'warning');
+                return;
+            }
+
+            appState.jids[iso3].push(jid);
+            
+            if (appState.jids[iso3].length > maxJidsInOneCountry) {
+                maxJidsInOneCountry = appState.jids[iso3].length;
+            }
+
+            saveState();
+            updateMapColors();
+            updateStats();
+            
+            let message = `Added ${jid} (${countryName})!`;
+            if (countryCcTLD === "SM" || countryCcTLD === "VA" || countryCcTLD === "MC" || countryCcTLD === "LI" || countryCcTLD === "AD") {
+                 message = `Added ${jid}! (Note: ${countryCcTLD} groups visually with ${countryName})`;
+            }
+            
+            showToast(message, 'success');
+            checkPrizes(jid, regionChar, iso3);
+        }
+
+        function checkPrizes(jid, regionChar, iso3) {
+            let totalJidsCount = 0;
+            let totalCountriesCount = 0;
+            let collectedRegions = new Set();
+            let maxJidsInCountry = 0;
+            let region7Count = 0;
+            
+            for (const [code, jids] of Object.entries(appState.jids)) {
+                if(jids.length > 0) {
+                    totalJidsCount += jids.length;
+                    totalCountriesCount++;
+                    maxJidsInCountry = Math.max(maxJidsInCountry, jids.length);
+                    jids.forEach(j => {
+                        collectedRegions.add(j[0]);
+                        if (j[0] === '7') region7Count++;
+                    });
+                }
+            }
+
+            const hasThreeInRow = /(?:([A-Z])\1{2}|([0-9])\2{2}|ABC|BCD|CDE|DEF|EFG|FGH|GHI|HIJ|IJK|JKL|KLM|LMN|MNO|NOP|OPQ|PQR|QRS|RST|STU|TUV|UVW|VWX|WXY|XYZ|012|123|234|345|456|567|678|789)/i.test(jid);
+
+            let continentConquered = false;
+            for (let reg = 1; reg <= 6; reg++) {
+                if(regionToIso3[reg]) {
+                    let allInRegion = true;
+                    for (let requiredIso of regionToIso3[reg]) {
+                        if (!appState.jids[requiredIso] || appState.jids[requiredIso].length === 0) {
+                            allInRegion = false;
+                            break;
+                        }
+                    }
+                    if (allInRegion && regionToIso3[reg].size > 0) {
+                        continentConquered = true;
+                        break;
+                    }
+                }
+            }
+
+            const stats = {
+                totalJids: totalJidsCount,
+                totalCountries: totalCountriesCount,
+                totalRegions: collectedRegions.size,
+                maxJidsInCountry: maxJidsInCountry,
+                region7Count: region7Count,
+                hasThreeInRow: hasThreeInRow,
+                continentConquered: continentConquered
+            };
+
+            for (let challenge of MINI_CHALLENGES) {
+                if (!appState.achievements[challenge.id] && challenge.check(stats)) {
+                    appState.achievements[challenge.id] = true;
+                    saveState();
+                    showBingoModal(challenge.title, challenge.desc);
+                    break; // Display one at a time
+                }
+            }
+        }
+
+        const bingoOverlay = document.getElementById("bingo-overlay");
+        const bingoContent = document.getElementById("bingo-content");
+        const bingoClose = document.getElementById("bingo-close");
+
+        function showBingoModal(title, reasonText) {
+            document.getElementById("bingo-reason").innerHTML = `<strong class="text-amber-300 text-lg block mb-1">${title}</strong>${reasonText}`;
+            
+            bingoOverlay.classList.remove("hidden");
+            void bingoOverlay.offsetWidth;
+            bingoOverlay.classList.remove("opacity-0");
+            bingoContent.classList.remove("scale-90");
+
+            if (typeof confetti === 'function') {
+                const duration = 3000;
+                const end = Date.now() + duration;
+                (function frame() {
+                    confetti({ particleCount: 6, angle: 60, spread: 60, origin: { x: 0 }, colors: ['#fbbf24', '#f59e0b', '#2dd4bf', '#ffffff', '#0f766e'] });
+                    confetti({ particleCount: 6, angle: 120, spread: 60, origin: { x: 1 }, colors: ['#fbbf24', '#f59e0b', '#2dd4bf', '#ffffff', '#0f766e'] });
+                    if (Date.now() < end) requestAnimationFrame(frame);
+                }());
+            }
+        }
+
+        function closeBingoModal() {
+            bingoOverlay.classList.add("opacity-0");
+            bingoContent.classList.add("scale-90");
+            setTimeout(() => bingoOverlay.classList.add("hidden"), 300);
+        }
+        bingoClose.addEventListener("click", closeBingoModal);
+
+        // Challenges Modal
+        const btnChallenges = document.getElementById("btn-challenges");
+        const challengesOverlay = document.getElementById("challenges-overlay");
+        const challengesClose = document.getElementById("challenges-close");
+        const challengesList = document.getElementById("challenges-list");
+
+        function updateChallengesUI() {
+            challengesList.innerHTML = "";
+            MINI_CHALLENGES.forEach(challenge => {
+                const isUnlocked = appState.achievements[challenge.id];
+                const div = document.createElement("div");
+                div.className = `p-4 rounded-xl border flex items-center gap-4 transition-all ${isUnlocked ? 'bg-teal-900/20 border-teal-500/50' : 'bg-white/5 border-white/10 opacity-70'}`;
+                
+                div.innerHTML = `
+                    <div class="${isUnlocked ? 'bg-teal-500/20 text-teal-400' : 'bg-black/40 text-zinc-500'} w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-xl border ${isUnlocked ? 'border-teal-500/30' : 'border-white/5'}">
+                        <i class="fa-solid ${isUnlocked ? challenge.icon : 'fa-lock'}"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-bold ${isUnlocked ? 'text-teal-400' : 'text-zinc-300'}">${challenge.title}</h4>
+                        <p class="text-xs text-zinc-400 mt-0.5">${challenge.desc}</p>
+                    </div>
+                    <div class="shrink-0 text-xs font-bold px-3 py-1 rounded-full ${isUnlocked ? 'bg-teal-500 text-teal-950' : 'bg-zinc-800 text-zinc-500'}">
+                        ${isUnlocked ? 'COMPLETED' : 'LOCKED'}
+                    </div>
+                `;
+                challengesList.appendChild(div);
+            });
+        }
+
+        btnChallenges.addEventListener("click", () => {
+            updateChallengesUI();
+            challengesOverlay.classList.remove("hidden");
+            void challengesOverlay.offsetWidth;
+            challengesOverlay.classList.remove("opacity-0");
+            document.getElementById("challenges-content").classList.remove("scale-95");
+        });
+
+        function closeChallenges() {
+            challengesOverlay.classList.add("opacity-0");
+            document.getElementById("challenges-content").classList.add("scale-95");
+            setTimeout(() => challengesOverlay.classList.add("hidden"), 300);
+        }
+
+        challengesClose.addEventListener("click", closeChallenges);
+        challengesOverlay.addEventListener("click", (e) => {
+            if (e.target === challengesOverlay) closeChallenges();
+        });
+
+
+        function updateMapColors() {
+            g.selectAll("path")
+                .transition()
+                .duration(500)
+                .attr("fill", d => getCountryColor(d.id));
+        }
+
+        function updateStats() {
+            let totalJids = 0;
+            let totalCountries = 0;
+
+            for (const code in appState.jids) {
+                const count = appState.jids[code].length;
+                if (count > 0) {
+                    totalJids += count;
+                    totalCountries++;
+                }
+            }
+
+            document.getElementById("stat-jids").textContent = totalJids;
+            document.getElementById("stat-countries").textContent = totalCountries;
+            
+            const remaining = Math.max(0, TOTAL_WORLD_COUNTRIES - totalCountries);
+            document.getElementById("stat-remaining").textContent = remaining;
+        }
+
+        const modalOverlay = document.getElementById("modal-overlay");
+        const modalContent = document.getElementById("modal-content");
+        const modalClose = document.getElementById("modal-close");
+
+        function openModal(countryName, iso3) {
+            document.getElementById("modal-title").textContent = countryName;
+            
+            const list = document.getElementById("modal-jid-list");
+            list.innerHTML = "";
+            
+            const jids = appState.jids[iso3] || [];
+            document.getElementById("modal-count").textContent = jids.length;
+
+            jids.forEach((jid, index) => {
+                const regionNum = jid[0];
+                const regionName = wosmRegions[regionNum] || "Unknown Region";
+                const bingoNum = jid.substring(3, 5);
+
+                const li = document.createElement("li");
+                li.className = "bg-white/5 p-3 rounded-lg flex flex-col gap-1 border border-white/10 shadow-sm font-mono text-xs";
+                li.innerHTML = `
+                    <div class="flex justify-between items-center text-white font-bold text-sm tracking-wider">
+                        <span><span class="text-teal-400">#${index+1}</span> ${jid}</span>
+                        <span class="bg-teal-900/40 text-teal-300 px-2 py-0.5 rounded text-[10px] border border-teal-800/50">Bingo: ${bingoNum}</span>
+                    </div>
+                    <div class="text-zinc-400 text-[11px] font-sans">
+                        Region ${regionNum}: ${regionName}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+
+            modalOverlay.classList.remove("hidden");
+            void modalOverlay.offsetWidth;
+            modalOverlay.classList.remove("opacity-0");
+            modalContent.classList.remove("scale-95");
+        }
+
+        function closeModal() {
+            modalOverlay.classList.add("opacity-0");
+            modalContent.classList.add("scale-95");
+            setTimeout(() => modalOverlay.classList.add("hidden"), 300);
+        }
+
+        modalClose.addEventListener("click", closeModal);
+        modalOverlay.addEventListener("click", (e) => {
+            if(e.target === modalOverlay) closeModal();
+        });
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            
+            let bgClass = "bg-black/90 backdrop-blur-md";
+            let iconClass = "fa-circle-info text-blue-400";
+            
+            if (type === 'success') {
+                iconClass = "fa-check-circle text-teal-400";
+            } else if (type === 'error') {
+                iconClass = "fa-circle-xmark text-red-400";
+            } else if (type === 'warning') {
+                iconClass = "fa-triangle-exclamation text-amber-400";
+            }
+
+            toast.className = `flex items-center gap-3 ${bgClass} border border-white/10 shadow-xl rounded-xl p-4 transform transition-all duration-300 translate-x-full opacity-0 pointer-events-auto max-w-sm`;
+            toast.innerHTML = `
+                <i class="fa-solid ${iconClass} text-lg shrink-0"></i>
+                <span class="text-xs font-medium text-white">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove("translate-x-full", "opacity-0"));
+
+            setTimeout(() => {
+                toast.classList.add("translate-x-full", "opacity-0");
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        const btnClear = document.getElementById("btn-clear");
+        const confirmOverlay = document.getElementById("confirm-overlay");
+        const btnConfirmYes = document.getElementById("confirm-yes");
+        const btnConfirmCancel = document.getElementById("confirm-cancel");
+
+        btnClear.addEventListener("click", () => {
+            confirmOverlay.classList.remove("hidden");
+            void confirmOverlay.offsetWidth;
+            confirmOverlay.classList.remove("opacity-0");
+        });
+
+        function closeConfirmModal() {
+            confirmOverlay.classList.add("opacity-0");
+            setTimeout(() => confirmOverlay.classList.add("hidden"), 200);
+        }
+
+        btnConfirmCancel.addEventListener("click", closeConfirmModal);
+        confirmOverlay.addEventListener("click", (e) => {
+            if(e.target === confirmOverlay) closeConfirmModal();
+        });
+
+        btnConfirmYes.addEventListener("click", () => {
+            appState.jids = {};
+            appState.achievements = {};
+            maxJidsInOneCountry = 1;
+            saveState();
+            updateMapColors();
+            updateStats();
+            closeConfirmModal();
+            showToast("All data cleared successfully.", "success");
+        });
+
+        const btnCert = document.getElementById("btn-cert");
+        const certNameOverlay = document.getElementById("cert-name-overlay");
+        const btnCertCancel = document.getElementById("cert-cancel");
+        const btnCertConfirm = document.getElementById("cert-confirm");
+        const certNameInput = document.getElementById("cert-name-input");
+
+        // Try to work out who's using the tracker without asking them.
+        // If it's loaded inside the main JOTA-JOTI dashboard (same site), the
+        // dashboard already knows who logged in and keeps that in localStorage.
+        // Otherwise, fall back to whatever name was typed in here last time.
+        function getKnownUserName() {
+            try {
+                const raw = localStorage.getItem('jotajoti_auth_session_v3');
+                if (raw) {
+                    const saved = JSON.parse(raw);
+                    const name = saved && saved.user && saved.user.Name ? String(saved.user.Name).trim() : '';
+                    if (name) return name;
+                }
+            } catch (e) {}
+            try {
+                const last = localStorage.getItem('jotaJotiCertName');
+                if (last) return last.trim();
+            } catch (e) {}
+            return '';
+        }
+
+        btnCert.addEventListener("click", () => {
+            const totalCountries = Object.keys(appState.jids).filter(k => appState.jids[k].length > 0).length;
+            if (totalCountries === 0) {
+                showToast("You need to collect at least one country to get a certificate!", "warning");
+                return;
+            }
+            const knownName = getKnownUserName();
+            certNameInput.value = knownName;
+            certNameOverlay.classList.remove("hidden");
+            void certNameOverlay.offsetWidth;
+            certNameOverlay.classList.remove("opacity-0");
+            certNameInput.focus();
+            if (knownName) certNameInput.select();
+        });
+
+        function closeCertModal() {
+            certNameOverlay.classList.add("opacity-0");
+            setTimeout(() => certNameOverlay.classList.add("hidden"), 200);
+        }
+        
+        btnCertCancel.addEventListener("click", closeCertModal);
+
+        btnCertConfirm.addEventListener("click", () => {
+            const userName = certNameInput.value.trim() || "Scout";
+            try { localStorage.setItem('jotaJotiCertName', userName); } catch (e) {}
+            closeCertModal();
+            showToast("Preparing high-quality official certificate...", "info");
+            
+            // Allow UI to update the toast before heavy rendering
+            setTimeout(() => {
+                generateAndDownloadCertificate(userName);
+            }, 100);
+        });
+
+        async function generateAndDownloadCertificate(userName) {
+            try {
+                if (document.fonts) {
+                    await document.fonts.load('bold 70px "Inter"');
+                    await document.fonts.load('30px "Inter"');
+                }
+
+                // High-resolution landscape canvas (1754 x 1240)
+                const canvas = document.createElement('canvas');
+                canvas.width = 1754; 
+                canvas.height = 1240;
+                const ctx = canvas.getContext('2d');
+
+                // 1. Clean White Background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 2. Double Teal Frame (Matching reference image)
+                const margin = 50;
+                const innerMargin = margin + 18;
+                
+                // Outer Teal Border
+                ctx.strokeStyle = '#0d9488'; // Deep Teal
+                ctx.lineWidth = 12;
+                ctx.strokeRect(margin, margin, canvas.width - margin * 2, canvas.height - margin * 2);
+                
+                // Inner Thin Teal Border
+                ctx.strokeStyle = '#0d9488';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(innerMargin, innerMargin, canvas.width - innerMargin * 2, canvas.height - innerMargin * 2);
+
+                // 3. Soft Background Map Imprint (Not too bright, clean watermark)
+                if (geoData) {
+                    ctx.save();
+                    const certProjection = d3.geoNaturalEarth1()
+                        .fitExtent([[100, 200], [1654, 1050]], {type: "FeatureCollection", features: geoData.features});
+                    const certPath = d3.geoPath().projection(certProjection).context(ctx);
+
+                    geoData.features.forEach(feature => {
+                        ctx.beginPath();
+                        certPath(feature);
+                        const isCollected = appState.jids[feature.id] && appState.jids[feature.id].length > 0;
+                        if (isCollected) {
+                            ctx.fillStyle = 'rgba(13, 148, 136, 0.16)'; // Subtle soft teal highlight
+                            ctx.fill();
+                        } else {
+                            ctx.fillStyle = 'rgba(226, 232, 240, 0.45)'; // Soft light grey
+                            ctx.fill();
+                        }
+                    });
+                    ctx.restore();
+                }
+
+                // 4. Header Title
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                ctx.fillStyle = '#0f766e'; // Deep Teal Title
+                ctx.font = '800 68px "Inter", sans-serif';
+                ctx.fillText('CERTIFICATE OF ACHIEVEMENT', canvas.width / 2, 200);
+
+                // 5. Subtitle Above Name
+                ctx.fillStyle = '#64748b'; // Subtle Gray
+                ctx.font = '600 22px "Inter", sans-serif';
+                ctx.fillText('PROUDLY PRESENTED TO', canvas.width / 2, 310);
+
+                // 6. Recipient Name
+                ctx.fillStyle = '#0f172a'; // Bold Navy/Dark
+                ctx.font = '800 85px "Inter", sans-serif';
+                ctx.fillText(userName, canvas.width / 2, 410);
+
+                // Sleek Divider Line under Name
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2 - 320, 480);
+                ctx.lineTo(canvas.width / 2 + 320, 480);
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 7. Statement Text
+                ctx.fillStyle = '#334155';
+                ctx.font = '400 28px "Inter", sans-serif';
+                ctx.fillText('For successful participation in JOTA-JOTI and establishing global connections.', canvas.width / 2, 540);
+
+                // 8. Inspiring Quote
+                ctx.fillStyle = '#64748b';
+                ctx.font = 'italic 400 24px "Playfair Display", "Inter", serif';
+                ctx.fillText('"Connecting the world, one scout at a time."', canvas.width / 2, 600);
+
+                // 9. Stats Display (Center)
+                let totalJids = 0;
+                let collectedRegions = new Set();
+                for (const [code, jids] of Object.entries(appState.jids)) {
+                    if(jids.length > 0) {
+                        totalJids += jids.length;
+                        jids.forEach(j => collectedRegions.add(j[0]));
+                    }
+                }
+                const totalCountries = Object.keys(appState.jids).filter(k => appState.jids[k].length > 0).length;
+
+                const statsY = 760; // Moved down slightly to balance space
+                
+                // Left Stat: Countries
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#0f766e';
+                ctx.font = '800 52px "Inter", sans-serif';
+                ctx.fillText(`${totalCountries} Countries`, canvas.width / 2 - 40, statsY);
+
+                // Right Stat: Regions
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#0f766e';
+                ctx.font = '800 52px "Inter", sans-serif';
+                ctx.fillText(`${collectedRegions.size} WOSM Regions`, canvas.width / 2 + 40, statsY);
+
+                // Total Unique Codes Subtext
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#64748b';
+                ctx.font = '500 24px "Inter", sans-serif';
+                ctx.fillText(`Total Unique Codes: ${totalJids}`, canvas.width / 2, statsY + 80);
+
+                // 10. Official Center Seal / Badge
+                const badgeY = 1000;
+                const badgeX = canvas.width / 2;
+                
+                ctx.save();
+                ctx.translate(badgeX, badgeY);
+
+                // Draw Sunburst/Ribbon edge
+                ctx.fillStyle = '#d97706'; // Darker Gold border
+                ctx.beginPath();
+                const spikes = 36;
+                const outerRadius = 95;
+                const innerRadius = 82;
+                for (let i = 0; i < spikes * 2; i++) {
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const angle = (i * Math.PI) / spikes;
+                    ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                }
+                ctx.closePath();
+                ctx.fill();
+                
+                // Lighter Gold inner burst
+                ctx.fillStyle = '#fbbf24'; 
+                ctx.beginPath();
+                for (let i = 0; i < spikes * 2; i++) {
+                    const radius = i % 2 === 0 ? outerRadius - 4 : innerRadius - 4;
+                    const angle = (i * Math.PI) / spikes;
+                    ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                // Inner Teal Circle
+                ctx.beginPath();
+                ctx.arc(0, 0, 72, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f766e'; // Deep Teal
+                ctx.fill();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#fef3c7'; // Light warm white/gold
+                ctx.stroke();
+
+                // Inner detail circle
+                ctx.beginPath();
+                ctx.arc(0, 0, 60, 0, Math.PI * 2);
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+                ctx.setLineDash([]); // Reset line dash
+
+                // Badge Text
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                
+                ctx.font = '800 20px "Inter", sans-serif';
+                ctx.fillText('GLOBAL', 0, -14);
+                ctx.fillText('SCOUT', 0, 10);
+                
+                ctx.font = '500 11px "Inter", sans-serif';
+                ctx.fillStyle = '#fde68a'; // Light gold text
+                ctx.fillText('★ JOTA-JOTI ★', 0, 36);
+
+                ctx.restore();
+
+                // 11. Issue Date
+                const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '600 20px "Inter", sans-serif';
+                ctx.fillText(`Issued on ${today}`, canvas.width / 2, 1140);
+
+                // 12. Download
+                const dataUrl = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `JOTA-JOTI-Certificate-${userName.replace(/\s+/g, '-')}.png`;
+                link.href = dataUrl;
+                link.click();
+                
+                showToast("Certificate generated successfully!", "success");
+
+            } catch (err) {
+                console.error("Certificate Generation Error: ", err);
+                showToast("Error generating certificate.", "error");
+            }
+        }
+
+        loadState();
+
+        // Only show the "Dashboard" link when the tracker is opened on its own
+        // (visiting /track directly). When it's loaded inside the app's embed
+        // screen or the corner overlay, that shell already provides its own
+        // close/back control, so this stays hidden.
+        try {
+            if (window.self === window.top) {
+                const backLink = document.getElementById('back-to-dashboard');
+                if (backLink) {
+                    backLink.classList.remove('hidden');
+                    backLink.classList.add('flex');
+                }
+            }
+        } catch (e) {}
+    </script>
+</body>
+</html>

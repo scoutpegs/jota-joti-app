@@ -1,11 +1,12 @@
 // JOTA-JOTI Dashboard PWA service worker
-const CACHE_NAME = 'jota-joti-shell-v9';
+const CACHE_NAME = 'jota-joti-shell-v10';
 
 const APP_SHELL = [
   './index.html',
   './index(1).html',
   './admin.html',
   './skip.html',
+  './track.html',
   './manifest.json',
   './photo1.png',
   './style.css',
@@ -60,6 +61,12 @@ self.addEventListener('fetch', event => {
       return;
     }
 
+    // JID world tracker
+    if (path.endsWith('/track') || path.endsWith('/track.html')) {
+      event.respondWith(loadPage('./track.html'));
+      return;
+    }
+
     // Secret admin route
     if (path.endsWith('/admin@5-6-4-3')) {
       event.respondWith(loadPage('./admin.html'));
@@ -83,6 +90,7 @@ self.addEventListener('fetch', event => {
     pathname.endsWith('/index(1).html') ||
     pathname.endsWith('/admin.html') ||
     pathname.endsWith('/skip.html') ||
+    pathname.endsWith('/track.html') ||
     pathname.endsWith('/manifest.json') ||
     pathname.endsWith('/photo1.png') ||
     pathname.endsWith('/style.css') ||

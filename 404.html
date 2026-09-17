@@ -28,6 +28,9 @@ a{color:#5a2c84}
   if (path.endsWith('/setup')) {
     target = 'index(1).html';
     title.textContent = 'Opening setup guide…';
+  } else if (path.endsWith('/track')) {
+    target = 'track.html';
+    title.textContent = 'Opening JID tracker…';
   } else if (path.endsWith('/admin@5-6-4-3')) {
     target = 'admin.html';
     title.textContent = 'Opening admin…';
