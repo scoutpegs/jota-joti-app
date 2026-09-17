@@ -19,12 +19,9 @@ skip.html       A second, separate page. Visiting
 
 track.html      The JID World Tracker. Visiting
                 https://scoutpegs.github.io/jota-joti-app/track
-                opens it directly. It's also reachable from inside
-                the dashboard by dragging the mouse into the top-right
-                corner (or tapping the small tab that lives there) and
-                closed again with the X, and it can be added as a normal
-                Links-sheet entry (see below) so it opens in the
-                dashboard's embed screen too. It saves everything in the
+                opens it directly. It can also be added as a normal
+                Links-sheet entry (see README.md) so it opens in the
+                dashboard's embed screen. It saves everything in the
                 browser on its own, no backend calls.
 
 admin.html      The email tool. Visiting

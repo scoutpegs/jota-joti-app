@@ -31,11 +31,10 @@ The admin route is deliberately not documented in the public repository. Use the
 
 ## JID World Tracker
 
-`track.html` is a self-contained page (its own map, its own local storage, no backend calls) that scouts use to log the JIDs they collect during JOTA-JOTI and see them plotted on a world map. It can be reached three ways, and all three stay in sync because they share the same browser storage on the same site:
+`track.html` is a self-contained page (its own map, its own local storage, no backend calls) that scouts use to log the JIDs they collect during JOTA-JOTI and see them plotted on a world map. It can be reached two ways, and both stay in sync because they share the same browser storage on the same site:
 
 1. Directly at `/track`.
-2. From inside the dashboard, by dragging the mouse into the top-right corner (or tapping the small tab that sits there) — this slides the tracker in over whatever screen is currently showing, with an X to close it again.
-3. As a normal dashboard link. Add a row to the **Links** sheet, for example:
+2. As a normal dashboard link. Add a row to the **Links** sheet, for example:
 
    | LinkID | CategoryKey | Title | URL | CanEmbed |
    |---|---|---|---|---|
