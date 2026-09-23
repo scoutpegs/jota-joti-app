@@ -401,10 +401,52 @@
             transform: scale(0.98);
         }
 
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-2);
+            background-color: var(--color-primary-light);
+            color: var(--color-primary-base);
+            font-weight: 700;
+            font-size: var(--font-size-sm);
+            padding: var(--spacing-3) var(--spacing-5);
+            border-radius: var(--border-radius-md);
+            text-decoration: none;
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--color-primary-base);
+            cursor: pointer;
+            transition: background-color var(--transition-speed-fast) ease, transform 0.1s ease;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e9d9f2;
+            color: var(--color-primary-hover);
+            text-decoration: none;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+        }
+
         .btn-icon {
             width: 16px;
             height: 16px;
             fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: var(--spacing-3);
+        }
+
+        .btn-group.cols-2 {
+            grid-template-columns: repeat(2, 1fr);
         }
 
         /* ==========================================================================
@@ -510,12 +552,152 @@
         }
 
         /* ==========================================================================
+           QUICK-LINK CHIPS (for app links inside instructions)
+           ========================================================================== */
+        .quick-link-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-2);
+            background-color: var(--color-primary-light);
+            color: var(--color-primary-base);
+            font-weight: 700;
+            font-size: var(--font-size-xs);
+            padding: var(--spacing-2) var(--spacing-3);
+            border-radius: var(--border-radius-full);
+            margin-top: var(--spacing-2);
+            margin-right: var(--spacing-2);
+            text-decoration: none;
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--color-primary-base);
+        }
+
+        .quick-link-chip:hover {
+            background-color: #e9d9f2;
+            text-decoration: none;
+        }
+
+        .quick-link-chip svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        /* ==========================================================================
+           APP LINK CARDS (Quick Access section)
+           ========================================================================== */
+        .app-link-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: var(--spacing-3);
+        }
+
+        .app-link-card {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-4);
+            padding: var(--spacing-4);
+            background-color: var(--color-neutral-bg);
+            border-radius: var(--border-radius-md);
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--color-neutral-border);
+            text-decoration: none;
+            transition: all var(--transition-speed-fast) ease;
+        }
+
+        .app-link-card:hover {
+            background-color: var(--color-primary-light);
+            border-color: var(--color-primary-base);
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        .app-link-icon-wrap {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--border-radius-md);
+            background-color: var(--color-primary-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .app-link-icon-wrap svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--color-neutral-card);
+        }
+
+        .app-link-text {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .app-link-title {
+            font-size: var(--font-size-sm);
+            font-weight: 700;
+            color: var(--color-neutral-text-main);
+            margin-bottom: 2px;
+        }
+
+        .app-link-desc {
+            font-size: var(--font-size-xs);
+            color: var(--color-neutral-text-muted);
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .app-link-arrow {
+            width: 18px;
+            height: 18px;
+            fill: var(--color-neutral-text-muted);
+            flex-shrink: 0;
+        }
+
+        .store-badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-2);
+            margin-top: var(--spacing-3);
+        }
+
+        .store-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-2);
+            background-color: var(--color-neutral-text-main);
+            color: var(--color-neutral-card);
+            font-size: var(--font-size-xs);
+            font-weight: 700;
+            padding: var(--spacing-2) var(--spacing-4);
+            border-radius: var(--border-radius-sm);
+            text-decoration: none;
+        }
+
+        .store-badge:hover {
+            background-color: #334155;
+            color: var(--color-neutral-card);
+            text-decoration: none;
+        }
+
+        .store-badge svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        /* ==========================================================================
            DEVICE SELECTOR TABS
            ========================================================================== */
         .device-tabs-container {
             display: flex;
             gap: var(--spacing-2);
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
             padding-bottom: var(--spacing-3);
             margin-bottom: var(--spacing-4);
             scrollbar-width: thin;
@@ -548,6 +730,7 @@
             color: var(--color-neutral-text-muted);
             cursor: pointer;
             white-space: nowrap;
+            flex-shrink: 0;
             transition: all var(--transition-speed-fast) ease;
         }
 
@@ -566,6 +749,7 @@
             width: 16px;
             height: 16px;
             fill: currentColor;
+            flex-shrink: 0;
         }
 
         .device-content-area {
@@ -584,6 +768,7 @@
             background-color: var(--color-neutral-code-bg);
             color: var(--color-neutral-code-text);
             padding: var(--spacing-4);
+            padding-right: 5.5rem;
             border-radius: var(--border-radius-md);
             font-family: 'Courier New', Courier, monospace;
             font-size: var(--font-size-sm);
@@ -593,6 +778,7 @@
             word-break: break-all;
             line-height: 1.8;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            overflow-x: auto;
         }
 
         .copy-action-btn {
@@ -795,6 +981,8 @@
             display: flex;
             align-items: center;
             gap: var(--spacing-2);
+            max-width: calc(100vw - 2 * var(--spacing-4));
+            text-align: center;
         }
 
         .toast-container.is-visible {
@@ -818,8 +1006,52 @@
         }
 
         /* ==========================================================================
+           RESPONSIVE / FLUID TYPE
+           ========================================================================== */
+        .hero-title {
+            font-size: clamp(1.5rem, 5vw, 1.875rem);
+        }
+
+        .countdown-number {
+            font-size: clamp(1.1rem, 5vw, 1.5rem);
+        }
+
+        /* ==========================================================================
            MEDIA QUERIES
            ========================================================================== */
+
+        /* Small phones */
+        @media (max-width: 420px) {
+            .main-container {
+                padding-left: var(--spacing-3);
+                padding-right: var(--spacing-3);
+            }
+            .card {
+                padding: var(--spacing-4);
+            }
+            .countdown-wrapper {
+                gap: var(--spacing-1);
+                padding: var(--spacing-3);
+            }
+            .countdown-label {
+                font-size: 0.55rem;
+            }
+            .step-number-badge {
+                width: 30px;
+                height: 30px;
+                font-size: var(--font-size-sm);
+            }
+            .app-link-icon-wrap {
+                width: 38px;
+                height: 38px;
+            }
+            .app-link-icon-wrap svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        /* Phones & small tablets */
         @media (max-width: 600px) {
             .hero-title {
                 font-size: var(--font-size-2xl);
@@ -835,11 +1067,71 @@
             .header-title {
                 align-self: flex-end;
             }
+            .logo-group img {
+                height: 26px;
+            }
+            .btn-group.cols-2 {
+                grid-template-columns: 1fr;
+            }
+            .instruction-steps li {
+                padding-left: var(--spacing-8);
+            }
+        }
+
+        /* Tablets and up: allow wider layout, unlock two-column button groups */
+        @media (min-width: 700px) {
+            .main-container {
+                max-width: 760px;
+            }
+            .app-link-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Larger desktop: widen the reading column slightly and enable side-by-side device tabs without scroll hint */
+        @media (min-width: 900px) {
+            .header-inner,
+            .main-container {
+                max-width: 820px;
+            }
+            .device-tabs-container {
+                flex-wrap: wrap;
+                overflow-x: visible;
+            }
+        }
+
+        /* Landscape phones: keep the countdown compact */
+        @media (max-width: 900px) and (orientation: landscape) {
+            .main-container {
+                padding-top: var(--spacing-4);
+            }
+        }
+
+        /* Respect reduced motion preferences */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+
+        /* Touch-friendly tap targets on coarse pointers (phones/tablets) */
+        @media (pointer: coarse) {
+            .task-item {
+                padding: var(--spacing-4) var(--spacing-3);
+            }
+            .accordion-trigger {
+                padding-top: var(--spacing-5);
+                padding-bottom: var(--spacing-5);
+            }
+            .device-tab-btn {
+                padding: var(--spacing-3) var(--spacing-4);
+            }
         }
     </style>
 </head>
 <body>
-    <noscript><div style="padding:1rem;background:#fff3cd;color:#664d03;text-align:center">JavaScript is required for the countdown, device instructions and checklist.</div></noscript>
 
     <!-- ======================================================================
          SVGs DEFINITIONS (Hidden, for reuse)
@@ -862,6 +1154,21 @@
         </symbol>
         <symbol id="icon-chevron" viewBox="0 0 24 24">
             <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+        </symbol>
+        <symbol id="icon-chat" viewBox="0 0 24 24">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
+        </symbol>
+        <symbol id="icon-dashboard" viewBox="0 0 24 24">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+        </symbol>
+        <symbol id="icon-block" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-8 10c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/>
+        </symbol>
+        <symbol id="icon-globe" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7 6h-3.2c-.32-1.25-.78-2.45-1.4-3.55A8.03 8.03 0 0 1 19 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h3.2c.32 1.25.78 2.45 1.4 3.55A7.99 7.99 0 0 1 5.08 16zm3.2-8H5.08a7.99 7.99 0 0 1 4.6-3.55A15.8 15.8 0 0 0 8.28 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.55c.62-1.1 1.08-2.3 1.4-3.55h3.2a8.03 8.03 0 0 1-4.6 3.55zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/>
+        </symbol>
+        <symbol id="icon-cube" viewBox="0 0 24 24">
+            <path d="M12 2 2 7v10l10 5 10-5V7L12 2zm0 2.3L18.8 7 12 9.7 5.2 7 12 4.3zM4 9.2l7 3.1v7.4l-7-3.5V9.2zm9 10.5v-7.4l7-3.1v6.9l-7 3.6z"/>
         </symbol>
         
         <!-- Device Icons -->
@@ -889,8 +1196,8 @@
         <div class="header-inner">
             <div class="logo-group">
                 <!-- Fallback image tags used to preserve official scout branding -->
-                <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="Scouts Australia Logo">
-                <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="World JOTA-JOTI Logo">
+                <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="Scouts Australia Logo" loading="lazy">
+                <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="World JOTA-JOTI Logo" loading="lazy">
             </div>
             <span class="header-title">Parent Setup Guide</span>
         </div>
@@ -904,10 +1211,10 @@
         <!-- Hero & Countdown Card -->
         <section class="card hero-card">
             <h1 class="hero-title">JOTA-JOTI 2026 Setup</h1>
-            <p class="hero-desc">Follow these 5 simple steps to properly configure your devices and prepare your Scout for the worldwide online event taking place 16&ndash;18 October 2026.</p>
+            <p class="hero-desc">Follow these simple steps to properly configure your devices and prepare your Scout for the worldwide online event taking place 16&ndash;18 October 2026.</p>
             
             <div class="alert-banner">
-                <svg class="alert-icon" aria-hidden="true"><use href="#icon-warning"></use></svg>
+                <svg class="alert-icon"><use href="#icon-warning"></use></svg>
                 <span>Expressions of Interest close Friday 9 October 2026. Submit early to ensure your Scout receives their unique login credentials in time.</span>
             </div>
 
@@ -947,7 +1254,7 @@
             <p class="step-description">Fill out the official Expression of Interest form. If you have more than one Scout participating, you must submit a separate form for each child to ensure they receive unique credentials.</p>
             <a href="https://docs.google.com/forms/d/e/1FAIpQLSeBhtFuVNzjqtAFOeluNfiA1hFPr1JXXfSx9xZcnivSV1fiUw/viewform?usp=header" target="_blank" rel="noopener noreferrer" class="btn-primary">
                 <span>Open Registration Form</span>
-                <svg class="btn-icon" aria-hidden="true"><use href="#icon-external"></use></svg>
+                <svg class="btn-icon"><use href="#icon-external"></use></svg>
             </a>
         </section>
 
@@ -963,7 +1270,7 @@
                 <li><strong>Participant ID:</strong> An alphanumeric code used by leaders to identify your Scout if technical support is required during the weekend.</li>
             </ul>
             <div class="info-panel">
-                <svg class="info-icon" aria-hidden="true"><use href="#icon-info"></use></svg>
+                <svg class="info-icon"><use href="#icon-info"></use></svg>
                 <span>Please store this email securely. We highly recommend checking your junk or spam folder if the confirmation has not arrived within three business days.</span>
             </div>
         </section>
@@ -974,7 +1281,7 @@
                 <div class="step-number-badge">3</div>
                 <h2 class="step-title-text">Configure Device & Screen Time</h2>
             </header>
-            <p class="step-description">Select the primary hardware your Scout will utilize during the event. This will reveal specific instructions for installing the web-app and adjusting parental screen-time limitations.</p>
+            <p class="step-description">Select the primary hardware your Scout will utilize during the event. This will reveal specific instructions for installing the web-app and adjusting parental screen-time limitations, plus a direct link to open it.</p>
             
             <nav class="device-tabs-container" aria-label="Device selection">
                 <button class="device-tab-btn is-active" data-device="ios" aria-pressed="true">
@@ -1014,53 +1321,97 @@
             
             <div class="code-snippet-box">
                 <button class="copy-action-btn" id="btn-copy-domains" aria-label="Copy domains to clipboard">
-                    <svg class="copy-icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
+                    <svg class="copy-icon"><use href="#icon-copy"></use></svg>
                     Copy
                 </button>
                 <div id="domain-list-text">scoutpegs.github.io/jota-joti-app/<br>chat.jotajoti.info<br>webchat.scoutlink.net<br>jotajoti.info<br>minecraft.scoutlink.net</div>
             </div>
         </section>
 
-        <!-- STEP 5: Final Checklist -->
+        <!-- STEP 5: Quick Access Links -->
         <section class="card">
             <header class="step-header-group">
                 <div class="step-number-badge">5</div>
+                <h2 class="step-title-text">Quick Access Links</h2>
+            </header>
+            <p class="step-description">Once everything is configured, use these direct links to jump straight into the apps and sites your Scout needs for the weekend.</p>
+
+            <div class="app-link-grid">
+                <a class="app-link-card" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener noreferrer">
+                    <div class="app-link-icon-wrap"><svg><use href="#icon-dashboard"></use></svg></div>
+                    <div class="app-link-text">
+                        <div class="app-link-title">JOTA-JOTI Dashboard</div>
+                        <div class="app-link-desc">The main event web-app and activity hub</div>
+                    </div>
+                    <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
+                </a>
+                <a class="app-link-card" href="https://webchat.scoutlink.net/" target="_blank" rel="noopener noreferrer">
+                    <div class="app-link-icon-wrap"><svg><use href="#icon-chat"></use></svg></div>
+                    <div class="app-link-text">
+                        <div class="app-link-title">ScoutLink Webchat</div>
+                        <div class="app-link-desc">Moderated chat rooms &mdash; no extra app needed</div>
+                    </div>
+                    <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
+                </a>
+                <a class="app-link-card" href="https://www.jotajoti.info/" target="_blank" rel="noopener noreferrer">
+                    <div class="app-link-icon-wrap"><svg><use href="#icon-globe"></use></svg></div>
+                    <div class="app-link-text">
+                        <div class="app-link-title">Official JOTA-JOTI Site</div>
+                        <div class="app-link-desc">Event info, activity badges & world map</div>
+                    </div>
+                    <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
+                </a>
+                <a class="app-link-card" href="https://www.minecraft.net/en-us/download" target="_blank" rel="noopener noreferrer">
+                    <div class="app-link-icon-wrap"><svg><use href="#icon-cube"></use></svg></div>
+                    <div class="app-link-text">
+                        <div class="app-link-title">Minecraft (optional)</div>
+                        <div class="app-link-desc">Only needed if your Scout wants the game server</div>
+                    </div>
+                    <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
+                </a>
+            </div>
+        </section>
+
+        <!-- STEP 6: Final Checklist -->
+        <section class="card">
+            <header class="step-header-group">
+                <div class="step-number-badge">6</div>
                 <h2 class="step-title-text">Final Preparation Checklist</h2>
             </header>
-            <p class="step-description">Run through these mandatory checks 24 hours prior to the event commencement. Click each item to mark it as completed.</p>
+            <p class="step-description">Run through these mandatory checks 24 hours prior to the event commencement. Tap each item to mark it as completed.</p>
 
             <div class="task-list" id="interactive-checklist">
                 <div class="task-item" data-task-id="task-1" role="checkbox" aria-checked="false" tabindex="0">
                     <div class="task-checkbox">
-                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                        <svg class="check-icon"><use href="#icon-check"></use></svg>
                     </div>
                     <span class="task-label">I have logged into the main dashboard using the 4-digit PIN to verify access.</span>
                 </div>
                 
                 <div class="task-item" data-task-id="task-2" role="checkbox" aria-checked="false" tabindex="0">
                     <div class="task-checkbox">
-                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                        <svg class="check-icon"><use href="#icon-check"></use></svg>
                     </div>
                     <span class="task-label">The primary device is fully charged, updated, and the charging cable is readily accessible.</span>
                 </div>
                 
                 <div class="task-item" data-task-id="task-3" role="checkbox" aria-checked="false" tabindex="0">
                     <div class="task-checkbox">
-                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                        <svg class="check-icon"><use href="#icon-check"></use></svg>
                     </div>
                     <span class="task-label">A functioning pair of headphones with a microphone has been tested for voice channels.</span>
                 </div>
                 
                 <div class="task-item" data-task-id="task-4" role="checkbox" aria-checked="false" tabindex="0">
                     <div class="task-checkbox">
-                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                        <svg class="check-icon"><use href="#icon-check"></use></svg>
                     </div>
                     <span class="task-label">Parental screen-time limits have been explicitly extended for Friday, Saturday, and Sunday.</span>
                 </div>
                 
                 <div class="task-item" data-task-id="task-5" role="checkbox" aria-checked="false" tabindex="0">
                     <div class="task-checkbox">
-                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                        <svg class="check-icon"><use href="#icon-check"></use></svg>
                     </div>
                     <span class="task-label">The designated Scout Leader's emergency contact number is written down near the device.</span>
                 </div>
@@ -1090,7 +1441,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         What is JOTA?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>JOTA stands for Jamboree on the Air. It is an annual event in which Scouts and Guides all over the world speak to each other by means of amateur radio contacts. Local ham radio operators volunteer their time and equipment to make this possible.</p>
@@ -1099,7 +1450,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         What is JOTI?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>JOTI stands for Jamboree on the Internet. It runs parallel to JOTA and connects Scouts globally via text chat, voice chat, video conferencing, and multiplayer games hosted on secure, moderated servers.</p>
@@ -1108,7 +1459,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         What is ScoutLink?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>ScoutLink is a global, non-profit network providing safe, supervised chat environments for Scouts and Guides. They host the primary IRC (Internet Relay Chat) servers used during the JOTI weekend.</p>
@@ -1117,7 +1468,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         What is a QSO?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>QSO is an amateur radio term meaning a conversation or contact between two operators. During JOTA, Scouts will attempt to log as many QSOs as possible with other groups around the world.</p>
@@ -1134,7 +1485,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         Are there any costs associated with this event?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>No. Participation in the online components of JOTA-JOTI is entirely free. All official platforms, web-apps, and communication channels are hosted by volunteers and global scouting organizations at no cost to the individual.</p>
@@ -1143,7 +1494,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         Why is the dashboard locked with a countdown?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>The global servers have limited capacity and are only active during specific timeframes. The dashboard is programmed to unlock exactly 24 hours prior to the official opening ceremony to prevent server overload and ensure a synchronized start globally.</p>
@@ -1152,7 +1503,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         What if my Scout does not have a personal device?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>This is completely fine. Please communicate with your local Scout Leader as early as possible. Most groups operate a "hub" environment at the Scout Hall where communal laptops and tablets are provided for youth members who require them.</p>
@@ -1161,7 +1512,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         Is the Minecraft server mandatory?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>No. The ScoutLink Minecraft server is a highly popular but entirely optional side-activity. It requires a purchased copy of Minecraft Java or Bedrock Edition. If your Scout does not own the game, there are dozens of other free activities available on the dashboard.</p>
@@ -1170,7 +1521,7 @@
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
                         How is the chat monitored?
-                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                        <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
                         <p>ScoutLink chat channels are actively moderated 24/7 during the event weekend by trained adult volunteers from around the globe. Automated filters also block profanity and the sharing of personal information like phone numbers or email addresses.</p>
@@ -1219,8 +1570,9 @@
         /**
          * Configuration dictionary containing instructions for various operating systems.
          * Separated into 'appSetup' for installing the web-app and 'screenTime' for 
-         * parental control adjustments.
-         * @type {Object<string, {appSetup: string, screenTime: string}>}
+         * parental control adjustments. 'quickLinks' holds direct buttons to open
+         * the apps/settings panels referenced in that device's steps.
+         * @type {Object<string, {appSetup: string, screenTime: string, quickLinks: string}>}
          */
         const deviceDataConfig = {
             ios: {
@@ -1242,6 +1594,12 @@
                         <li>Select <strong>App Limits</strong> to ensure the browser is not restricted to a short daily limit.</li>
                         <li>Crucially, navigate to <strong>Always Allowed</strong> and ensure <em>Safari</em> is added to the list so the dashboard remains accessible.</li>
                     </ol>
+                `,
+                quickLinks: `
+                    <h3 class="step-subheading">Open Directly on This Device</h3>
+                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI in Safari</a>
+                    <a class="quick-link-chip" href="https://support.apple.com/en-us/108783" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Apple Screen Time help</a>
+                    <a class="quick-link-chip" href="https://apps.apple.com/us/app/minecraft/id479516143" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft on App Store (optional)</a>
                 `
             },
             android: {
@@ -1263,6 +1621,12 @@
                         <li>If the device is managed via <strong>Family Link</strong>, open the Family Link app on the parent's device.</li>
                         <li>Select your child's profile, navigate to <strong>Daily limits</strong>, and grant bonus time for Friday through Sunday.</li>
                     </ol>
+                `,
+                quickLinks: `
+                    <h3 class="step-subheading">Open Directly on This Device</h3>
+                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI in Chrome</a>
+                    <a class="quick-link-chip" href="https://play.google.com/store/apps/details?id=com.google.android.apps.kids.familylink" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Get Family Link (Google Play)</a>
+                    <a class="quick-link-chip" href="https://play.google.com/store/apps/details?id=com.mojang.minecraftpe" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft on Google Play (optional)</a>
                 `
             },
             windows: {
@@ -1284,6 +1648,12 @@
                         <li>Navigate to the <strong>Screen time</strong> tab on the left sidebar.</li>
                         <li>Under the Windows 10/11 section, adjust the allowable schedule for the specific dates of the event.</li>
                     </ol>
+                `,
+                quickLinks: `
+                    <h3 class="step-subheading">Open Directly on This Device</h3>
+                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI Dashboard</a>
+                    <a class="quick-link-chip" href="https://account.microsoft.com/family" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Microsoft Family Safety</a>
+                    <a class="quick-link-chip" href="https://www.minecraft.net/en-us/download" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft Launcher (optional)</a>
                 `
             },
             mac: {
@@ -1305,6 +1675,12 @@
                         <li>Select the child's account if using Family Sharing.</li>
                         <li>Adjust the <strong>Downtime</strong> schedule and review <strong>App Limits</strong> to ensure web browsers are unrestricted for the duration of the event.</li>
                     </ol>
+                `,
+                quickLinks: `
+                    <h3 class="step-subheading">Open Directly on This Device</h3>
+                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI Dashboard</a>
+                    <a class="quick-link-chip" href="https://support.apple.com/en-us/108783" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Apple Screen Time help</a>
+                    <a class="quick-link-chip" href="https://www.minecraft.net/en-us/download" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft Launcher (optional)</a>
                 `
             },
             chromebook: {
@@ -1327,6 +1703,11 @@
                         <li>Under <strong>Daily limits</strong>, tap Edit and increase the allowance for Friday, Saturday, and Sunday.</li>
                         <li>Check the <strong>Downtime</strong> schedule to ensure it does not cut off early during evening global activities.</li>
                     </ol>
+                `,
+                quickLinks: `
+                    <h3 class="step-subheading">Open Directly on This Device</h3>
+                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI Dashboard</a>
+                    <a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Family Link (web)</a>
                 `
             }
         };
@@ -1351,8 +1732,8 @@
             deviceContentContainer.offsetHeight; // trigger reflow
             deviceContentContainer.style.animation = null;
 
-            // Inject combined HTML
-            deviceContentContainer.innerHTML = data.appSetup + data.screenTime;
+            // Inject combined HTML (app setup, screen time, then quick-open links)
+            deviceContentContainer.innerHTML = data.appSetup + data.screenTime + data.quickLinks;
         }
 
         /**
@@ -1388,6 +1769,37 @@
         deviceButtons.forEach(btn => {
             btn.addEventListener('click', handleDeviceTabClick);
         });
+
+        // ====================================================================
+        // AUTO-DETECT DEVICE (best-effort, user can always override via tabs)
+        // ====================================================================
+
+        /**
+         * Makes a best-effort guess at the visitor's device/platform from the
+         * user agent so the correct tab is pre-selected on first visit.
+         * @returns {string} A key matching deviceDataConfig, or 'ios' as a safe default.
+         */
+        function detectLikelyDevice() {
+            const ua = (navigator.userAgent || navigator.vendor || '').toLowerCase();
+            const platform = (navigator.platform || '').toLowerCase();
+
+            if (/iphone|ipad|ipod/.test(ua) || (platform === 'macintel' && navigator.maxTouchPoints > 1)) {
+                return 'ios';
+            }
+            if (/android/.test(ua)) {
+                return 'android';
+            }
+            if (/cros/.test(ua)) {
+                return 'chromebook';
+            }
+            if (/win/.test(platform) || /windows/.test(ua)) {
+                return 'windows';
+            }
+            if (/mac/.test(platform) || /macintosh/.test(ua)) {
+                return 'mac';
+            }
+            return 'ios';
+        }
 
         // ====================================================================
         // CHECKLIST LOGIC WITH LOCAL STORAGE
@@ -1654,8 +2066,8 @@
          * Bootstraps the application on DOM content load.
          */
         function initializeApp() {
-            // 1. Initialize Device Selection
-            let defaultDevice = 'ios'; // Default fallback
+            // 1. Initialize Device Selection (saved preference wins, otherwise auto-detect)
+            let defaultDevice = detectLikelyDevice();
             try {
                 const savedDevice = localStorage.getItem('jotajoti_preferred_device');
                 if (savedDevice && deviceDataConfig[savedDevice]) {
