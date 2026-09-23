@@ -2,86 +2,31 @@
 <html lang="en-AU">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#5a2c84">
-    <meta name="description" content="A comprehensive parent and scout setup guide for the JOTA-JOTI event.">
+    <meta name="description" content="A fully responsive, dynamic parent and scout setup guide for the JOTA-JOTI worldwide event.">
     <title>JOTA-JOTI Parent & Scout Setup Guide</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         /* ==========================================================================
-           CSS RESET (MeyerWeb style + Box Sizing)
-           ========================================================================== */
-        html, body, div, span, applet, object, iframe,
-        h1, h2, h3, h4, h5, h6, p, blockquote, pre,
-        a, abbr, acronym, address, big, cite, code,
-        del, dfn, em, img, ins, kbd, q, s, samp,
-        small, strike, strong, sub, sup, tt, var,
-        b, u, i, center,
-        dl, dt, dd, ol, ul, li,
-        fieldset, form, label, legend,
-        table, caption, tbody, tfoot, thead, tr, th, td,
-        article, aside, canvas, details, embed,
-        figure, figcaption, footer, header, hgroup,
-        menu, nav, output, ruby, section, summary,
-        time, mark, audio, video {
-            margin: 0;
-            padding: 0;
-            border: 0;
-            font-size: 100%;
-            font: inherit;
-            vertical-align: baseline;
-        }
-
-        article, aside, details, figcaption, figure,
-        footer, header, hgroup, menu, nav, section {
-            display: block;
-        }
-
-        body {
-            line-height: 1;
-        }
-
-        ol, ul {
-            list-style: none;
-        }
-
-        blockquote, q {
-            quotes: none;
-        }
-
-        blockquote:before, blockquote:after,
-        q:before, q:after {
-            content: '';
-            content: none;
-        }
-
-        table {
-            border-collapse: collapse;
-            border-spacing: 0;
-        }
-
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
-
-        /* ==========================================================================
-           CUSTOM PROPERTIES (VARIABLES)
+           DYNAMIC DESIGN SYSTEM & FLUID CSS VARIABLES
            ========================================================================== */
         :root {
-            /* Primary Brand Colors */
+            /* Brand Color Palette */
             --color-primary-base: #5a2c84;
             --color-primary-light: #f3ebf8;
             --color-primary-hover: #47216a;
             --color-primary-dark: #2d1345;
             
-            /* Neutral Colors */
-            --color-neutral-bg: #f5f7fa;
+            /* Neutral Colors (Light Mode Default) */
+            --color-neutral-bg: #f8fafc;
             --color-neutral-card: #ffffff;
-            --color-neutral-text-main: #1e293b;
-            --color-neutral-text-muted: #64748b;
+            --color-neutral-text-main: #0f172a;
+            --color-neutral-text-muted: #475569;
             --color-neutral-border: #e2e8f0;
             --color-neutral-code-bg: #0f172a;
             --color-neutral-code-text: #f8fafc;
@@ -94,42 +39,85 @@
             --color-danger-base: #b91c1c;
             --color-danger-bg: #fef2f2;
             
-            /* Typography */
+            /* Typography Scale (Clean responsive rem scale for all devices) */
             --font-family-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            --font-size-xs: 0.75rem;     /* 12px */
-            --font-size-sm: 0.875rem;    /* 14px */
-            --font-size-base: 1rem;      /* 16px */
-            --font-size-lg: 1.125rem;    /* 18px */
-            --font-size-xl: 1.25rem;     /* 20px */
-            --font-size-2xl: 1.5rem;     /* 24px */
-            --font-size-3xl: 1.875rem;   /* 30px */
+            --font-size-xs: 0.75rem;    /* 12px */
+            --font-size-sm: 0.875rem;   /* 14px */
+            --font-size-base: 1rem;     /* 16px */
+            --font-size-lg: 1.125rem;   /* 18px */
+            --font-size-xl: 1.25rem;    /* 20px */
+            --font-size-2xl: 1.5rem;    /* 24px */
+            --font-size-3xl: 1.875rem;  /* 30px */
             
-            /* Spacing */
-            --spacing-1: 0.25rem;
-            --spacing-2: 0.5rem;
-            --spacing-3: 0.75rem;
-            --spacing-4: 1rem;
-            --spacing-5: 1.25rem;
-            --spacing-6: 1.5rem;
-            --spacing-8: 2rem;
-            --spacing-10: 2.5rem;
-            --spacing-12: 3rem;
+            /* Fluid Spacing Scale */
+            --spacing-1: clamp(0.2rem, 1vw, 0.25rem);
+            --spacing-2: clamp(0.375rem, 1.5vw, 0.5rem);
+            --spacing-3: clamp(0.625rem, 2vw, 0.75rem);
+            --spacing-4: clamp(0.875rem, 2.5vw, 1rem);
+            --spacing-5: clamp(1rem, 3vw, 1.25rem);
+            --spacing-6: clamp(1.25rem, 3.5vw, 1.5rem);
+            --spacing-8: clamp(1.5rem, 4vw, 2rem);
+            --spacing-10: clamp(2rem, 5vw, 2.5rem);
+            --spacing-12: clamp(2.5rem, 6vw, 3rem);
             
-            /* Layout & Effects */
-            --border-radius-sm: 6px;
-            --border-radius-md: 10px;
-            --border-radius-lg: 14px;
+            /* Rounded Corners & Shadows */
+            --border-radius-sm: 8px;
+            --border-radius-md: 12px;
+            --border-radius-lg: 18px;
             --border-radius-full: 9999px;
-            --box-shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
-            --box-shadow-header: 0 2px 10px rgba(0, 0, 0, 0.04);
-            --box-shadow-floating: 0 10px 25px rgba(0, 0, 0, 0.1);
-            --transition-speed-fast: 0.15s;
-            --transition-speed-normal: 0.3s;
+            
+            --box-shadow-subtle: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+            --box-shadow-header: 0 2px 12px rgba(0, 0, 0, 0.05);
+            --box-shadow-floating: 0 12px 30px rgba(0, 0, 0, 0.15);
+            
+            --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Desktop Typography Expansion */
+        @media (min-width: 640px) {
+            :root {
+                --font-size-xs: 0.8125rem;  /* 13px */
+                --font-size-sm: 0.9375rem;  /* 15px */
+                --font-size-base: 1.0625rem;/* 17px */
+                --font-size-lg: 1.25rem;    /* 20px */
+                --font-size-xl: 1.4rem;     /* 22.4px */
+                --font-size-2xl: 1.75rem;   /* 28px */
+                --font-size-3xl: 2.25rem;   /* 36px */
+            }
+        }
+
+        /* Dark Mode Support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-neutral-bg: #0b0f19;
+                --color-neutral-card: #161e2e;
+                --color-neutral-text-main: #f1f5f9;
+                --color-neutral-text-muted: #94a3b8;
+                --color-neutral-border: #26334d;
+                --color-primary-light: #2d1a42;
+                --color-warning-bg: #2d2006;
+                --color-warning-base: #fbbf24;
+                --color-success-bg: #062c16;
+                --color-success-base: #4ade80;
+            }
         }
 
         /* ==========================================================================
-           GLOBAL TYPOGRAPHY & BODY
+           GLOBAL RESETS & AUTO-LINE WRAPPING RULES
            ========================================================================== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
         body {
             font-family: var(--font-family-main);
             background-color: var(--color-neutral-bg);
@@ -140,20 +128,21 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
-        strong, b {
-            font-weight: 700;
-        }
-
-        em, i {
-            font-style: italic;
+        img, svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
         }
 
         a {
             color: var(--color-primary-base);
             text-decoration: none;
-            transition: color var(--transition-speed-fast) ease;
+            transition: color var(--transition-fast);
+            word-break: break-all;
         }
 
         a:hover {
@@ -162,79 +151,78 @@
         }
 
         /* ==========================================================================
-           LAYOUT COMPONENTS
+           DYNAMIC HEADER & BRANDING
            ========================================================================== */
         header {
             background-color: var(--color-neutral-card);
-            border-bottom-width: 2px;
-            border-bottom-style: solid;
-            border-bottom-color: var(--color-primary-base);
-            padding-top: var(--spacing-3);
-            padding-bottom: var(--spacing-3);
-            padding-left: var(--spacing-5);
-            padding-right: var(--spacing-5);
+            border-bottom: 2px solid var(--color-primary-base);
+            padding: var(--spacing-3) var(--spacing-4);
             position: sticky;
             top: 0;
             z-index: 100;
             box-shadow: var(--box-shadow-header);
+            width: 100%;
+            left: 0;
+            right: 0;
+            box-sizing: border-box;
         }
 
         .header-inner {
-            max-width: 720px;
-            margin-left: auto;
-            margin-right: auto;
+            max-width: 860px;
+            width: 100%;
+            margin: 0 auto;
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
+            gap: var(--spacing-3);
         }
 
         .logo-group {
             display: flex;
             align-items: center;
             gap: var(--spacing-3);
+            flex-wrap: wrap;
         }
 
         .logo-group img {
-            height: 32px;
+            height: clamp(24px, 5vw, 36px);
             width: auto;
-            display: block;
+            object-fit: contain;
         }
 
         .header-title {
-            font-weight: 700;
-            font-size: var(--font-size-sm);
+            font-weight: 800;
+            font-size: var(--font-size-xs);
             color: var(--color-primary-base);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-        }
-
-        .main-container {
-            max-width: 720px;
-            margin-left: auto;
-            margin-right: auto;
-            padding-top: var(--spacing-6);
-            padding-bottom: var(--spacing-12);
-            padding-left: var(--spacing-4);
-            padding-right: var(--spacing-4);
-            flex-grow: 1;
+            white-space: normal;
+            word-break: break-word;
         }
 
         /* ==========================================================================
-           CARDS & PANELS
+           MAIN CONTENT CONTAINER & CARDS
            ========================================================================== */
+        .main-container {
+            width: 100%;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: var(--spacing-5) var(--spacing-4) var(--spacing-12);
+            flex-grow: 1;
+            box-sizing: border-box;
+        }
+
         .card {
             background-color: var(--color-neutral-card);
             border-radius: var(--border-radius-lg);
             padding: var(--spacing-6);
             box-shadow: var(--box-shadow-subtle);
-            margin-bottom: var(--spacing-5);
-            border-width: 1px;
-            border-style: solid;
-            border-color: var(--color-neutral-border);
-        }
-
-        .hero-card {
-            text-align: left;
+            margin-bottom: var(--spacing-6);
+            border: 1px solid var(--color-neutral-border);
+            width: 100%;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+            box-sizing: border-box;
         }
 
         .hero-title {
@@ -242,33 +230,34 @@
             font-weight: 800;
             color: var(--color-primary-base);
             margin-bottom: var(--spacing-2);
-            line-height: 1.2;
+            line-height: 1.25;
             letter-spacing: -0.5px;
+            word-break: break-word;
         }
 
         .hero-desc {
             font-size: var(--font-size-base);
             color: var(--color-neutral-text-muted);
             margin-bottom: var(--spacing-4);
+            line-height: 1.6;
         }
 
         /* ==========================================================================
-           BANNERS & ALERTS
+           DYNAMIC BANNERS & ALERTS
            ========================================================================== */
         .alert-banner {
             display: flex;
             align-items: flex-start;
             gap: var(--spacing-3);
             background-color: var(--color-warning-bg);
-            border-left-width: 4px;
-            border-left-style: solid;
-            border-left-color: var(--color-warning-base);
+            border-left: 4px solid var(--color-warning-base);
             padding: var(--spacing-3) var(--spacing-4);
             border-radius: var(--border-radius-sm);
             color: var(--color-warning-base);
             font-size: var(--font-size-sm);
             font-weight: 600;
-            margin-bottom: var(--spacing-4);
+            margin-bottom: var(--spacing-5);
+            word-break: break-word;
         }
 
         .alert-icon {
@@ -287,9 +276,9 @@
             padding: var(--spacing-3) var(--spacing-4);
             border-radius: var(--border-radius-sm);
             font-size: var(--font-size-sm);
-            color: var(--color-primary-dark);
-            margin-top: var(--spacing-4);
-            margin-bottom: var(--spacing-4);
+            color: var(--color-neutral-text-main);
+            margin: var(--spacing-4) 0;
+            word-break: break-word;
         }
 
         .info-icon {
@@ -301,17 +290,25 @@
         }
 
         /* ==========================================================================
-           COUNTDOWN TIMER
+           RESPONSIVE COUNTDOWN TIMER
            ========================================================================== */
         .countdown-wrapper {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: var(--spacing-2);
             background-color: var(--color-primary-light);
-            padding: var(--spacing-4);
+            padding: var(--spacing-3);
             border-radius: var(--border-radius-md);
             text-align: center;
-            margin-bottom: var(--spacing-4);
+            margin-bottom: var(--spacing-5);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 400px) {
+            .countdown-wrapper {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .countdown-segment {
@@ -319,6 +316,16 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            padding: var(--spacing-2);
+            background-color: rgba(255, 255, 255, 0.4);
+            border-radius: var(--border-radius-sm);
+            min-width: 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .countdown-segment {
+                background-color: rgba(0, 0, 0, 0.2);
+            }
         }
 
         .countdown-number {
@@ -331,7 +338,7 @@
         }
 
         .countdown-label {
-            font-size: 0.65rem;
+            font-size: var(--font-size-xs);
             font-weight: 700;
             text-transform: uppercase;
             color: var(--color-primary-base);
@@ -339,15 +346,16 @@
         }
 
         /* ==========================================================================
-           PROGRESS BAR
+           PROGRESS TRACKING BAR
            ========================================================================== */
         .progress-container {
-            margin-top: var(--spacing-2);
+            margin-top: var(--spacing-3);
+            width: 100%;
         }
 
         .progress-track {
             background-color: var(--color-neutral-border);
-            height: 8px;
+            height: 10px;
             border-radius: var(--border-radius-full);
             overflow: hidden;
             width: 100%;
@@ -356,8 +364,8 @@
         .progress-fill {
             height: 100%;
             width: 0%;
-            background-color: var(--color-primary-base);
-            transition: width var(--transition-speed-normal) ease-in-out;
+            background: linear-gradient(90deg, var(--color-primary-base), #8b5cf6);
+            transition: width var(--transition-normal);
         }
 
         .progress-label {
@@ -370,115 +378,100 @@
         }
 
         /* ==========================================================================
-           BUTTONS & INTERACTIVES
+           BUTTONS & DYNAMIC WRAPPING INTERACTIVES
            ========================================================================== */
-        .btn-primary {
+        .btn-primary, .btn-secondary {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: var(--spacing-2);
-            background-color: var(--color-primary-base);
-            color: var(--color-neutral-card);
             font-weight: 700;
             font-size: var(--font-size-sm);
             padding: var(--spacing-3) var(--spacing-5);
             border-radius: var(--border-radius-md);
             text-decoration: none;
-            border-width: 0;
+            border: 1px solid transparent;
             cursor: pointer;
-            transition: background-color var(--transition-speed-fast) ease, transform 0.1s ease;
+            transition: all var(--transition-fast);
             width: 100%;
             text-align: center;
+            min-height: 44px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary-base);
+            color: #ffffff;
         }
 
         .btn-primary:hover {
             background-color: var(--color-primary-hover);
-            color: var(--color-neutral-card);
+            color: #ffffff;
             text-decoration: none;
+            transform: translateY(-1px);
         }
 
         .btn-primary:active {
-            transform: scale(0.98);
+            transform: translateY(0);
         }
 
         .btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-2);
             background-color: var(--color-primary-light);
             color: var(--color-primary-base);
-            font-weight: 700;
-            font-size: var(--font-size-sm);
-            padding: var(--spacing-3) var(--spacing-5);
-            border-radius: var(--border-radius-md);
-            text-decoration: none;
-            border-width: 1px;
-            border-style: solid;
             border-color: var(--color-primary-base);
-            cursor: pointer;
-            transition: background-color var(--transition-speed-fast) ease, transform 0.1s ease;
-            width: 100%;
-            text-align: center;
         }
 
         .btn-secondary:hover {
-            background-color: #e9d9f2;
-            color: var(--color-primary-hover);
+            background-color: var(--color-primary-hover);
+            color: #ffffff;
             text-decoration: none;
-        }
-
-        .btn-secondary:active {
-            transform: scale(0.98);
+            transform: translateY(-1px);
         }
 
         .btn-icon {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             fill: currentColor;
             flex-shrink: 0;
         }
 
-        .btn-group {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: var(--spacing-3);
-        }
-
-        .btn-group.cols-2 {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
         /* ==========================================================================
-           STEPS & TYPOGRAPHY WITHIN CARDS
+           STEP CARDS & FLEXIBLE HEADER GROUPS
            ========================================================================== */
         .step-header-group {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: var(--spacing-3);
             margin-bottom: var(--spacing-4);
+            flex-wrap: nowrap;
+            width: 100%;
         }
 
         .step-number-badge {
-            width: 36px;
-            height: 36px;
+            width: clamp(32px, 8vw, 40px);
+            height: clamp(32px, 8vw, 40px);
             border-radius: 50%;
             background-color: var(--color-primary-base);
-            color: var(--color-neutral-card);
+            color: #ffffff;
             font-weight: 800;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: var(--font-size-base);
             flex-shrink: 0;
-            box-shadow: 0 2px 4px rgba(90, 44, 132, 0.3);
+            box-shadow: 0 2px 6px rgba(90, 44, 132, 0.25);
+            margin-top: 2px;
         }
 
         .step-title-text {
-            font-size: var(--font-size-lg);
+            font-size: var(--font-size-xl);
             font-weight: 800;
             color: var(--color-neutral-text-main);
-            line-height: 1.2;
+            line-height: 1.3;
+            word-break: break-word;
+            min-width: 0;
         }
 
         .step-description {
@@ -489,19 +482,18 @@
         }
 
         .step-subheading {
-            font-size: var(--font-size-sm);
+            font-size: var(--font-size-lg);
             font-weight: 700;
             color: var(--color-neutral-text-main);
             margin-top: var(--spacing-5);
             margin-bottom: var(--spacing-3);
-            border-bottom-width: 1px;
-            border-bottom-style: solid;
-            border-bottom-color: var(--color-neutral-border);
-            padding-bottom: var(--spacing-1);
+            border-bottom: 1px solid var(--color-neutral-border);
+            padding-bottom: var(--spacing-2);
+            word-break: break-word;
         }
 
         /* ==========================================================================
-           LISTS (BULLETS & NUMBERED)
+           RESPONSIVE LISTS & CHIPS
            ========================================================================== */
         .bullet-list {
             padding-left: var(--spacing-5);
@@ -513,6 +505,7 @@
 
         .bullet-list li {
             margin-bottom: var(--spacing-2);
+            line-height: 1.6;
         }
 
         .instruction-steps {
@@ -523,11 +516,12 @@
 
         .instruction-steps li {
             position: relative;
-            padding-left: var(--spacing-10);
+            padding-left: clamp(2rem, 6vw, 2.75rem);
             margin-bottom: var(--spacing-3);
             font-size: var(--font-size-sm);
             color: var(--color-neutral-text-main);
-            line-height: 1.5;
+            line-height: 1.6;
+            word-break: break-word;
         }
 
         .instruction-steps li::before {
@@ -535,9 +529,9 @@
             content: counter(custom-counter);
             position: absolute;
             left: 0;
-            top: 0;
-            width: 24px;
-            height: 24px;
+            top: 2px;
+            width: clamp(22px, 5vw, 26px);
+            height: clamp(22px, 5vw, 26px);
             background-color: var(--color-primary-light);
             color: var(--color-primary-base);
             font-weight: 700;
@@ -546,14 +540,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            border-width: 1px;
-            border-style: solid;
-            border-color: var(--color-primary-base);
+            border: 1px solid var(--color-primary-base);
         }
 
-        /* ==========================================================================
-           QUICK-LINK CHIPS (for app links inside instructions)
-           ========================================================================== */
+        .quick-links-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-2);
+            margin-top: var(--spacing-3);
+        }
+
         .quick-link-chip {
             display: inline-flex;
             align-items: center;
@@ -564,54 +560,56 @@
             font-size: var(--font-size-xs);
             padding: var(--spacing-2) var(--spacing-3);
             border-radius: var(--border-radius-full);
-            margin-top: var(--spacing-2);
-            margin-right: var(--spacing-2);
             text-decoration: none;
-            border-width: 1px;
-            border-style: solid;
-            border-color: var(--color-primary-base);
+            border: 1px solid var(--color-primary-base);
+            transition: all var(--transition-fast);
+            max-width: 100%;
+            white-space: normal;
+            word-break: break-word;
         }
 
         .quick-link-chip:hover {
-            background-color: #e9d9f2;
+            background-color: var(--color-primary-base);
+            color: #ffffff;
             text-decoration: none;
         }
 
         .quick-link-chip svg {
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             fill: currentColor;
             flex-shrink: 0;
         }
 
         /* ==========================================================================
-           APP LINK CARDS (Quick Access section)
+           APP LINK CARDS (AUTO-FIT GRID)
            ========================================================================== */
         .app-link-grid {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
             gap: var(--spacing-3);
+            width: 100%;
         }
 
         .app-link-card {
             display: flex;
             align-items: center;
-            gap: var(--spacing-4);
+            gap: var(--spacing-3);
             padding: var(--spacing-4);
             background-color: var(--color-neutral-bg);
             border-radius: var(--border-radius-md);
-            border-width: 1px;
-            border-style: solid;
-            border-color: var(--color-neutral-border);
+            border: 1px solid var(--color-neutral-border);
             text-decoration: none;
-            transition: all var(--transition-speed-fast) ease;
+            transition: all var(--transition-fast);
+            width: 100%;
+            min-width: 0;
         }
 
         .app-link-card:hover {
             background-color: var(--color-primary-light);
             border-color: var(--color-primary-base);
             text-decoration: none;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
 
         .app-link-icon-wrap {
@@ -628,7 +626,7 @@
         .app-link-icon-wrap svg {
             width: 22px;
             height: 22px;
-            fill: var(--color-neutral-card);
+            fill: #ffffff;
         }
 
         .app-link-text {
@@ -641,12 +639,13 @@
             font-weight: 700;
             color: var(--color-neutral-text-main);
             margin-bottom: 2px;
+            word-break: break-word;
         }
 
         .app-link-desc {
             font-size: var(--font-size-xs);
             color: var(--color-neutral-text-muted);
-            white-space: normal;
+            line-height: 1.4;
             word-break: break-word;
         }
 
@@ -657,81 +656,46 @@
             flex-shrink: 0;
         }
 
-        .store-badge-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: var(--spacing-2);
-            margin-top: var(--spacing-3);
-        }
-
-        .store-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--spacing-2);
-            background-color: var(--color-neutral-text-main);
-            color: var(--color-neutral-card);
-            font-size: var(--font-size-xs);
-            font-weight: 700;
-            padding: var(--spacing-2) var(--spacing-4);
-            border-radius: var(--border-radius-sm);
-            text-decoration: none;
-        }
-
-        .store-badge:hover {
-            background-color: #334155;
-            color: var(--color-neutral-card);
-            text-decoration: none;
-        }
-
-        .store-badge svg {
-            width: 16px;
-            height: 16px;
-            fill: currentColor;
-            flex-shrink: 0;
-        }
-
         /* ==========================================================================
-           DEVICE SELECTOR TABS
+           DYNAMIC DEVICE TABS (WRAP ACCORDING TO SCREEN)
            ========================================================================== */
         .device-tabs-container {
             display: flex;
+            flex-wrap: wrap;
             gap: var(--spacing-2);
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: var(--spacing-3);
+            padding-bottom: var(--spacing-2);
             margin-bottom: var(--spacing-4);
-            scrollbar-width: thin;
-            scrollbar-color: var(--color-neutral-border) transparent;
-        }
-
-        .device-tabs-container::-webkit-scrollbar {
-            height: 6px;
-        }
-        .device-tabs-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .device-tabs-container::-webkit-scrollbar-thumb {
-            background-color: var(--color-neutral-border);
-            border-radius: var(--border-radius-full);
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .device-tab-btn {
-            display: flex;
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: var(--spacing-2);
-            padding: var(--spacing-2) var(--spacing-4);
+            padding: var(--spacing-2) var(--spacing-3);
             border-radius: var(--border-radius-full);
-            border-width: 1px;
-            border-style: solid;
-            border-color: var(--color-neutral-border);
+            border: 1px solid var(--color-neutral-border);
             background-color: var(--color-neutral-card);
             font-size: var(--font-size-sm);
             font-weight: 600;
             color: var(--color-neutral-text-muted);
             cursor: pointer;
-            white-space: nowrap;
-            flex-shrink: 0;
-            transition: all var(--transition-speed-fast) ease;
+            white-space: normal;
+            word-break: break-word;
+            transition: all var(--transition-fast);
+            flex: 1 1 calc(50% - var(--spacing-2));
+            min-width: 110px;
+            max-width: 100%;
+            min-height: 40px;
+            text-align: center;
+        }
+
+        @media (min-width: 640px) {
+            .device-tab-btn {
+                flex: 1 1 auto;
+            }
         }
 
         .device-tab-btn:hover {
@@ -741,8 +705,9 @@
 
         .device-tab-btn.is-active {
             background-color: var(--color-primary-base);
-            color: var(--color-neutral-card);
+            color: #ffffff;
             border-color: var(--color-primary-base);
+            box-shadow: 0 2px 6px rgba(90, 44, 132, 0.3);
         }
 
         .device-tab-icon {
@@ -754,49 +719,73 @@
 
         .device-content-area {
             animation: fadeIn 0.3s ease-in-out;
+            width: 100%;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
+            from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         /* ==========================================================================
-           CODE & COPY BOX
+           CODE & DOMAIN WHITELIST BOX (RESPONSIVE TEXT WRAPPING)
            ========================================================================== */
-        .code-snippet-box {
+        .code-container {
             background-color: var(--color-neutral-code-bg);
+            border-radius: var(--border-radius-md);
+            margin: var(--spacing-4) 0;
+            overflow: hidden;
+            border: 1px solid var(--color-neutral-border);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-2) var(--spacing-4);
+            background-color: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+            gap: var(--spacing-2);
+        }
+
+        .code-header-title {
+            color: #94a3b8;
+            font-size: var(--font-size-xs);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .code-snippet-box {
             color: var(--color-neutral-code-text);
             padding: var(--spacing-4);
-            padding-right: 5.5rem;
-            border-radius: var(--border-radius-md);
-            font-family: 'Courier New', Courier, monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: var(--font-size-sm);
-            position: relative;
-            margin-top: var(--spacing-4);
-            margin-bottom: var(--spacing-4);
-            word-break: break-all;
             line-height: 1.8;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-wrap: anywhere;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .copy-action-btn {
-            position: absolute;
-            top: var(--spacing-3);
-            right: var(--spacing-3);
             background-color: var(--color-primary-base);
-            color: var(--color-neutral-card);
-            border-width: 0;
+            color: #ffffff;
+            border: none;
             padding: var(--spacing-1) var(--spacing-3);
             border-radius: var(--border-radius-sm);
             font-size: var(--font-size-xs);
             font-weight: 700;
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: var(--spacing-1);
-            transition: background-color var(--transition-speed-fast) ease;
+            transition: background-color var(--transition-fast);
+            min-height: 32px;
         }
 
         .copy-action-btn:hover {
@@ -804,58 +793,59 @@
         }
 
         .copy-icon {
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             fill: currentColor;
         }
 
         /* ==========================================================================
-           INTERACTIVE CHECKLIST
+           INTERACTIVE CHECKLIST (MULTILINE WRAPPING)
            ========================================================================== */
         .task-list {
             display: flex;
             flex-direction: column;
             gap: var(--spacing-2);
+            width: 100%;
         }
 
         .task-item {
             display: flex;
             align-items: flex-start;
             gap: var(--spacing-3);
-            padding: var(--spacing-3);
+            padding: var(--spacing-3) var(--spacing-4);
             background-color: var(--color-neutral-bg);
             border-radius: var(--border-radius-md);
             cursor: pointer;
             user-select: none;
-            transition: all var(--transition-speed-fast) ease;
-            border-width: 1px;
-            border-style: solid;
-            border-color: transparent;
+            transition: all var(--transition-fast);
+            border: 1px solid var(--color-neutral-border);
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
         }
 
         .task-item:hover {
-            background-color: var(--color-neutral-border);
+            background-color: var(--color-primary-light);
+            border-color: var(--color-primary-base);
         }
 
         .task-item.is-completed {
             background-color: var(--color-success-bg);
-            border-color: #bbf7d0;
+            border-color: var(--color-success-base);
         }
 
         .task-checkbox {
             width: 22px;
             height: 22px;
-            border-width: 2px;
-            border-style: solid;
-            border-color: var(--color-primary-base);
+            border: 2px solid var(--color-primary-base);
             border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-top: 1px;
+            margin-top: 2px;
             flex-shrink: 0;
             background-color: var(--color-neutral-card);
-            transition: all var(--transition-speed-fast) ease;
+            transition: all var(--transition-fast);
         }
 
         .task-item.is-completed .task-checkbox {
@@ -866,10 +856,10 @@
         .check-icon {
             width: 14px;
             height: 14px;
-            fill: var(--color-neutral-card);
+            fill: #ffffff;
             opacity: 0;
             transform: scale(0.5);
-            transition: all var(--transition-speed-fast) ease;
+            transition: all var(--transition-fast);
         }
 
         .task-item.is-completed .check-icon {
@@ -881,7 +871,10 @@
             font-size: var(--font-size-sm);
             color: var(--color-neutral-text-main);
             font-weight: 500;
-            transition: color var(--transition-speed-fast) ease;
+            line-height: 1.5;
+            word-break: break-word;
+            flex-grow: 1;
+            min-width: 0;
         }
 
         .task-item.is-completed .task-label {
@@ -890,36 +883,36 @@
         }
 
         /* ==========================================================================
-           ACCORDION / FAQ / GLOSSARY
+           ACCORDION & FAQ (RESPONSIVE TRIGGER HEADERS)
            ========================================================================== */
         .accordion-group {
-            border-top-width: 1px;
-            border-top-style: solid;
-            border-top-color: var(--color-neutral-border);
+            border-top: 1px solid var(--color-neutral-border);
             margin-top: var(--spacing-4);
+            width: 100%;
         }
 
         .accordion-item {
-            border-bottom-width: 1px;
-            border-bottom-style: solid;
-            border-bottom-color: var(--color-neutral-border);
+            border-bottom: 1px solid var(--color-neutral-border);
+            width: 100%;
         }
 
         .accordion-trigger {
             width: 100%;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding-top: var(--spacing-4);
-            padding-bottom: var(--spacing-4);
+            align-items: flex-start;
+            gap: var(--spacing-3);
+            padding: var(--spacing-4) 0;
             background: none;
             border: none;
-            font-weight: 600;
+            font-weight: 700;
             font-size: var(--font-size-sm);
             color: var(--color-neutral-text-main);
             cursor: pointer;
             text-align: left;
             font-family: inherit;
+            line-height: 1.4;
+            word-break: break-word;
         }
 
         .accordion-trigger:hover {
@@ -930,9 +923,9 @@
             width: 20px;
             height: 20px;
             fill: var(--color-neutral-text-muted);
-            transition: transform var(--transition-speed-normal) ease;
+            transition: transform var(--transition-normal);
             flex-shrink: 0;
-            margin-left: var(--spacing-3);
+            margin-top: 2px;
         }
 
         .accordion-item.is-open .accordion-icon {
@@ -950,18 +943,17 @@
             line-height: 1.6;
             max-height: 0;
             overflow: hidden;
-            transition: max-height var(--transition-speed-normal) ease-in-out, padding var(--transition-speed-normal) ease-in-out;
-            padding-left: var(--spacing-2);
-            padding-right: var(--spacing-2);
+            transition: max-height var(--transition-normal) ease-in-out, padding var(--transition-normal) ease-in-out;
+            word-break: break-word;
         }
 
         .accordion-item.is-open .accordion-content {
-            max-height: 500px; /* Arbitrary large number for expansion */
+            max-height: 600px;
             padding-bottom: var(--spacing-4);
         }
 
         /* ==========================================================================
-           TOAST NOTIFICATION
+           TOAST NOTIFICATION (AUTO-FITTING SCREEN WIDTH)
            ========================================================================== */
         .toast-container {
             position: fixed;
@@ -970,7 +962,7 @@
             transform: translateX(-50%) translateY(100px);
             background-color: var(--color-neutral-text-main);
             color: var(--color-neutral-card);
-            padding: var(--spacing-3) var(--spacing-6);
+            padding: var(--spacing-3) var(--spacing-5);
             border-radius: var(--border-radius-full);
             font-size: var(--font-size-sm);
             font-weight: 600;
@@ -981,8 +973,10 @@
             display: flex;
             align-items: center;
             gap: var(--spacing-2);
-            max-width: calc(100vw - 2 * var(--spacing-4));
+            width: min(90%, 420px);
             text-align: center;
+            justify-content: center;
+            word-break: break-word;
         }
 
         .toast-container.is-visible {
@@ -997,136 +991,36 @@
             text-align: center;
             font-size: var(--font-size-xs);
             color: var(--color-neutral-text-muted);
-            padding-top: var(--spacing-8);
-            padding-bottom: var(--spacing-8);
-            border-top-width: 1px;
-            border-top-style: solid;
-            border-top-color: var(--color-neutral-border);
+            padding: var(--spacing-6) var(--spacing-4);
+            border-top: 1px solid var(--color-neutral-border);
             margin-top: auto;
+            background-color: var(--color-neutral-card);
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        /* ==========================================================================
-           RESPONSIVE / FLUID TYPE
-           ========================================================================== */
-        .hero-title {
-            font-size: clamp(1.5rem, 5vw, 1.875rem);
+        .footer-inner {
+            max-width: 860px;
+            margin: 0 auto;
+            width: 100%;
         }
 
-        .countdown-number {
-            font-size: clamp(1.1rem, 5vw, 1.5rem);
-        }
+        /* Responsive Media Query Extensions */
+        @media (min-width: 640px) {
+            .btn-primary, .btn-secondary {
+                width: auto;
+            }
 
-        /* ==========================================================================
-           MEDIA QUERIES
-           ========================================================================== */
-
-        /* Small phones */
-        @media (max-width: 420px) {
-            .main-container {
-                padding-left: var(--spacing-3);
-                padding-right: var(--spacing-3);
-            }
-            .card {
-                padding: var(--spacing-4);
-            }
-            .countdown-wrapper {
-                gap: var(--spacing-1);
-                padding: var(--spacing-3);
-            }
-            .countdown-label {
-                font-size: 0.55rem;
-            }
-            .step-number-badge {
-                width: 30px;
-                height: 30px;
+            .header-title {
                 font-size: var(--font-size-sm);
             }
-            .app-link-icon-wrap {
-                width: 38px;
-                height: 38px;
-            }
-            .app-link-icon-wrap svg {
-                width: 18px;
-                height: 18px;
-            }
         }
 
-        /* Phones & small tablets */
-        @media (max-width: 600px) {
-            .hero-title {
-                font-size: var(--font-size-2xl);
-            }
-            .countdown-number {
-                font-size: var(--font-size-xl);
-            }
-            .header-inner {
-                flex-direction: column;
-                gap: var(--spacing-2);
-                align-items: flex-start;
-            }
-            .header-title {
-                align-self: flex-end;
-            }
-            .logo-group img {
-                height: 26px;
-            }
-            .btn-group.cols-2 {
-                grid-template-columns: 1fr;
-            }
-            .instruction-steps li {
-                padding-left: var(--spacing-8);
-            }
-        }
-
-        /* Tablets and up: allow wider layout, unlock two-column button groups */
-        @media (min-width: 700px) {
-            .main-container {
-                max-width: 760px;
-            }
-            .app-link-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        /* Larger desktop: widen the reading column slightly and enable side-by-side device tabs without scroll hint */
-        @media (min-width: 900px) {
-            .header-inner,
-            .main-container {
-                max-width: 820px;
-            }
-            .device-tabs-container {
-                flex-wrap: wrap;
-                overflow-x: visible;
-            }
-        }
-
-        /* Landscape phones: keep the countdown compact */
-        @media (max-width: 900px) and (orientation: landscape) {
-            .main-container {
-                padding-top: var(--spacing-4);
-            }
-        }
-
-        /* Respect reduced motion preferences */
+        /* Reduced motion accessibility */
         @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.001ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.001ms !important;
-            }
-        }
-
-        /* Touch-friendly tap targets on coarse pointers (phones/tablets) */
-        @media (pointer: coarse) {
-            .task-item {
-                padding: var(--spacing-4) var(--spacing-3);
-            }
-            .accordion-trigger {
-                padding-top: var(--spacing-5);
-                padding-bottom: var(--spacing-5);
-            }
-            .device-tab-btn {
-                padding: var(--spacing-3) var(--spacing-4);
+            *, ::before, ::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
             }
         }
     </style>
@@ -1134,7 +1028,7 @@
 <body>
 
     <!-- ======================================================================
-         SVGs DEFINITIONS (Hidden, for reuse)
+         SVG ICON SYMBOLS
          ====================================================================== -->
     <svg style="display: none;">
         <symbol id="icon-external" viewBox="0 0 24 24">
@@ -1161,17 +1055,12 @@
         <symbol id="icon-dashboard" viewBox="0 0 24 24">
             <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
         </symbol>
-        <symbol id="icon-block" viewBox="0 0 24 24">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-8 10c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/>
-        </symbol>
         <symbol id="icon-globe" viewBox="0 0 24 24">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm7 6h-3.2c-.32-1.25-.78-2.45-1.4-3.55A8.03 8.03 0 0 1 19 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h3.2c.32 1.25.78 2.45 1.4 3.55A7.99 7.99 0 0 1 5.08 16zm3.2-8H5.08a7.99 7.99 0 0 1 4.6-3.55A15.8 15.8 0 0 0 8.28 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.55c.62-1.1 1.08-2.3 1.4-3.55h3.2a8.03 8.03 0 0 1-4.6 3.55zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/>
         </symbol>
         <symbol id="icon-cube" viewBox="0 0 24 24">
             <path d="M12 2 2 7v10l10 5 10-5V7L12 2zm0 2.3L18.8 7 12 9.7 5.2 7 12 4.3zM4 9.2l7 3.1v7.4l-7-3.5V9.2zm9 10.5v-7.4l7-3.1v6.9l-7 3.6z"/>
         </symbol>
-        
-        <!-- Device Icons -->
         <symbol id="icon-mobile" viewBox="0 0 24 24">
             <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/>
         </symbol>
@@ -1195,7 +1084,6 @@
     <header>
         <div class="header-inner">
             <div class="logo-group">
-                <!-- Fallback image tags used to preserve official scout branding -->
                 <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="Scouts Australia Logo" loading="lazy">
                 <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="World JOTA-JOTI Logo" loading="lazy">
             </div>
@@ -1209,7 +1097,7 @@
     <main class="main-container">
 
         <!-- Hero & Countdown Card -->
-        <section class="card hero-card">
+        <section class="card">
             <h1 class="hero-title">JOTA-JOTI 2026 Setup</h1>
             <p class="hero-desc">Follow these simple steps to properly configure your devices and prepare your Scout for the worldwide online event taking place 16&ndash;18 October 2026.</p>
             
@@ -1218,6 +1106,7 @@
                 <span>Expressions of Interest close Friday 9 October 2026. Submit early to ensure your Scout receives their unique login credentials in time.</span>
             </div>
 
+            <!-- Dynamic countdown grid auto-reflows to 2x2 or 4-col depending on phone screen width -->
             <div class="countdown-wrapper" aria-label="Countdown to JOTA-JOTI event">
                 <div class="countdown-segment">
                     <span class="countdown-number" id="countdown-days">00</span>
@@ -1286,28 +1175,28 @@
             <nav class="device-tabs-container" aria-label="Device selection">
                 <button class="device-tab-btn is-active" data-device="ios" aria-pressed="true">
                     <svg class="device-tab-icon"><use href="#icon-mobile"></use></svg>
-                    iPhone / iPad
+                    <span>iPhone / iPad</span>
                 </button>
                 <button class="device-tab-btn" data-device="android" aria-pressed="false">
                     <svg class="device-tab-icon"><use href="#icon-android"></use></svg>
-                    Android
+                    <span>Android</span>
                 </button>
                 <button class="device-tab-btn" data-device="windows" aria-pressed="false">
                     <svg class="device-tab-icon"><use href="#icon-windows"></use></svg>
-                    Windows PC
+                    <span>Windows PC</span>
                 </button>
                 <button class="device-tab-btn" data-device="mac" aria-pressed="false">
                     <svg class="device-tab-icon"><use href="#icon-mac"></use></svg>
-                    Mac
+                    <span>Mac</span>
                 </button>
                 <button class="device-tab-btn" data-device="chromebook" aria-pressed="false">
                     <svg class="device-tab-icon"><use href="#icon-chromebook"></use></svg>
-                    Chromebook
+                    <span>Chromebook</span>
                 </button>
             </nav>
 
             <div id="dynamic-device-content" class="device-content-area" aria-live="polite">
-                <!-- Content will be injected here by JavaScript -->
+                <!-- Content will be injected dynamically by JavaScript -->
             </div>
         </section>
 
@@ -1319,12 +1208,20 @@
             </header>
             <p class="step-description">If your home network or device utilizes strict parental control filters (e.g., Family Link, Norton Family, or router-level blocks), you must manually allow the following domains. Failure to do so will result in blocked chat rooms and inaccessible activities.</p>
             
-            <div class="code-snippet-box">
-                <button class="copy-action-btn" id="btn-copy-domains" aria-label="Copy domains to clipboard">
-                    <svg class="copy-icon"><use href="#icon-copy"></use></svg>
-                    Copy
-                </button>
-                <div id="domain-list-text">scoutpegs.github.io/jota-joti-app/<br>chat.jotajoti.info<br>webchat.scoutlink.net<br>jotajoti.info<br>minecraft.scoutlink.net</div>
+            <div class="code-container">
+                <div class="code-header">
+                    <span class="code-header-title">Allowed Event Domains</span>
+                    <button class="copy-action-btn" id="btn-copy-domains" aria-label="Copy domains to clipboard">
+                        <svg class="copy-icon"><use href="#icon-copy"></use></svg>
+                        Copy All
+                    </button>
+                </div>
+                <!-- Text wraps cleanly on small mobile screens -->
+                <div class="code-snippet-box" id="domain-list-text">scoutpegs.github.io/jota-joti-app/
+chat.jotajoti.info
+webchat.scoutlink.net
+jotajoti.info
+minecraft.scoutlink.net</div>
             </div>
         </section>
 
@@ -1341,7 +1238,7 @@
                     <div class="app-link-icon-wrap"><svg><use href="#icon-dashboard"></use></svg></div>
                     <div class="app-link-text">
                         <div class="app-link-title">JOTA-JOTI Dashboard</div>
-                        <div class="app-link-desc">The main event web-app and activity hub</div>
+                        <div class="app-link-desc">Main event web-app & activity hub</div>
                     </div>
                     <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
                 </a>
@@ -1349,7 +1246,7 @@
                     <div class="app-link-icon-wrap"><svg><use href="#icon-chat"></use></svg></div>
                     <div class="app-link-text">
                         <div class="app-link-title">ScoutLink Webchat</div>
-                        <div class="app-link-desc">Moderated chat rooms &mdash; no extra app needed</div>
+                        <div class="app-link-desc">Moderated chat rooms (no app needed)</div>
                     </div>
                     <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
                 </a>
@@ -1357,7 +1254,7 @@
                     <div class="app-link-icon-wrap"><svg><use href="#icon-globe"></use></svg></div>
                     <div class="app-link-text">
                         <div class="app-link-title">Official JOTA-JOTI Site</div>
-                        <div class="app-link-desc">Event info, activity badges & world map</div>
+                        <div class="app-link-desc">Event info, badges & world map</div>
                     </div>
                     <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
                 </a>
@@ -1365,7 +1262,7 @@
                     <div class="app-link-icon-wrap"><svg><use href="#icon-cube"></use></svg></div>
                     <div class="app-link-text">
                         <div class="app-link-title">Minecraft (optional)</div>
-                        <div class="app-link-desc">Only needed if your Scout wants the game server</div>
+                        <div class="app-link-desc">Optional game server download</div>
                     </div>
                     <svg class="app-link-arrow"><use href="#icon-external"></use></svg>
                 </a>
@@ -1420,7 +1317,7 @@
 
         <!-- SECTION: Cyber Safety Code of Conduct -->
         <section class="card">
-            <h2 class="step-title-text" style="margin-bottom: var(--spacing-4);">Cyber Safety Code of Conduct</h2>
+            <h2 class="step-title-text" style="margin-bottom: var(--spacing-3);">Cyber Safety Code of Conduct</h2>
             <p class="step-description">Safety is our absolute priority. Please review these rules with your Scout before they participate in any online communication channels.</p>
             
             <ul class="instruction-steps" style="margin-top: var(--spacing-4);">
@@ -1434,13 +1331,13 @@
 
         <!-- SECTION: Glossary -->
         <section class="card">
-            <h2 class="step-title-text" style="margin-bottom: var(--spacing-4);">Parent Glossary</h2>
+            <h2 class="step-title-text" style="margin-bottom: var(--spacing-3);">Parent Glossary</h2>
             <p class="step-description">Scouting acronyms can be confusing. Here is a brief guide to the terms your Scout might use over the weekend.</p>
             
             <div class="accordion-group">
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        What is JOTA?
+                        <span>What is JOTA?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1449,7 +1346,7 @@
                 </div>
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        What is JOTI?
+                        <span>What is JOTI?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1458,7 +1355,7 @@
                 </div>
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        What is ScoutLink?
+                        <span>What is ScoutLink?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1467,7 +1364,7 @@
                 </div>
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        What is a QSO?
+                        <span>What is a QSO?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1479,12 +1376,12 @@
 
         <!-- SECTION: FAQ -->
         <section class="card">
-            <h2 class="step-title-text" style="margin-bottom: var(--spacing-4);">Frequently Asked Questions</h2>
+            <h2 class="step-title-text" style="margin-bottom: var(--spacing-3);">Frequently Asked Questions</h2>
             
             <div class="accordion-group">
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        Are there any costs associated with this event?
+                        <span>Are there any costs associated with this event?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1493,7 +1390,7 @@
                 </div>
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        Why is the dashboard locked with a countdown?
+                        <span>Why is the dashboard locked with a countdown?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1502,7 +1399,7 @@
                 </div>
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        What if my Scout does not have a personal device?
+                        <span>What if my Scout does not have a personal device?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1511,7 +1408,7 @@
                 </div>
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        Is the Minecraft server mandatory?
+                        <span>Is the Minecraft server mandatory?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1520,7 +1417,7 @@
                 </div>
                 <div class="accordion-item">
                     <button class="accordion-trigger" aria-expanded="false">
-                        How is the chat monitored?
+                        <span>How is the chat monitored?</span>
                         <svg class="accordion-icon"><use href="#icon-chevron"></use></svg>
                     </button>
                     <div class="accordion-content">
@@ -1533,452 +1430,296 @@
     </main>
 
     <!-- ======================================================================
-         FOOTER
+         FOOTER & TOAST
          ====================================================================== -->
     <footer class="site-footer">
-        <div class="main-container" style="padding-top: 0; padding-bottom: 0;">
+        <div class="footer-inner">
             <p>Boulder Scout Group &middot; Official JOTA-JOTI 2026 Preparation Portal</p>
             <p style="margin-top: var(--spacing-2); opacity: 0.7;">This setup guide is maintained by volunteer leaders to ensure a safe and smooth digital experience.</p>
         </div>
     </footer>
 
-    <!-- ======================================================================
-         TOAST NOTIFICATION ELEMENT
-         ====================================================================== -->
+    <!-- Toast notification element -->
     <div id="toast-notification" class="toast-container" role="alert" aria-live="assertive">
-        <svg class="check-icon" style="opacity: 1; transform: scale(1);"><use href="#icon-check"></use></svg>
+        <svg class="check-icon" style="opacity: 1; transform: scale(1); width: 16px; height: 16px;"><use href="#icon-check"></use></svg>
         <span id="toast-message">Action successful</span>
     </div>
 
     <!-- ======================================================================
-         JAVASCRIPT
+         DYNAMIC JAVASCRIPT ENGINE
          ====================================================================== -->
     <script>
-        /**
-         * @fileoverview Main logic for the JOTA-JOTI Parent Setup Guide.
-         * Handles countdown timer, device-specific instruction rendering, 
-         * interactive checklists with local storage persistence, clipboard 
-         * operations, and accordion UI interactions.
-         */
-
         "use strict";
 
-        // ====================================================================
-        // DATA STRUCTURES
-        // ====================================================================
-
         /**
-         * Configuration dictionary containing instructions for various operating systems.
-         * Separated into 'appSetup' for installing the web-app and 'screenTime' for 
-         * parental control adjustments. 'quickLinks' holds direct buttons to open
-         * the apps/settings panels referenced in that device's steps.
-         * @type {Object<string, {appSetup: string, screenTime: string, quickLinks: string}>}
+         * Device configuration dataset containing responsive instructions and links.
          */
         const deviceDataConfig = {
             ios: {
                 appSetup: `
-                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <h3 class="step-subheading">Web-App Installation (Safari)</h3>
                     <ol class="instruction-steps">
-                        <li>Open the <strong>Safari</strong> browser on the device (this process will not work in Chrome on iOS).</li>
-                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
-                        <li>Tap the <strong>Share</strong> icon located at the bottom of the screen (it resembles a square with an upward-pointing arrow).</li>
-                        <li>Scroll down the menu and select <strong>Add to Home Screen</strong>.</li>
-                        <li>Confirm the name and tap <strong>Add</strong> in the top right corner.</li>
+                        <li>Open the <strong>Safari</strong> browser on your iPhone or iPad.</li>
+                        <li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Tap the <strong>Share</strong> icon at the bottom of the screen (a box with an arrow pointing up).</li>
+                        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+                        <li>Tap <strong>Add</strong> in the top right corner.</li>
                     </ol>
                 `,
                 screenTime: `
                     <h3 class="step-subheading">Adjusting Apple Screen Time</h3>
                     <ol class="instruction-steps">
-                        <li>Open the <strong>Settings</strong> application and navigate to <strong>Screen Time</strong>.</li>
-                        <li>If a schedule is active, select <strong>Downtime</strong> and adjust the hours to accommodate the weekend event schedule.</li>
-                        <li>Select <strong>App Limits</strong> to ensure the browser is not restricted to a short daily limit.</li>
-                        <li>Crucially, navigate to <strong>Always Allowed</strong> and ensure <em>Safari</em> is added to the list so the dashboard remains accessible.</li>
+                        <li>Open <strong>Settings</strong> and tap <strong>Screen Time</strong>.</li>
+                        <li>Under <strong>Downtime</strong>, adjust hours for the 16–18 October weekend.</li>
+                        <li>Under <strong>Always Allowed</strong>, ensure <em>Safari</em> is added so access is not cut off.</li>
                     </ol>
                 `,
                 quickLinks: `
-                    <h3 class="step-subheading">Open Directly on This Device</h3>
-                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI in Safari</a>
-                    <a class="quick-link-chip" href="https://support.apple.com/en-us/108783" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Apple Screen Time help</a>
-                    <a class="quick-link-chip" href="https://apps.apple.com/us/app/minecraft/id479516143" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft on App Store (optional)</a>
+                    <h3 class="step-subheading">Quick Options</h3>
+                    <div class="quick-links-wrapper">
+                        <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open in Safari</a>
+                        <a class="quick-link-chip" href="https://support.apple.com/en-us/108783" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Apple Screen Time Help</a>
+                    </div>
                 `
             },
             android: {
                 appSetup: `
-                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <h3 class="step-subheading">Web-App Installation (Chrome)</h3>
                     <ol class="instruction-steps">
-                        <li>Open the <strong>Google Chrome</strong> application.</li>
-                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
-                        <li>Tap the three vertical menu dots located in the top right corner of the browser.</li>
-                        <li>Select <strong>Install App</strong> or <strong>Add to Home Screen</strong> from the dropdown menu.</li>
-                        <li>Follow the prompt to place the application icon on the device launcher.</li>
+                        <li>Open <strong>Google Chrome</strong> on your Android device.</li>
+                        <li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Tap the 3 vertical menu dots in the upper right corner.</li>
+                        <li>Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
                     </ol>
                 `,
                 screenTime: `
-                    <h3 class="step-subheading">Adjusting Android Digital Wellbeing</h3>
+                    <h3 class="step-subheading">Adjusting Family Link / Wellbeing</h3>
                     <ol class="instruction-steps">
-                        <li>Open the <strong>Settings</strong> application and navigate to <strong>Digital Wellbeing & parental controls</strong>.</li>
-                        <li>Select the <strong>Dashboard</strong> to view current app timers. Locate Chrome and ensure the timer is extended or removed.</li>
-                        <li>If the device is managed via <strong>Family Link</strong>, open the Family Link app on the parent's device.</li>
-                        <li>Select your child's profile, navigate to <strong>Daily limits</strong>, and grant bonus time for Friday through Sunday.</li>
+                        <li>Open <strong>Settings</strong> &gt; <strong>Digital Wellbeing & parental controls</strong>.</li>
+                        <li>If using <strong>Family Link</strong>, open the parent app and increase the daily screen limit for Friday–Sunday.</li>
                     </ol>
                 `,
                 quickLinks: `
-                    <h3 class="step-subheading">Open Directly on This Device</h3>
-                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI in Chrome</a>
-                    <a class="quick-link-chip" href="https://play.google.com/store/apps/details?id=com.google.android.apps.kids.familylink" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Get Family Link (Google Play)</a>
-                    <a class="quick-link-chip" href="https://play.google.com/store/apps/details?id=com.mojang.minecraftpe" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft on Google Play (optional)</a>
+                    <h3 class="step-subheading">Quick Options</h3>
+                    <div class="quick-links-wrapper">
+                        <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open in Chrome</a>
+                        <a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Google Family Link</a>
+                    </div>
                 `
             },
             windows: {
                 appSetup: `
-                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <h3 class="step-subheading">Web-App Installation (Windows PC)</h3>
                     <ol class="instruction-steps">
-                        <li>Open Google Chrome or Microsoft Edge.</li>
-                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
-                        <li>Look for the <strong>App Available</strong> icon in the right side of the address bar (it looks like a small computer monitor with a download arrow).</li>
-                        <li>Click the icon and select <strong>Install</strong>.</li>
-                        <li>The app will open in its own window and a shortcut will be placed in your Start menu.</li>
+                        <li>Open Chrome or Microsoft Edge on your PC.</li>
+                        <li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Click the <strong>App Available / Install</strong> icon in the right side of the URL address bar.</li>
                     </ol>
                 `,
                 screenTime: `
                     <h3 class="step-subheading">Adjusting Microsoft Family Safety</h3>
                     <ol class="instruction-steps">
-                        <li>From the parent's device, log in to the web dashboard at <strong>account.microsoft.com/family</strong>.</li>
-                        <li>Select the profile belonging to the participating Scout.</li>
-                        <li>Navigate to the <strong>Screen time</strong> tab on the left sidebar.</li>
-                        <li>Under the Windows 10/11 section, adjust the allowable schedule for the specific dates of the event.</li>
+                        <li>Visit <a href="https://account.microsoft.com/family" target="_blank" rel="noopener">account.microsoft.com/family</a> on the parent account.</li>
+                        <li>Select your Scout's member profile and adjust screen time allowances under the <strong>Screen Time</strong> tab.</li>
                     </ol>
                 `,
                 quickLinks: `
-                    <h3 class="step-subheading">Open Directly on This Device</h3>
-                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI Dashboard</a>
-                    <a class="quick-link-chip" href="https://account.microsoft.com/family" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Microsoft Family Safety</a>
-                    <a class="quick-link-chip" href="https://www.minecraft.net/en-us/download" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft Launcher (optional)</a>
+                    <h3 class="step-subheading">Quick Options</h3>
+                    <div class="quick-links-wrapper">
+                        <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a>
+                        <a class="quick-link-chip" href="https://account.microsoft.com/family" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Microsoft Family Settings</a>
+                    </div>
                 `
             },
             mac: {
                 appSetup: `
-                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <h3 class="step-subheading">Web-App Installation (Mac)</h3>
                     <ol class="instruction-steps">
                         <li>Open Safari or Google Chrome.</li>
-                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
-                        <li>To create a permanent shortcut, highlight the URL in the address bar.</li>
-                        <li>Click and drag the URL down into the right side of your macOS Dock (next to the trash can).</li>
-                        <li>Alternatively, simply add the page to your Favorites bar for quick access.</li>
+                        <li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Drag the URL address from the browser top bar into your Mac Dock or Favorites for quick access.</li>
                     </ol>
                 `,
                 screenTime: `
                     <h3 class="step-subheading">Adjusting macOS Screen Time</h3>
                     <ol class="instruction-steps">
-                        <li>Click the Apple menu logo in the top left corner and open <strong>System Settings</strong> (or System Preferences on older versions).</li>
-                        <li>Select <strong>Screen Time</strong> from the sidebar.</li>
-                        <li>Select the child's account if using Family Sharing.</li>
-                        <li>Adjust the <strong>Downtime</strong> schedule and review <strong>App Limits</strong> to ensure web browsers are unrestricted for the duration of the event.</li>
+                        <li>Open <strong>System Settings</strong> &gt; <strong>Screen Time</strong>.</li>
+                        <li>Review Downtime & App Limits to allow browser access during event hours.</li>
                     </ol>
                 `,
                 quickLinks: `
-                    <h3 class="step-subheading">Open Directly on This Device</h3>
-                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI Dashboard</a>
-                    <a class="quick-link-chip" href="https://support.apple.com/en-us/108783" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Apple Screen Time help</a>
-                    <a class="quick-link-chip" href="https://www.minecraft.net/en-us/download" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Minecraft Launcher (optional)</a>
+                    <h3 class="step-subheading">Quick Options</h3>
+                    <div class="quick-links-wrapper">
+                        <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a>
+                    </div>
                 `
             },
             chromebook: {
                 appSetup: `
-                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <h3 class="step-subheading">Web-App Installation (Chromebook)</h3>
                     <ol class="instruction-steps">
-                        <li>Open Google Chrome.</li>
-                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
-                        <li>Click the three vertical menu dots in the top right corner.</li>
-                        <li>Navigate to <strong>Save and Share</strong>, then select <strong>Create Shortcut</strong>.</li>
-                        <li>Ensure "Open as window" is checked (if available) and click Create. This will pin the app to the Chromebook shelf.</li>
+                        <li>Open Chrome on your Chromebook.</li>
+                        <li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Click the 3 dots menu &gt; <strong>Save and Share</strong> &gt; <strong>Create Shortcut</strong> to pin it to your shelf.</li>
                     </ol>
                 `,
                 screenTime: `
-                    <h3 class="step-subheading">Adjusting ChromeOS Family Link</h3>
+                    <h3 class="step-subheading">Adjusting ChromeOS Limits</h3>
                     <ol class="instruction-steps">
-                        <li>Open the <strong>Family Link app</strong> on the parent's mobile device (or navigate to familylink.google.com).</li>
-                        <li>Select the account of the Scout using the Chromebook.</li>
-                        <li>Navigate to the <strong>Limits</strong> section.</li>
-                        <li>Under <strong>Daily limits</strong>, tap Edit and increase the allowance for Friday, Saturday, and Sunday.</li>
-                        <li>Check the <strong>Downtime</strong> schedule to ensure it does not cut off early during evening global activities.</li>
+                        <li>Manage app timers and bonus time directly via the <strong>Google Family Link</strong> parent app.</li>
                     </ol>
                 `,
                 quickLinks: `
-                    <h3 class="step-subheading">Open Directly on This Device</h3>
-                    <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open JOTA-JOTI Dashboard</a>
-                    <a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Family Link (web)</a>
+                    <h3 class="step-subheading">Quick Options</h3>
+                    <div class="quick-links-wrapper">
+                        <a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a>
+                        <a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Family Link</a>
+                    </div>
                 `
             }
         };
 
-        // ====================================================================
-        // DEVICE SELECTION LOGIC
-        // ====================================================================
-
         const deviceButtons = document.querySelectorAll('.device-tab-btn');
         const deviceContentContainer = document.getElementById('dynamic-device-content');
 
-        /**
-         * Renders the HTML content for a specific device.
-         * @param {string} deviceKey - The key corresponding to the device in deviceDataConfig.
-         */
         function renderDeviceInstructions(deviceKey) {
             const data = deviceDataConfig[deviceKey];
             if (!data) return;
 
-            // Trigger animation restart
             deviceContentContainer.style.animation = 'none';
-            deviceContentContainer.offsetHeight; // trigger reflow
+            deviceContentContainer.offsetHeight; // force reflow
             deviceContentContainer.style.animation = null;
 
-            // Inject combined HTML (app setup, screen time, then quick-open links)
             deviceContentContainer.innerHTML = data.appSetup + data.screenTime + data.quickLinks;
         }
 
-        /**
-         * Handles the click event on a device tab.
-         * Updates UI state, saves preference, and renders content.
-         * @param {Event} event - The click event object.
-         */
         function handleDeviceTabClick(event) {
-            // Remove active state from all buttons
             deviceButtons.forEach(btn => {
                 btn.classList.remove('is-active');
                 btn.setAttribute('aria-pressed', 'false');
             });
 
-            // Add active state to clicked button
             const clickedButton = event.currentTarget;
             clickedButton.classList.add('is-active');
             clickedButton.setAttribute('aria-pressed', 'true');
 
-            // Get device key and render
             const deviceKey = clickedButton.getAttribute('data-device');
             renderDeviceInstructions(deviceKey);
 
-            // Save preference to localStorage
             try {
                 localStorage.setItem('jotajoti_preferred_device', deviceKey);
-            } catch (e) {
-                console.warn("Local storage not available for saving device preference.");
-            }
+            } catch (e) {}
         }
 
-        // Attach event listeners to device tabs
         deviceButtons.forEach(btn => {
             btn.addEventListener('click', handleDeviceTabClick);
         });
 
-        // ====================================================================
-        // AUTO-DETECT DEVICE (best-effort, user can always override via tabs)
-        // ====================================================================
-
-        /**
-         * Makes a best-effort guess at the visitor's device/platform from the
-         * user agent so the correct tab is pre-selected on first visit.
-         * @returns {string} A key matching deviceDataConfig, or 'ios' as a safe default.
-         */
         function detectLikelyDevice() {
-            const ua = (navigator.userAgent || navigator.vendor || '').toLowerCase();
+            const ua = (navigator.userAgent || '').toLowerCase();
             const platform = (navigator.platform || '').toLowerCase();
 
             if (/iphone|ipad|ipod/.test(ua) || (platform === 'macintel' && navigator.maxTouchPoints > 1)) {
                 return 'ios';
             }
-            if (/android/.test(ua)) {
-                return 'android';
-            }
-            if (/cros/.test(ua)) {
-                return 'chromebook';
-            }
-            if (/win/.test(platform) || /windows/.test(ua)) {
-                return 'windows';
-            }
-            if (/mac/.test(platform) || /macintosh/.test(ua)) {
-                return 'mac';
-            }
+            if (/android/.test(ua)) return 'android';
+            if (/cros/.test(ua)) return 'chromebook';
+            if (/win/.test(platform) || /windows/.test(ua)) return 'windows';
+            if (/mac/.test(platform) || /macintosh/.test(ua)) return 'mac';
             return 'ios';
         }
-
-        // ====================================================================
-        // CHECKLIST LOGIC WITH LOCAL STORAGE
-        // ====================================================================
 
         const taskItems = document.querySelectorAll('.task-item');
         const progressBarFill = document.getElementById('progress-bar-fill');
         const progressBarText = document.getElementById('progress-bar-text');
         const STORAGE_KEY_PREFIX = 'jotajoti_task_';
 
-        /**
-         * Updates the visual progress bar based on the current number of completed tasks.
-         */
         function updateProgressBar() {
             const totalTasks = taskItems.length;
             const completedTasks = document.querySelectorAll('.task-item.is-completed').length;
-            
-            // Calculate percentage
             const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
             
-            // Update DOM
             progressBarFill.style.width = `${percentage}%`;
             progressBarText.textContent = `${completedTasks} of ${totalTasks} steps completed`;
         }
 
-        /**
-         * Toggles the completion state of a task item.
-         * @param {HTMLElement} taskElement - The DOM element of the task.
-         */
         function toggleTaskState(taskElement) {
             const taskId = taskElement.getAttribute('data-task-id');
             const isCurrentlyCompleted = taskElement.classList.contains('is-completed');
             
             if (isCurrentlyCompleted) {
-                // Mark as incomplete
                 taskElement.classList.remove('is-completed');
                 taskElement.setAttribute('aria-checked', 'false');
-                try {
-                    localStorage.removeItem(STORAGE_KEY_PREFIX + taskId);
-                } catch (e) {}
+                try { localStorage.removeItem(STORAGE_KEY_PREFIX + taskId); } catch (e) {}
             } else {
-                // Mark as complete
                 taskElement.classList.add('is-completed');
                 taskElement.setAttribute('aria-checked', 'true');
-                try {
-                    localStorage.setItem(STORAGE_KEY_PREFIX + taskId, 'true');
-                } catch (e) {}
+                try { localStorage.setItem(STORAGE_KEY_PREFIX + taskId, 'true'); } catch (e) {}
             }
             
             updateProgressBar();
         }
 
-        /**
-         * Handles click and keyboard events on task items.
-         * @param {Event} event - The triggered event.
-         */
-        function handleTaskInteraction(event) {
-            // Allow triggering via Enter or Space key for accessibility
-            if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') {
-                return;
-            }
-            
-            if (event.type === 'keydown') {
-                event.preventDefault(); // Prevent scrolling when pressing Space
-            }
-            
-            toggleTaskState(event.currentTarget);
-        }
-
-        // Attach event listeners to task items
         taskItems.forEach(item => {
-            item.addEventListener('click', handleTaskInteraction);
-            item.addEventListener('keydown', handleTaskInteraction);
+            item.addEventListener('click', (e) => toggleTaskState(e.currentTarget));
+            item.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleTaskState(e.currentTarget);
+                }
+            });
         });
 
-        // ====================================================================
-        // COUNTDOWN TIMER LOGIC
-        // ====================================================================
+        function startCountdown() {
+            const targetDate = new Date("2026-10-16T00:00:00").getTime();
+            const daysEl = document.getElementById('countdown-days');
+            const hoursEl = document.getElementById('countdown-hours');
+            const minsEl = document.getElementById('countdown-minutes');
+            const secsEl = document.getElementById('countdown-seconds');
 
-        /**
-         * Initializes and manages a countdown timer targeting a specific date.
-         */
-        class EventCountdown {
-            constructor(targetDateString, elements) {
-                this.targetDate = new Date(targetDateString).getTime();
-                this.elements = elements;
-                this.intervalId = null;
-            }
-
-            /**
-             * Formats a number to always have at least two digits (e.g., 9 -> "09").
-             * @param {number} num - The number to format.
-             * @returns {string} The zero-padded string.
-             */
-            padNumber(num) {
-                return num.toString().padStart(2, '0');
-            }
-
-            /**
-             * Calculates the remaining time and updates the DOM.
-             */
-            update() {
+            function update() {
                 const now = new Date().getTime();
-                const difference = this.targetDate - now;
+                const diff = targetDate - now;
 
-                if (difference <= 0) {
-                    // Event has started or passed
-                    this.elements.days.textContent = "00";
-                    this.elements.hours.textContent = "00";
-                    this.elements.minutes.textContent = "00";
-                    this.elements.seconds.textContent = "00";
-                    this.stop();
+                if (diff <= 0) {
+                    daysEl.textContent = "00";
+                    hoursEl.textContent = "00";
+                    minsEl.textContent = "00";
+                    secsEl.textContent = "00";
                     return;
                 }
 
-                // Time calculations
-                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diff % (1000 * 60)) / 1000);
 
-                // Update DOM elements
-                this.elements.days.textContent = this.padNumber(days);
-                this.elements.hours.textContent = this.padNumber(hours);
-                this.elements.minutes.textContent = this.padNumber(minutes);
-                this.elements.seconds.textContent = this.padNumber(seconds);
+                daysEl.textContent = days.toString().padStart(2, '0');
+                hoursEl.textContent = hours.toString().padStart(2, '0');
+                minsEl.textContent = mins.toString().padStart(2, '0');
+                secsEl.textContent = secs.toString().padStart(2, '0');
             }
 
-            /**
-             * Starts the interval loop.
-             */
-            start() {
-                this.update(); // Initial call to avoid 1-second delay
-                this.intervalId = setInterval(() => this.update(), 1000);
-            }
-
-            /**
-             * Stops the interval loop.
-             */
-            stop() {
-                if (this.intervalId) {
-                    clearInterval(this.intervalId);
-                    this.intervalId = null;
-                }
-            }
+            update();
+            setInterval(update, 1000);
         }
-
-        // ====================================================================
-        // CLIPBOARD INTERACTION LOGIC
-        // ====================================================================
 
         const copyBtn = document.getElementById('btn-copy-domains');
         const toastElement = document.getElementById('toast-notification');
         const toastMessage = document.getElementById('toast-message');
         let toastTimeoutId = null;
 
-        /**
-         * Displays a temporary toast notification on the screen.
-         * @param {string} message - The text to display.
-         */
-        function showToast(message) {
-            toastMessage.textContent = message;
+        function showToast(msg) {
+            toastMessage.textContent = msg;
             toastElement.classList.add('is-visible');
-            
-            // Clear existing timeout if present
             if (toastTimeoutId) clearTimeout(toastTimeoutId);
-            
-            // Hide after 3 seconds
             toastTimeoutId = setTimeout(() => {
                 toastElement.classList.remove('is-visible');
             }, 3000);
         }
 
-        /**
-         * Handles copying the predefined list of domains to the system clipboard.
-         */
         function handleCopyDomains() {
-            // Use exact formatting expected by users parsing this list
-            const domainsToCopy = [
+            const domainText = [
                 "scoutpegs.github.io/jota-joti-app/",
                 "chat.jotajoti.info",
                 "webchat.scoutlink.net",
@@ -1986,109 +1727,68 @@
                 "minecraft.scoutlink.net"
             ].join('\n');
 
-            // Modern Clipboard API approach
             if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(domainsToCopy)
-                    .then(() => showToast('Websites copied to clipboard successfully!'))
-                    .catch(err => {
-                        console.error('Failed to copy text: ', err);
-                        fallbackCopyText(domainsToCopy);
-                    });
+                navigator.clipboard.writeText(domainText)
+                    .then(() => showToast('Domains copied to clipboard!'))
+                    .catch(() => fallbackCopy(domainText));
             } else {
-                // Fallback for older browsers or non-secure contexts
-                fallbackCopyText(domainsToCopy);
+                fallbackCopy(domainText);
             }
         }
 
-        /**
-         * Fallback mechanism for copying text using older document.execCommand method.
-         * @param {string} text - The text to copy.
-         */
-        function fallbackCopyText(text) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            
-            // Avoid scrolling to bottom
-            textArea.style.top = "0";
-            textArea.style.left = "0";
-            textArea.style.position = "fixed";
-            
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            
+        function fallbackCopy(text) {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
             try {
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    showToast('Websites copied to clipboard!');
-                } else {
-                    showToast('Unable to copy automatically. Please select text manually.');
-                }
-            } catch (err) {
-                console.error('Fallback: Oops, unable to copy', err);
-                showToast('Unable to copy automatically. Please select text manually.');
+                document.execCommand('copy');
+                showToast('Domains copied to clipboard!');
+            } catch (e) {
+                showToast('Copy failed. Please select text manually.');
             }
-            
-            document.body.removeChild(textArea);
+            document.body.removeChild(ta);
         }
 
-        if (copyBtn) {
-            copyBtn.addEventListener('click', handleCopyDomains);
-        }
+        if (copyBtn) copyBtn.addEventListener('click', handleCopyDomains);
 
-        // ====================================================================
-        // ACCORDION / FAQ LOGIC
-        // ====================================================================
-        
         const accordionTriggers = document.querySelectorAll('.accordion-trigger');
-        
         accordionTriggers.forEach(trigger => {
             trigger.addEventListener('click', (e) => {
-                const parentItem = e.currentTarget.closest('.accordion-item');
-                const isExpanded = parentItem.classList.contains('is-open');
-                
-                // Toggle current item
-                if (isExpanded) {
-                    parentItem.classList.remove('is-open');
+                const parent = e.currentTarget.closest('.accordion-item');
+                const isOpen = parent.classList.contains('is-open');
+
+                if (isOpen) {
+                    parent.classList.remove('is-open');
                     e.currentTarget.setAttribute('aria-expanded', 'false');
                 } else {
-                    parentItem.classList.add('is-open');
+                    parent.classList.add('is-open');
                     e.currentTarget.setAttribute('aria-expanded', 'true');
                 }
             });
         });
 
-        // ====================================================================
-        // INITIALIZATION SEQUENCE
-        // ====================================================================
-
-        /**
-         * Bootstraps the application on DOM content load.
-         */
-        function initializeApp() {
-            // 1. Initialize Device Selection (saved preference wins, otherwise auto-detect)
+        function initApp() {
             let defaultDevice = detectLikelyDevice();
             try {
-                const savedDevice = localStorage.getItem('jotajoti_preferred_device');
-                if (savedDevice && deviceDataConfig[savedDevice]) {
-                    defaultDevice = savedDevice;
-                }
+                const saved = localStorage.getItem('jotajoti_preferred_device');
+                if (saved && deviceDataConfig[saved]) defaultDevice = saved;
             } catch (e) {}
 
-            // Find button matching default and trigger click to set up state
-            const targetButton = document.querySelector(`.device-tab-btn[data-device="${defaultDevice}"]`);
-            if (targetButton) {
-                targetButton.click();
+            const initialBtn = document.querySelector(`.device-tab-btn[data-device="${defaultDevice}"]`);
+            if (initialBtn) {
+                initialBtn.click();
             } else {
                 renderDeviceInstructions(defaultDevice);
             }
 
-            // 2. Initialize Checklist State from Storage
             taskItems.forEach(item => {
                 const taskId = item.getAttribute('data-task-id');
                 try {
-                    const isSavedAsComplete = localStorage.getItem(STORAGE_KEY_PREFIX + taskId);
-                    if (isSavedAsComplete === 'true') {
+                    if (localStorage.getItem(STORAGE_KEY_PREFIX + taskId) === 'true') {
                         item.classList.add('is-completed');
                         item.setAttribute('aria-checked', 'true');
                     }
@@ -2096,25 +1796,14 @@
             });
             updateProgressBar();
 
-            // 3. Initialize Countdown Timer targeting Oct 16, 2026 00:00:00 Local Time
-            const countdownElements = {
-                days: document.getElementById('countdown-days'),
-                hours: document.getElementById('countdown-hours'),
-                minutes: document.getElementById('countdown-minutes'),
-                seconds: document.getElementById('countdown-seconds')
-            };
-            
-            const eventTimer = new EventCountdown("2026-10-16T00:00:00", countdownElements);
-            eventTimer.start();
+            startCountdown();
         }
 
-        // Run initialization when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApp);
+            document.addEventListener('DOMContentLoaded', initApp);
         } else {
-            initializeApp();
+            initApp();
         }
-
     </script>
 </body>
 </html>
