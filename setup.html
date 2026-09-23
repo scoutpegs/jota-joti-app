@@ -1,0 +1,1708 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#5a2c84">
+    <meta name="description" content="A comprehensive parent and scout setup guide for the JOTA-JOTI event.">
+    <title>JOTA-JOTI Parent & Scout Setup Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* ==========================================================================
+           CSS RESET (MeyerWeb style + Box Sizing)
+           ========================================================================== */
+        html, body, div, span, applet, object, iframe,
+        h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+        a, abbr, acronym, address, big, cite, code,
+        del, dfn, em, img, ins, kbd, q, s, samp,
+        small, strike, strong, sub, sup, tt, var,
+        b, u, i, center,
+        dl, dt, dd, ol, ul, li,
+        fieldset, form, label, legend,
+        table, caption, tbody, tfoot, thead, tr, th, td,
+        article, aside, canvas, details, embed,
+        figure, figcaption, footer, header, hgroup,
+        menu, nav, output, ruby, section, summary,
+        time, mark, audio, video {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            font-size: 100%;
+            font: inherit;
+            vertical-align: baseline;
+        }
+
+        article, aside, details, figcaption, figure,
+        footer, header, hgroup, menu, nav, section {
+            display: block;
+        }
+
+        body {
+            line-height: 1;
+        }
+
+        ol, ul {
+            list-style: none;
+        }
+
+        blockquote, q {
+            quotes: none;
+        }
+
+        blockquote:before, blockquote:after,
+        q:before, q:after {
+            content: '';
+            content: none;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ==========================================================================
+           CUSTOM PROPERTIES (VARIABLES)
+           ========================================================================== */
+        :root {
+            /* Primary Brand Colors */
+            --color-primary-base: #5a2c84;
+            --color-primary-light: #f3ebf8;
+            --color-primary-hover: #47216a;
+            --color-primary-dark: #2d1345;
+            
+            /* Neutral Colors */
+            --color-neutral-bg: #f5f7fa;
+            --color-neutral-card: #ffffff;
+            --color-neutral-text-main: #1e293b;
+            --color-neutral-text-muted: #64748b;
+            --color-neutral-border: #e2e8f0;
+            --color-neutral-code-bg: #0f172a;
+            --color-neutral-code-text: #f8fafc;
+            
+            /* Status Colors */
+            --color-success-base: #15803d;
+            --color-success-bg: #f0fdf4;
+            --color-warning-base: #b45309;
+            --color-warning-bg: #fffbeb;
+            --color-danger-base: #b91c1c;
+            --color-danger-bg: #fef2f2;
+            
+            /* Typography */
+            --font-family-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --font-size-xs: 0.75rem;     /* 12px */
+            --font-size-sm: 0.875rem;    /* 14px */
+            --font-size-base: 1rem;      /* 16px */
+            --font-size-lg: 1.125rem;    /* 18px */
+            --font-size-xl: 1.25rem;     /* 20px */
+            --font-size-2xl: 1.5rem;     /* 24px */
+            --font-size-3xl: 1.875rem;   /* 30px */
+            
+            /* Spacing */
+            --spacing-1: 0.25rem;
+            --spacing-2: 0.5rem;
+            --spacing-3: 0.75rem;
+            --spacing-4: 1rem;
+            --spacing-5: 1.25rem;
+            --spacing-6: 1.5rem;
+            --spacing-8: 2rem;
+            --spacing-10: 2.5rem;
+            --spacing-12: 3rem;
+            
+            /* Layout & Effects */
+            --border-radius-sm: 6px;
+            --border-radius-md: 10px;
+            --border-radius-lg: 14px;
+            --border-radius-full: 9999px;
+            --box-shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.05);
+            --box-shadow-header: 0 2px 10px rgba(0, 0, 0, 0.04);
+            --box-shadow-floating: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --transition-speed-fast: 0.15s;
+            --transition-speed-normal: 0.3s;
+        }
+
+        /* ==========================================================================
+           GLOBAL TYPOGRAPHY & BODY
+           ========================================================================== */
+        body {
+            font-family: var(--font-family-main);
+            background-color: var(--color-neutral-bg);
+            color: var(--color-neutral-text-main);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        strong, b {
+            font-weight: 700;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        a {
+            color: var(--color-primary-base);
+            text-decoration: none;
+            transition: color var(--transition-speed-fast) ease;
+        }
+
+        a:hover {
+            color: var(--color-primary-hover);
+            text-decoration: underline;
+        }
+
+        /* ==========================================================================
+           LAYOUT COMPONENTS
+           ========================================================================== */
+        header {
+            background-color: var(--color-neutral-card);
+            border-bottom-width: 2px;
+            border-bottom-style: solid;
+            border-bottom-color: var(--color-primary-base);
+            padding-top: var(--spacing-3);
+            padding-bottom: var(--spacing-3);
+            padding-left: var(--spacing-5);
+            padding-right: var(--spacing-5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--box-shadow-header);
+        }
+
+        .header-inner {
+            max-width: 720px;
+            margin-left: auto;
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-3);
+        }
+
+        .logo-group img {
+            height: 32px;
+            width: auto;
+            display: block;
+        }
+
+        .header-title {
+            font-weight: 700;
+            font-size: var(--font-size-sm);
+            color: var(--color-primary-base);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .main-container {
+            max-width: 720px;
+            margin-left: auto;
+            margin-right: auto;
+            padding-top: var(--spacing-6);
+            padding-bottom: var(--spacing-12);
+            padding-left: var(--spacing-4);
+            padding-right: var(--spacing-4);
+            flex-grow: 1;
+        }
+
+        /* ==========================================================================
+           CARDS & PANELS
+           ========================================================================== */
+        .card {
+            background-color: var(--color-neutral-card);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-6);
+            box-shadow: var(--box-shadow-subtle);
+            margin-bottom: var(--spacing-5);
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--color-neutral-border);
+        }
+
+        .hero-card {
+            text-align: left;
+        }
+
+        .hero-title {
+            font-size: var(--font-size-3xl);
+            font-weight: 800;
+            color: var(--color-primary-base);
+            margin-bottom: var(--spacing-2);
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+
+        .hero-desc {
+            font-size: var(--font-size-base);
+            color: var(--color-neutral-text-muted);
+            margin-bottom: var(--spacing-4);
+        }
+
+        /* ==========================================================================
+           BANNERS & ALERTS
+           ========================================================================== */
+        .alert-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-3);
+            background-color: var(--color-warning-bg);
+            border-left-width: 4px;
+            border-left-style: solid;
+            border-left-color: var(--color-warning-base);
+            padding: var(--spacing-3) var(--spacing-4);
+            border-radius: var(--border-radius-sm);
+            color: var(--color-warning-base);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            margin-bottom: var(--spacing-4);
+        }
+
+        .alert-icon {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+            margin-top: 2px;
+        }
+
+        .info-panel {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-3);
+            background-color: var(--color-primary-light);
+            padding: var(--spacing-3) var(--spacing-4);
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-sm);
+            color: var(--color-primary-dark);
+            margin-top: var(--spacing-4);
+            margin-bottom: var(--spacing-4);
+        }
+
+        .info-icon {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            fill: var(--color-primary-base);
+            margin-top: 2px;
+        }
+
+        /* ==========================================================================
+           COUNTDOWN TIMER
+           ========================================================================== */
+        .countdown-wrapper {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--spacing-2);
+            background-color: var(--color-primary-light);
+            padding: var(--spacing-4);
+            border-radius: var(--border-radius-md);
+            text-align: center;
+            margin-bottom: var(--spacing-4);
+        }
+
+        .countdown-segment {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .countdown-number {
+            font-size: var(--font-size-2xl);
+            font-weight: 800;
+            color: var(--color-primary-base);
+            line-height: 1;
+            margin-bottom: var(--spacing-1);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .countdown-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--color-primary-base);
+            letter-spacing: 0.5px;
+        }
+
+        /* ==========================================================================
+           PROGRESS BAR
+           ========================================================================== */
+        .progress-container {
+            margin-top: var(--spacing-2);
+        }
+
+        .progress-track {
+            background-color: var(--color-neutral-border);
+            height: 8px;
+            border-radius: var(--border-radius-full);
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--color-primary-base);
+            transition: width var(--transition-speed-normal) ease-in-out;
+        }
+
+        .progress-label {
+            font-size: var(--font-size-xs);
+            font-weight: 700;
+            color: var(--color-neutral-text-muted);
+            margin-top: var(--spacing-2);
+            text-align: right;
+            display: block;
+        }
+
+        /* ==========================================================================
+           BUTTONS & INTERACTIVES
+           ========================================================================== */
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-2);
+            background-color: var(--color-primary-base);
+            color: var(--color-neutral-card);
+            font-weight: 700;
+            font-size: var(--font-size-sm);
+            padding: var(--spacing-3) var(--spacing-5);
+            border-radius: var(--border-radius-md);
+            text-decoration: none;
+            border-width: 0;
+            cursor: pointer;
+            transition: background-color var(--transition-speed-fast) ease, transform 0.1s ease;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-hover);
+            color: var(--color-neutral-card);
+            text-decoration: none;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-icon {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* ==========================================================================
+           STEPS & TYPOGRAPHY WITHIN CARDS
+           ========================================================================== */
+        .step-header-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-3);
+            margin-bottom: var(--spacing-4);
+        }
+
+        .step-number-badge {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--color-primary-base);
+            color: var(--color-neutral-card);
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-base);
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(90, 44, 132, 0.3);
+        }
+
+        .step-title-text {
+            font-size: var(--font-size-lg);
+            font-weight: 800;
+            color: var(--color-neutral-text-main);
+            line-height: 1.2;
+        }
+
+        .step-description {
+            font-size: var(--font-size-sm);
+            color: var(--color-neutral-text-muted);
+            margin-bottom: var(--spacing-4);
+            line-height: 1.6;
+        }
+
+        .step-subheading {
+            font-size: var(--font-size-sm);
+            font-weight: 700;
+            color: var(--color-neutral-text-main);
+            margin-top: var(--spacing-5);
+            margin-bottom: var(--spacing-3);
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            border-bottom-color: var(--color-neutral-border);
+            padding-bottom: var(--spacing-1);
+        }
+
+        /* ==========================================================================
+           LISTS (BULLETS & NUMBERED)
+           ========================================================================== */
+        .bullet-list {
+            padding-left: var(--spacing-5);
+            font-size: var(--font-size-sm);
+            color: var(--color-neutral-text-muted);
+            margin-bottom: var(--spacing-4);
+            list-style-type: disc;
+        }
+
+        .bullet-list li {
+            margin-bottom: var(--spacing-2);
+        }
+
+        .instruction-steps {
+            list-style: none;
+            counter-reset: custom-counter;
+            margin-bottom: var(--spacing-4);
+        }
+
+        .instruction-steps li {
+            position: relative;
+            padding-left: var(--spacing-10);
+            margin-bottom: var(--spacing-3);
+            font-size: var(--font-size-sm);
+            color: var(--color-neutral-text-main);
+            line-height: 1.5;
+        }
+
+        .instruction-steps li::before {
+            counter-increment: custom-counter;
+            content: counter(custom-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            background-color: var(--color-primary-light);
+            color: var(--color-primary-base);
+            font-weight: 700;
+            font-size: var(--font-size-xs);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--color-primary-base);
+        }
+
+        /* ==========================================================================
+           DEVICE SELECTOR TABS
+           ========================================================================== */
+        .device-tabs-container {
+            display: flex;
+            gap: var(--spacing-2);
+            overflow-x: auto;
+            padding-bottom: var(--spacing-3);
+            margin-bottom: var(--spacing-4);
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-neutral-border) transparent;
+        }
+
+        .device-tabs-container::-webkit-scrollbar {
+            height: 6px;
+        }
+        .device-tabs-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .device-tabs-container::-webkit-scrollbar-thumb {
+            background-color: var(--color-neutral-border);
+            border-radius: var(--border-radius-full);
+        }
+
+        .device-tab-btn {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-2);
+            padding: var(--spacing-2) var(--spacing-4);
+            border-radius: var(--border-radius-full);
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--color-neutral-border);
+            background-color: var(--color-neutral-card);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            color: var(--color-neutral-text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition-speed-fast) ease;
+        }
+
+        .device-tab-btn:hover {
+            background-color: var(--color-neutral-bg);
+            color: var(--color-neutral-text-main);
+        }
+
+        .device-tab-btn.is-active {
+            background-color: var(--color-primary-base);
+            color: var(--color-neutral-card);
+            border-color: var(--color-primary-base);
+        }
+
+        .device-tab-icon {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .device-content-area {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==========================================================================
+           CODE & COPY BOX
+           ========================================================================== */
+        .code-snippet-box {
+            background-color: var(--color-neutral-code-bg);
+            color: var(--color-neutral-code-text);
+            padding: var(--spacing-4);
+            border-radius: var(--border-radius-md);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: var(--font-size-sm);
+            position: relative;
+            margin-top: var(--spacing-4);
+            margin-bottom: var(--spacing-4);
+            word-break: break-all;
+            line-height: 1.8;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .copy-action-btn {
+            position: absolute;
+            top: var(--spacing-3);
+            right: var(--spacing-3);
+            background-color: var(--color-primary-base);
+            color: var(--color-neutral-card);
+            border-width: 0;
+            padding: var(--spacing-1) var(--spacing-3);
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-1);
+            transition: background-color var(--transition-speed-fast) ease;
+        }
+
+        .copy-action-btn:hover {
+            background-color: var(--color-primary-hover);
+        }
+
+        .copy-icon {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+        }
+
+        /* ==========================================================================
+           INTERACTIVE CHECKLIST
+           ========================================================================== */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-2);
+        }
+
+        .task-item {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--spacing-3);
+            padding: var(--spacing-3);
+            background-color: var(--color-neutral-bg);
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            user-select: none;
+            transition: all var(--transition-speed-fast) ease;
+            border-width: 1px;
+            border-style: solid;
+            border-color: transparent;
+        }
+
+        .task-item:hover {
+            background-color: var(--color-neutral-border);
+        }
+
+        .task-item.is-completed {
+            background-color: var(--color-success-bg);
+            border-color: #bbf7d0;
+        }
+
+        .task-checkbox {
+            width: 22px;
+            height: 22px;
+            border-width: 2px;
+            border-style: solid;
+            border-color: var(--color-primary-base);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+            flex-shrink: 0;
+            background-color: var(--color-neutral-card);
+            transition: all var(--transition-speed-fast) ease;
+        }
+
+        .task-item.is-completed .task-checkbox {
+            background-color: var(--color-success-base);
+            border-color: var(--color-success-base);
+        }
+
+        .check-icon {
+            width: 14px;
+            height: 14px;
+            fill: var(--color-neutral-card);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all var(--transition-speed-fast) ease;
+        }
+
+        .task-item.is-completed .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .task-label {
+            font-size: var(--font-size-sm);
+            color: var(--color-neutral-text-main);
+            font-weight: 500;
+            transition: color var(--transition-speed-fast) ease;
+        }
+
+        .task-item.is-completed .task-label {
+            text-decoration: line-through;
+            color: var(--color-neutral-text-muted);
+        }
+
+        /* ==========================================================================
+           ACCORDION / FAQ / GLOSSARY
+           ========================================================================== */
+        .accordion-group {
+            border-top-width: 1px;
+            border-top-style: solid;
+            border-top-color: var(--color-neutral-border);
+            margin-top: var(--spacing-4);
+        }
+
+        .accordion-item {
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            border-bottom-color: var(--color-neutral-border);
+        }
+
+        .accordion-trigger {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: var(--spacing-4);
+            padding-bottom: var(--spacing-4);
+            background: none;
+            border: none;
+            font-weight: 600;
+            font-size: var(--font-size-sm);
+            color: var(--color-neutral-text-main);
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+        }
+
+        .accordion-trigger:hover {
+            color: var(--color-primary-base);
+        }
+
+        .accordion-icon {
+            width: 20px;
+            height: 20px;
+            fill: var(--color-neutral-text-muted);
+            transition: transform var(--transition-speed-normal) ease;
+            flex-shrink: 0;
+            margin-left: var(--spacing-3);
+        }
+
+        .accordion-item.is-open .accordion-icon {
+            transform: rotate(180deg);
+            fill: var(--color-primary-base);
+        }
+
+        .accordion-item.is-open .accordion-trigger {
+            color: var(--color-primary-base);
+        }
+
+        .accordion-content {
+            font-size: var(--font-size-sm);
+            color: var(--color-neutral-text-muted);
+            line-height: 1.6;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height var(--transition-speed-normal) ease-in-out, padding var(--transition-speed-normal) ease-in-out;
+            padding-left: var(--spacing-2);
+            padding-right: var(--spacing-2);
+        }
+
+        .accordion-item.is-open .accordion-content {
+            max-height: 500px; /* Arbitrary large number for expansion */
+            padding-bottom: var(--spacing-4);
+        }
+
+        /* ==========================================================================
+           TOAST NOTIFICATION
+           ========================================================================== */
+        .toast-container {
+            position: fixed;
+            bottom: var(--spacing-6);
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: var(--color-neutral-text-main);
+            color: var(--color-neutral-card);
+            padding: var(--spacing-3) var(--spacing-6);
+            border-radius: var(--border-radius-full);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            box-shadow: var(--box-shadow-floating);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-2);
+        }
+
+        .toast-container.is-visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* ==========================================================================
+           FOOTER
+           ========================================================================== */
+        .site-footer {
+            text-align: center;
+            font-size: var(--font-size-xs);
+            color: var(--color-neutral-text-muted);
+            padding-top: var(--spacing-8);
+            padding-bottom: var(--spacing-8);
+            border-top-width: 1px;
+            border-top-style: solid;
+            border-top-color: var(--color-neutral-border);
+            margin-top: auto;
+        }
+
+        /* ==========================================================================
+           MEDIA QUERIES
+           ========================================================================== */
+        @media (max-width: 600px) {
+            .hero-title {
+                font-size: var(--font-size-2xl);
+            }
+            .countdown-number {
+                font-size: var(--font-size-xl);
+            }
+            .header-inner {
+                flex-direction: column;
+                gap: var(--spacing-2);
+                align-items: flex-start;
+            }
+            .header-title {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <noscript><div style="padding:1rem;background:#fff3cd;color:#664d03;text-align:center">JavaScript is required for the countdown, device instructions and checklist.</div></noscript>
+
+    <!-- ======================================================================
+         SVGs DEFINITIONS (Hidden, for reuse)
+         ====================================================================== -->
+    <svg style="display: none;">
+        <symbol id="icon-external" viewBox="0 0 24 24">
+            <path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+        </symbol>
+        <symbol id="icon-warning" viewBox="0 0 24 24">
+            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+        </symbol>
+        <symbol id="icon-info" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+        </symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24">
+            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </symbol>
+        <symbol id="icon-chevron" viewBox="0 0 24 24">
+            <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+        </symbol>
+        
+        <!-- Device Icons -->
+        <symbol id="icon-mobile" viewBox="0 0 24 24">
+            <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/>
+        </symbol>
+        <symbol id="icon-android" viewBox="0 0 24 24">
+            <path d="M17.6 11.48L19.44 8.3a.63.63 0 0 0-.22-.86.63.63 0 0 0-.86.22l-1.9 3.28c-1.34-.6-2.86-.94-4.46-.94s-3.12.34-4.46.94l-1.9-3.28a.63.63 0 0 0-.86-.22.63.63 0 0 0-.22.86l1.84 3.18C3.52 13 1.5 15.82 1.5 19.14h21c0-3.32-2.02-6.14-4.9-7.66zM7.17 16.74c-.65 0-1.18-.53-1.18-1.18s.53-1.18 1.18-1.18 1.18.53 1.18 1.18-.53 1.18-1.18 1.18zm9.66 0c-.65 0-1.18-.53-1.18-1.18s.53-1.18 1.18-1.18 1.18.53 1.18 1.18-.53 1.18-1.18 1.18z"/>
+        </symbol>
+        <symbol id="icon-windows" viewBox="0 0 24 24">
+            <path d="M3 5.51L10.5 4.4v7.2H3V5.51zM11.5 4.26L21 2.9v8.7h-9.5V4.26zM21 12.6v8.5l-9.5-1.36v-7.14H21zM10.5 12.6v6.99L3 18.49v-5.89h7.5z"/>
+        </symbol>
+        <symbol id="icon-mac" viewBox="0 0 24 24">
+            <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/>
+        </symbol>
+        <symbol id="icon-chromebook" viewBox="0 0 24 24">
+            <path d="M22 18V3H2v15H0v2h24v-2h-2zm-8 0h-4v-1h4v1zm6-3H4V5h16v10z"/>
+        </symbol>
+    </svg>
+
+    <!-- ======================================================================
+         HEADER SECTION
+         ====================================================================== -->
+    <header>
+        <div class="header-inner">
+            <div class="logo-group">
+                <!-- Fallback image tags used to preserve official scout branding -->
+                <img src="https://scouts.com.au/wp-content/uploads/2020/05/full-colour-icon.jpg" alt="Scouts Australia Logo">
+                <img src="https://www.jotajoti.info/themes/custom/jota_joti/logo.svg" alt="World JOTA-JOTI Logo">
+            </div>
+            <span class="header-title">Parent Setup Guide</span>
+        </div>
+    </header>
+
+    <!-- ======================================================================
+         MAIN CONTENT AREA
+         ====================================================================== -->
+    <main class="main-container">
+
+        <!-- Hero & Countdown Card -->
+        <section class="card hero-card">
+            <h1 class="hero-title">JOTA-JOTI 2026 Setup</h1>
+            <p class="hero-desc">Follow these 5 simple steps to properly configure your devices and prepare your Scout for the worldwide online event taking place 16&ndash;18 October 2026.</p>
+            
+            <div class="alert-banner">
+                <svg class="alert-icon" aria-hidden="true"><use href="#icon-warning"></use></svg>
+                <span>Expressions of Interest close Friday 9 October 2026. Submit early to ensure your Scout receives their unique login credentials in time.</span>
+            </div>
+
+            <div class="countdown-wrapper" aria-label="Countdown to JOTA-JOTI event">
+                <div class="countdown-segment">
+                    <span class="countdown-number" id="countdown-days">00</span>
+                    <span class="countdown-label">Days</span>
+                </div>
+                <div class="countdown-segment">
+                    <span class="countdown-number" id="countdown-hours">00</span>
+                    <span class="countdown-label">Hours</span>
+                </div>
+                <div class="countdown-segment">
+                    <span class="countdown-number" id="countdown-minutes">00</span>
+                    <span class="countdown-label">Mins</span>
+                </div>
+                <div class="countdown-segment">
+                    <span class="countdown-number" id="countdown-seconds">00</span>
+                    <span class="countdown-label">Secs</span>
+                </div>
+            </div>
+
+            <div class="progress-container">
+                <div class="progress-track">
+                    <div class="progress-fill" id="progress-bar-fill"></div>
+                </div>
+                <span class="progress-label" id="progress-bar-text">0 of 5 steps completed</span>
+            </div>
+        </section>
+
+        <!-- STEP 1: Form Submission -->
+        <section class="card">
+            <header class="step-header-group">
+                <div class="step-number-badge">1</div>
+                <h2 class="step-title-text">Submit Sign-Up Form</h2>
+            </header>
+            <p class="step-description">Fill out the official Expression of Interest form. If you have more than one Scout participating, you must submit a separate form for each child to ensure they receive unique credentials.</p>
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLSeBhtFuVNzjqtAFOeluNfiA1hFPr1JXXfSx9xZcnivSV1fiUw/viewform?usp=header" target="_blank" rel="noopener noreferrer" class="btn-primary">
+                <span>Open Registration Form</span>
+                <svg class="btn-icon" aria-hidden="true"><use href="#icon-external"></use></svg>
+            </a>
+        </section>
+
+        <!-- STEP 2: Account Details -->
+        <section class="card">
+            <header class="step-header-group">
+                <div class="step-number-badge">2</div>
+                <h2 class="step-title-text">Secure Account Details</h2>
+            </header>
+            <p class="step-description">Once your registration is verified by Scout Leaders, you will receive an automated email containing the following critical information:</p>
+            <ul class="bullet-list">
+                <li><strong>4-Digit PIN:</strong> The unique password your Scout will use to access the dashboard and secure chat rooms.</li>
+                <li><strong>Participant ID:</strong> An alphanumeric code used by leaders to identify your Scout if technical support is required during the weekend.</li>
+            </ul>
+            <div class="info-panel">
+                <svg class="info-icon" aria-hidden="true"><use href="#icon-info"></use></svg>
+                <span>Please store this email securely. We highly recommend checking your junk or spam folder if the confirmation has not arrived within three business days.</span>
+            </div>
+        </section>
+
+        <!-- STEP 3: Device Configuration -->
+        <section class="card">
+            <header class="step-header-group">
+                <div class="step-number-badge">3</div>
+                <h2 class="step-title-text">Configure Device & Screen Time</h2>
+            </header>
+            <p class="step-description">Select the primary hardware your Scout will utilize during the event. This will reveal specific instructions for installing the web-app and adjusting parental screen-time limitations.</p>
+            
+            <nav class="device-tabs-container" aria-label="Device selection">
+                <button class="device-tab-btn is-active" data-device="ios" aria-pressed="true">
+                    <svg class="device-tab-icon"><use href="#icon-mobile"></use></svg>
+                    iPhone / iPad
+                </button>
+                <button class="device-tab-btn" data-device="android" aria-pressed="false">
+                    <svg class="device-tab-icon"><use href="#icon-android"></use></svg>
+                    Android
+                </button>
+                <button class="device-tab-btn" data-device="windows" aria-pressed="false">
+                    <svg class="device-tab-icon"><use href="#icon-windows"></use></svg>
+                    Windows PC
+                </button>
+                <button class="device-tab-btn" data-device="mac" aria-pressed="false">
+                    <svg class="device-tab-icon"><use href="#icon-mac"></use></svg>
+                    Mac
+                </button>
+                <button class="device-tab-btn" data-device="chromebook" aria-pressed="false">
+                    <svg class="device-tab-icon"><use href="#icon-chromebook"></use></svg>
+                    Chromebook
+                </button>
+            </nav>
+
+            <div id="dynamic-device-content" class="device-content-area" aria-live="polite">
+                <!-- Content will be injected here by JavaScript -->
+            </div>
+        </section>
+
+        <!-- STEP 4: Network Whitelisting -->
+        <section class="card">
+            <header class="step-header-group">
+                <div class="step-number-badge">4</div>
+                <h2 class="step-title-text">Whitelist Event Domains</h2>
+            </header>
+            <p class="step-description">If your home network or device utilizes strict parental control filters (e.g., Family Link, Norton Family, or router-level blocks), you must manually allow the following domains. Failure to do so will result in blocked chat rooms and inaccessible activities.</p>
+            
+            <div class="code-snippet-box">
+                <button class="copy-action-btn" id="btn-copy-domains" aria-label="Copy domains to clipboard">
+                    <svg class="copy-icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
+                    Copy
+                </button>
+                <div id="domain-list-text">scoutpegs.github.io/jota-joti-app/<br>chat.jotajoti.info<br>webchat.scoutlink.net<br>jotajoti.info<br>minecraft.scoutlink.net</div>
+            </div>
+        </section>
+
+        <!-- STEP 5: Final Checklist -->
+        <section class="card">
+            <header class="step-header-group">
+                <div class="step-number-badge">5</div>
+                <h2 class="step-title-text">Final Preparation Checklist</h2>
+            </header>
+            <p class="step-description">Run through these mandatory checks 24 hours prior to the event commencement. Click each item to mark it as completed.</p>
+
+            <div class="task-list" id="interactive-checklist">
+                <div class="task-item" data-task-id="task-1" role="checkbox" aria-checked="false" tabindex="0">
+                    <div class="task-checkbox">
+                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                    </div>
+                    <span class="task-label">I have logged into the main dashboard using the 4-digit PIN to verify access.</span>
+                </div>
+                
+                <div class="task-item" data-task-id="task-2" role="checkbox" aria-checked="false" tabindex="0">
+                    <div class="task-checkbox">
+                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                    </div>
+                    <span class="task-label">The primary device is fully charged, updated, and the charging cable is readily accessible.</span>
+                </div>
+                
+                <div class="task-item" data-task-id="task-3" role="checkbox" aria-checked="false" tabindex="0">
+                    <div class="task-checkbox">
+                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                    </div>
+                    <span class="task-label">A functioning pair of headphones with a microphone has been tested for voice channels.</span>
+                </div>
+                
+                <div class="task-item" data-task-id="task-4" role="checkbox" aria-checked="false" tabindex="0">
+                    <div class="task-checkbox">
+                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                    </div>
+                    <span class="task-label">Parental screen-time limits have been explicitly extended for Friday, Saturday, and Sunday.</span>
+                </div>
+                
+                <div class="task-item" data-task-id="task-5" role="checkbox" aria-checked="false" tabindex="0">
+                    <div class="task-checkbox">
+                        <svg class="check-icon" aria-hidden="true"><use href="#icon-check"></use></svg>
+                    </div>
+                    <span class="task-label">The designated Scout Leader's emergency contact number is written down near the device.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: Cyber Safety Code of Conduct -->
+        <section class="card">
+            <h2 class="step-title-text" style="margin-bottom: var(--spacing-4);">Cyber Safety Code of Conduct</h2>
+            <p class="step-description">Safety is our absolute priority. Please review these rules with your Scout before they participate in any online communication channels.</p>
+            
+            <ul class="instruction-steps" style="margin-top: var(--spacing-4);">
+                <li><strong>No Personal Details:</strong> Never share your full name, home address, school name, phone number, or social media handles with anyone on chat, even if they claim to be a Scout.</li>
+                <li><strong>Use Only First Names:</strong> Always use your first name or your assigned Scout nickname when conversing on international channels.</li>
+                <li><strong>Stay in Supervised Areas:</strong> Only use the official links provided in the dashboard. Do not follow links sent via private message.</li>
+                <li><strong>Report Concerning Behavior:</strong> If a conversation makes you feel uncomfortable, or someone asks inappropriate questions, close the tab immediately and inform your Parent or Scout Leader.</li>
+                <li><strong>Be Respectful:</strong> Remember the Scout Law. Be polite, friendly, and respectful to all international participants. Bullying or inappropriate language will result in an immediate global ban.</li>
+            </ul>
+        </section>
+
+        <!-- SECTION: Glossary -->
+        <section class="card">
+            <h2 class="step-title-text" style="margin-bottom: var(--spacing-4);">Parent Glossary</h2>
+            <p class="step-description">Scouting acronyms can be confusing. Here is a brief guide to the terms your Scout might use over the weekend.</p>
+            
+            <div class="accordion-group">
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        What is JOTA?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>JOTA stands for Jamboree on the Air. It is an annual event in which Scouts and Guides all over the world speak to each other by means of amateur radio contacts. Local ham radio operators volunteer their time and equipment to make this possible.</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        What is JOTI?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>JOTI stands for Jamboree on the Internet. It runs parallel to JOTA and connects Scouts globally via text chat, voice chat, video conferencing, and multiplayer games hosted on secure, moderated servers.</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        What is ScoutLink?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>ScoutLink is a global, non-profit network providing safe, supervised chat environments for Scouts and Guides. They host the primary IRC (Internet Relay Chat) servers used during the JOTI weekend.</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        What is a QSO?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>QSO is an amateur radio term meaning a conversation or contact between two operators. During JOTA, Scouts will attempt to log as many QSOs as possible with other groups around the world.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: FAQ -->
+        <section class="card">
+            <h2 class="step-title-text" style="margin-bottom: var(--spacing-4);">Frequently Asked Questions</h2>
+            
+            <div class="accordion-group">
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        Are there any costs associated with this event?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>No. Participation in the online components of JOTA-JOTI is entirely free. All official platforms, web-apps, and communication channels are hosted by volunteers and global scouting organizations at no cost to the individual.</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        Why is the dashboard locked with a countdown?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>The global servers have limited capacity and are only active during specific timeframes. The dashboard is programmed to unlock exactly 24 hours prior to the official opening ceremony to prevent server overload and ensure a synchronized start globally.</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        What if my Scout does not have a personal device?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>This is completely fine. Please communicate with your local Scout Leader as early as possible. Most groups operate a "hub" environment at the Scout Hall where communal laptops and tablets are provided for youth members who require them.</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        Is the Minecraft server mandatory?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>No. The ScoutLink Minecraft server is a highly popular but entirely optional side-activity. It requires a purchased copy of Minecraft Java or Bedrock Edition. If your Scout does not own the game, there are dozens of other free activities available on the dashboard.</p>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <button class="accordion-trigger" aria-expanded="false">
+                        How is the chat monitored?
+                        <svg class="accordion-icon" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                    </button>
+                    <div class="accordion-content">
+                        <p>ScoutLink chat channels are actively moderated 24/7 during the event weekend by trained adult volunteers from around the globe. Automated filters also block profanity and the sharing of personal information like phone numbers or email addresses.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ======================================================================
+         FOOTER
+         ====================================================================== -->
+    <footer class="site-footer">
+        <div class="main-container" style="padding-top: 0; padding-bottom: 0;">
+            <p>Boulder Scout Group &middot; Official JOTA-JOTI 2026 Preparation Portal</p>
+            <p style="margin-top: var(--spacing-2); opacity: 0.7;">This setup guide is maintained by volunteer leaders to ensure a safe and smooth digital experience.</p>
+        </div>
+    </footer>
+
+    <!-- ======================================================================
+         TOAST NOTIFICATION ELEMENT
+         ====================================================================== -->
+    <div id="toast-notification" class="toast-container" role="alert" aria-live="assertive">
+        <svg class="check-icon" style="opacity: 1; transform: scale(1);"><use href="#icon-check"></use></svg>
+        <span id="toast-message">Action successful</span>
+    </div>
+
+    <!-- ======================================================================
+         JAVASCRIPT
+         ====================================================================== -->
+    <script>
+        /**
+         * @fileoverview Main logic for the JOTA-JOTI Parent Setup Guide.
+         * Handles countdown timer, device-specific instruction rendering, 
+         * interactive checklists with local storage persistence, clipboard 
+         * operations, and accordion UI interactions.
+         */
+
+        "use strict";
+
+        // ====================================================================
+        // DATA STRUCTURES
+        // ====================================================================
+
+        /**
+         * Configuration dictionary containing instructions for various operating systems.
+         * Separated into 'appSetup' for installing the web-app and 'screenTime' for 
+         * parental control adjustments.
+         * @type {Object<string, {appSetup: string, screenTime: string}>}
+         */
+        const deviceDataConfig = {
+            ios: {
+                appSetup: `
+                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <ol class="instruction-steps">
+                        <li>Open the <strong>Safari</strong> browser on the device (this process will not work in Chrome on iOS).</li>
+                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Tap the <strong>Share</strong> icon located at the bottom of the screen (it resembles a square with an upward-pointing arrow).</li>
+                        <li>Scroll down the menu and select <strong>Add to Home Screen</strong>.</li>
+                        <li>Confirm the name and tap <strong>Add</strong> in the top right corner.</li>
+                    </ol>
+                `,
+                screenTime: `
+                    <h3 class="step-subheading">Adjusting Apple Screen Time</h3>
+                    <ol class="instruction-steps">
+                        <li>Open the <strong>Settings</strong> application and navigate to <strong>Screen Time</strong>.</li>
+                        <li>If a schedule is active, select <strong>Downtime</strong> and adjust the hours to accommodate the weekend event schedule.</li>
+                        <li>Select <strong>App Limits</strong> to ensure the browser is not restricted to a short daily limit.</li>
+                        <li>Crucially, navigate to <strong>Always Allowed</strong> and ensure <em>Safari</em> is added to the list so the dashboard remains accessible.</li>
+                    </ol>
+                `
+            },
+            android: {
+                appSetup: `
+                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <ol class="instruction-steps">
+                        <li>Open the <strong>Google Chrome</strong> application.</li>
+                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Tap the three vertical menu dots located in the top right corner of the browser.</li>
+                        <li>Select <strong>Install App</strong> or <strong>Add to Home Screen</strong> from the dropdown menu.</li>
+                        <li>Follow the prompt to place the application icon on the device launcher.</li>
+                    </ol>
+                `,
+                screenTime: `
+                    <h3 class="step-subheading">Adjusting Android Digital Wellbeing</h3>
+                    <ol class="instruction-steps">
+                        <li>Open the <strong>Settings</strong> application and navigate to <strong>Digital Wellbeing & parental controls</strong>.</li>
+                        <li>Select the <strong>Dashboard</strong> to view current app timers. Locate Chrome and ensure the timer is extended or removed.</li>
+                        <li>If the device is managed via <strong>Family Link</strong>, open the Family Link app on the parent's device.</li>
+                        <li>Select your child's profile, navigate to <strong>Daily limits</strong>, and grant bonus time for Friday through Sunday.</li>
+                    </ol>
+                `
+            },
+            windows: {
+                appSetup: `
+                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <ol class="instruction-steps">
+                        <li>Open Google Chrome or Microsoft Edge.</li>
+                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Look for the <strong>App Available</strong> icon in the right side of the address bar (it looks like a small computer monitor with a download arrow).</li>
+                        <li>Click the icon and select <strong>Install</strong>.</li>
+                        <li>The app will open in its own window and a shortcut will be placed in your Start menu.</li>
+                    </ol>
+                `,
+                screenTime: `
+                    <h3 class="step-subheading">Adjusting Microsoft Family Safety</h3>
+                    <ol class="instruction-steps">
+                        <li>From the parent's device, log in to the web dashboard at <strong>account.microsoft.com/family</strong>.</li>
+                        <li>Select the profile belonging to the participating Scout.</li>
+                        <li>Navigate to the <strong>Screen time</strong> tab on the left sidebar.</li>
+                        <li>Under the Windows 10/11 section, adjust the allowable schedule for the specific dates of the event.</li>
+                    </ol>
+                `
+            },
+            mac: {
+                appSetup: `
+                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <ol class="instruction-steps">
+                        <li>Open Safari or Google Chrome.</li>
+                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>To create a permanent shortcut, highlight the URL in the address bar.</li>
+                        <li>Click and drag the URL down into the right side of your macOS Dock (next to the trash can).</li>
+                        <li>Alternatively, simply add the page to your Favorites bar for quick access.</li>
+                    </ol>
+                `,
+                screenTime: `
+                    <h3 class="step-subheading">Adjusting macOS Screen Time</h3>
+                    <ol class="instruction-steps">
+                        <li>Click the Apple menu logo in the top left corner and open <strong>System Settings</strong> (or System Preferences on older versions).</li>
+                        <li>Select <strong>Screen Time</strong> from the sidebar.</li>
+                        <li>Select the child's account if using Family Sharing.</li>
+                        <li>Adjust the <strong>Downtime</strong> schedule and review <strong>App Limits</strong> to ensure web browsers are unrestricted for the duration of the event.</li>
+                    </ol>
+                `
+            },
+            chromebook: {
+                appSetup: `
+                    <h3 class="step-subheading">Web-App Installation</h3>
+                    <ol class="instruction-steps">
+                        <li>Open Google Chrome.</li>
+                        <li>Navigate to the provided URL: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li>
+                        <li>Click the three vertical menu dots in the top right corner.</li>
+                        <li>Navigate to <strong>Save and Share</strong>, then select <strong>Create Shortcut</strong>.</li>
+                        <li>Ensure "Open as window" is checked (if available) and click Create. This will pin the app to the Chromebook shelf.</li>
+                    </ol>
+                `,
+                screenTime: `
+                    <h3 class="step-subheading">Adjusting ChromeOS Family Link</h3>
+                    <ol class="instruction-steps">
+                        <li>Open the <strong>Family Link app</strong> on the parent's mobile device (or navigate to familylink.google.com).</li>
+                        <li>Select the account of the Scout using the Chromebook.</li>
+                        <li>Navigate to the <strong>Limits</strong> section.</li>
+                        <li>Under <strong>Daily limits</strong>, tap Edit and increase the allowance for Friday, Saturday, and Sunday.</li>
+                        <li>Check the <strong>Downtime</strong> schedule to ensure it does not cut off early during evening global activities.</li>
+                    </ol>
+                `
+            }
+        };
+
+        // ====================================================================
+        // DEVICE SELECTION LOGIC
+        // ====================================================================
+
+        const deviceButtons = document.querySelectorAll('.device-tab-btn');
+        const deviceContentContainer = document.getElementById('dynamic-device-content');
+
+        /**
+         * Renders the HTML content for a specific device.
+         * @param {string} deviceKey - The key corresponding to the device in deviceDataConfig.
+         */
+        function renderDeviceInstructions(deviceKey) {
+            const data = deviceDataConfig[deviceKey];
+            if (!data) return;
+
+            // Trigger animation restart
+            deviceContentContainer.style.animation = 'none';
+            deviceContentContainer.offsetHeight; // trigger reflow
+            deviceContentContainer.style.animation = null;
+
+            // Inject combined HTML
+            deviceContentContainer.innerHTML = data.appSetup + data.screenTime;
+        }
+
+        /**
+         * Handles the click event on a device tab.
+         * Updates UI state, saves preference, and renders content.
+         * @param {Event} event - The click event object.
+         */
+        function handleDeviceTabClick(event) {
+            // Remove active state from all buttons
+            deviceButtons.forEach(btn => {
+                btn.classList.remove('is-active');
+                btn.setAttribute('aria-pressed', 'false');
+            });
+
+            // Add active state to clicked button
+            const clickedButton = event.currentTarget;
+            clickedButton.classList.add('is-active');
+            clickedButton.setAttribute('aria-pressed', 'true');
+
+            // Get device key and render
+            const deviceKey = clickedButton.getAttribute('data-device');
+            renderDeviceInstructions(deviceKey);
+
+            // Save preference to localStorage
+            try {
+                localStorage.setItem('jotajoti_preferred_device', deviceKey);
+            } catch (e) {
+                console.warn("Local storage not available for saving device preference.");
+            }
+        }
+
+        // Attach event listeners to device tabs
+        deviceButtons.forEach(btn => {
+            btn.addEventListener('click', handleDeviceTabClick);
+        });
+
+        // ====================================================================
+        // CHECKLIST LOGIC WITH LOCAL STORAGE
+        // ====================================================================
+
+        const taskItems = document.querySelectorAll('.task-item');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const progressBarText = document.getElementById('progress-bar-text');
+        const STORAGE_KEY_PREFIX = 'jotajoti_task_';
+
+        /**
+         * Updates the visual progress bar based on the current number of completed tasks.
+         */
+        function updateProgressBar() {
+            const totalTasks = taskItems.length;
+            const completedTasks = document.querySelectorAll('.task-item.is-completed').length;
+            
+            // Calculate percentage
+            const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+            
+            // Update DOM
+            progressBarFill.style.width = `${percentage}%`;
+            progressBarText.textContent = `${completedTasks} of ${totalTasks} steps completed`;
+        }
+
+        /**
+         * Toggles the completion state of a task item.
+         * @param {HTMLElement} taskElement - The DOM element of the task.
+         */
+        function toggleTaskState(taskElement) {
+            const taskId = taskElement.getAttribute('data-task-id');
+            const isCurrentlyCompleted = taskElement.classList.contains('is-completed');
+            
+            if (isCurrentlyCompleted) {
+                // Mark as incomplete
+                taskElement.classList.remove('is-completed');
+                taskElement.setAttribute('aria-checked', 'false');
+                try {
+                    localStorage.removeItem(STORAGE_KEY_PREFIX + taskId);
+                } catch (e) {}
+            } else {
+                // Mark as complete
+                taskElement.classList.add('is-completed');
+                taskElement.setAttribute('aria-checked', 'true');
+                try {
+                    localStorage.setItem(STORAGE_KEY_PREFIX + taskId, 'true');
+                } catch (e) {}
+            }
+            
+            updateProgressBar();
+        }
+
+        /**
+         * Handles click and keyboard events on task items.
+         * @param {Event} event - The triggered event.
+         */
+        function handleTaskInteraction(event) {
+            // Allow triggering via Enter or Space key for accessibility
+            if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            
+            if (event.type === 'keydown') {
+                event.preventDefault(); // Prevent scrolling when pressing Space
+            }
+            
+            toggleTaskState(event.currentTarget);
+        }
+
+        // Attach event listeners to task items
+        taskItems.forEach(item => {
+            item.addEventListener('click', handleTaskInteraction);
+            item.addEventListener('keydown', handleTaskInteraction);
+        });
+
+        // ====================================================================
+        // COUNTDOWN TIMER LOGIC
+        // ====================================================================
+
+        /**
+         * Initializes and manages a countdown timer targeting a specific date.
+         */
+        class EventCountdown {
+            constructor(targetDateString, elements) {
+                this.targetDate = new Date(targetDateString).getTime();
+                this.elements = elements;
+                this.intervalId = null;
+            }
+
+            /**
+             * Formats a number to always have at least two digits (e.g., 9 -> "09").
+             * @param {number} num - The number to format.
+             * @returns {string} The zero-padded string.
+             */
+            padNumber(num) {
+                return num.toString().padStart(2, '0');
+            }
+
+            /**
+             * Calculates the remaining time and updates the DOM.
+             */
+            update() {
+                const now = new Date().getTime();
+                const difference = this.targetDate - now;
+
+                if (difference <= 0) {
+                    // Event has started or passed
+                    this.elements.days.textContent = "00";
+                    this.elements.hours.textContent = "00";
+                    this.elements.minutes.textContent = "00";
+                    this.elements.seconds.textContent = "00";
+                    this.stop();
+                    return;
+                }
+
+                // Time calculations
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+                // Update DOM elements
+                this.elements.days.textContent = this.padNumber(days);
+                this.elements.hours.textContent = this.padNumber(hours);
+                this.elements.minutes.textContent = this.padNumber(minutes);
+                this.elements.seconds.textContent = this.padNumber(seconds);
+            }
+
+            /**
+             * Starts the interval loop.
+             */
+            start() {
+                this.update(); // Initial call to avoid 1-second delay
+                this.intervalId = setInterval(() => this.update(), 1000);
+            }
+
+            /**
+             * Stops the interval loop.
+             */
+            stop() {
+                if (this.intervalId) {
+                    clearInterval(this.intervalId);
+                    this.intervalId = null;
+                }
+            }
+        }
+
+        // ====================================================================
+        // CLIPBOARD INTERACTION LOGIC
+        // ====================================================================
+
+        const copyBtn = document.getElementById('btn-copy-domains');
+        const toastElement = document.getElementById('toast-notification');
+        const toastMessage = document.getElementById('toast-message');
+        let toastTimeoutId = null;
+
+        /**
+         * Displays a temporary toast notification on the screen.
+         * @param {string} message - The text to display.
+         */
+        function showToast(message) {
+            toastMessage.textContent = message;
+            toastElement.classList.add('is-visible');
+            
+            // Clear existing timeout if present
+            if (toastTimeoutId) clearTimeout(toastTimeoutId);
+            
+            // Hide after 3 seconds
+            toastTimeoutId = setTimeout(() => {
+                toastElement.classList.remove('is-visible');
+            }, 3000);
+        }
+
+        /**
+         * Handles copying the predefined list of domains to the system clipboard.
+         */
+        function handleCopyDomains() {
+            // Use exact formatting expected by users parsing this list
+            const domainsToCopy = [
+                "scoutpegs.github.io/jota-joti-app/",
+                "chat.jotajoti.info",
+                "webchat.scoutlink.net",
+                "jotajoti.info",
+                "minecraft.scoutlink.net"
+            ].join('\n');
+
+            // Modern Clipboard API approach
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(domainsToCopy)
+                    .then(() => showToast('Websites copied to clipboard successfully!'))
+                    .catch(err => {
+                        console.error('Failed to copy text: ', err);
+                        fallbackCopyText(domainsToCopy);
+                    });
+            } else {
+                // Fallback for older browsers or non-secure contexts
+                fallbackCopyText(domainsToCopy);
+            }
+        }
+
+        /**
+         * Fallback mechanism for copying text using older document.execCommand method.
+         * @param {string} text - The text to copy.
+         */
+        function fallbackCopyText(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Avoid scrolling to bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast('Websites copied to clipboard!');
+                } else {
+                    showToast('Unable to copy automatically. Please select text manually.');
+                }
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+                showToast('Unable to copy automatically. Please select text manually.');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', handleCopyDomains);
+        }
+
+        // ====================================================================
+        // ACCORDION / FAQ LOGIC
+        // ====================================================================
+        
+        const accordionTriggers = document.querySelectorAll('.accordion-trigger');
+        
+        accordionTriggers.forEach(trigger => {
+            trigger.addEventListener('click', (e) => {
+                const parentItem = e.currentTarget.closest('.accordion-item');
+                const isExpanded = parentItem.classList.contains('is-open');
+                
+                // Toggle current item
+                if (isExpanded) {
+                    parentItem.classList.remove('is-open');
+                    e.currentTarget.setAttribute('aria-expanded', 'false');
+                } else {
+                    parentItem.classList.add('is-open');
+                    e.currentTarget.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
+
+        // ====================================================================
+        // INITIALIZATION SEQUENCE
+        // ====================================================================
+
+        /**
+         * Bootstraps the application on DOM content load.
+         */
+        function initializeApp() {
+            // 1. Initialize Device Selection
+            let defaultDevice = 'ios'; // Default fallback
+            try {
+                const savedDevice = localStorage.getItem('jotajoti_preferred_device');
+                if (savedDevice && deviceDataConfig[savedDevice]) {
+                    defaultDevice = savedDevice;
+                }
+            } catch (e) {}
+
+            // Find button matching default and trigger click to set up state
+            const targetButton = document.querySelector(`.device-tab-btn[data-device="${defaultDevice}"]`);
+            if (targetButton) {
+                targetButton.click();
+            } else {
+                renderDeviceInstructions(defaultDevice);
+            }
+
+            // 2. Initialize Checklist State from Storage
+            taskItems.forEach(item => {
+                const taskId = item.getAttribute('data-task-id');
+                try {
+                    const isSavedAsComplete = localStorage.getItem(STORAGE_KEY_PREFIX + taskId);
+                    if (isSavedAsComplete === 'true') {
+                        item.classList.add('is-completed');
+                        item.setAttribute('aria-checked', 'true');
+                    }
+                } catch (e) {}
+            });
+            updateProgressBar();
+
+            // 3. Initialize Countdown Timer targeting Oct 16, 2026 00:00:00 Local Time
+            const countdownElements = {
+                days: document.getElementById('countdown-days'),
+                hours: document.getElementById('countdown-hours'),
+                minutes: document.getElementById('countdown-minutes'),
+                seconds: document.getElementById('countdown-seconds')
+            };
+            
+            const eventTimer = new EventCountdown("2026-10-16T00:00:00", countdownElements);
+            eventTimer.start();
+        }
+
+        // Run initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+
+    </script>
+</body>
+</html>

@@ -7,7 +7,7 @@ Unofficial JOTA-JOTI 2026 website for Boulder Scout Group.
 Upload the files in this package to the root of the GitHub Pages repository:
 
 - `index.html` — main countdown/dashboard
-- `index(1).html` — parent setup guide, available through `/setup`
+- `setup.html` — cleaned parent setup guide, available through `/setup`
 - `skip.html` — testing page that skips the countdown
 - `track.html` — JID World Tracker, available through `/track`
 - `admin.html` — admin interface shell; protected by the Apps Script admin session
@@ -70,3 +70,24 @@ The old unauthenticated `openAdmin*` endpoints must not be used.
 ## Updating
 
 The public site can be uploaded to GitHub Pages without exposing the private Apps Script source. When the Apps Script deployment URL changes, update the API URL in the public client files and redeploy the private backend separately.
+
+
+## Setup and testing
+
+### Run locally
+
+1. Install Python 3.
+2. Open a terminal in this folder.
+3. Run `python -m http.server 8080`.
+4. Open `http://localhost:8080/` in your browser.
+5. Test the setup guide at `http://localhost:8080/setup`.
+
+A local web server is recommended because service workers and some PWA features do not work reliably when opening files directly with `file://`.
+
+### Deploy to GitHub Pages
+
+Upload the public files to the repository root. The `/setup` route is handled by `sw.js` after the service worker has been installed. If GitHub Pages does not yet have the service worker cached, open `/setup.html` directly once.
+
+### Important
+
+The setup guide contains event details and links supplied by the project owner. Verify registration deadlines, domains, moderation arrangements and backend URLs before publishing publicly.

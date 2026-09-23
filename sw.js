@@ -3,7 +3,7 @@ const CACHE_NAME = 'jota-joti-shell-v10';
 
 const APP_SHELL = [
   './index.html',
-  './index(1).html',
+  './setup.html',
   './admin.html',
   './skip.html',
   './track.html',
@@ -57,7 +57,7 @@ self.addEventListener('fetch', event => {
     
     // Parent setup guide
     if (path.endsWith('/setup')) {
-      event.respondWith(loadPage('./index(1).html'));
+      event.respondWith(loadPage('./setup.html'));
       return;
     }
 
