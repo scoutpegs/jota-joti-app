@@ -11,9 +11,9 @@ const APP_SHELL = [
   './photo1.png',
   './style.css',
   './script.js',
+  './config.js',
   './admin.css',
-  './admin.js',
-  './config.js'
+  './admin.js'
 ];
 
 self.addEventListener('install', event => {
@@ -68,7 +68,6 @@ self.addEventListener('fetch', event => {
       return;
     }
 
-    // Clean admin route. The page itself requires the Apps Script admin session.
     if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
       event.respondWith(loadPage('./admin.html'));
       return;

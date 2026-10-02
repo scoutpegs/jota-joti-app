@@ -1,7 +1,10 @@
-# Keep deployment-only files out of the public GitHub Pages repository.
+# Keep the real spreadsheet and backend out of the public GitHub Pages root.
 /private/
-/Code.gs
-*.zip
-*.log
+*.xlsx
+*.xlsm
+
+# OS/editor junk
 .DS_Store
 Thumbs.db
+*.swp
+*.swo

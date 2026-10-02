@@ -3,8 +3,8 @@
    real protection is the Apps Script admin password + short-lived session.
    No admin password is stored in this file.
 */
-const API_URL=String((window.JOTA_CONFIG&&window.JOTA_CONFIG.API_URL)||'').trim();
-if(!API_URL) throw new Error('Missing JOTA_CONFIG.API_URL');
+const APP_CONFIG=window.JOTA_CONFIG||{};
+const API_URL=String(APP_CONFIG.API_URL||'').trim();
 const ADMIN_TOKEN_KEY='jota_joti_admin_token_v1';
 const ADMIN_TOKEN_EXPIRY_KEY='jota_joti_admin_token_expiry_v1';
 let adminToken=sessionStorage.getItem(ADMIN_TOKEN_KEY)||'';
@@ -110,7 +110,7 @@ async function call(action,params={}){
   // Reads stay GET so they are easy to inspect directly in a new browser tab.
   // Preview and Send use POST because their base64 HTML/email payloads can be
   // much larger than a practical URL length.
-  if(action==='adminPreview' || action==='adminSend' || action==='adminUpdateTraining'){
+  if(action==='adminPreview' || action==='adminSend'){
     return fetchPost(action,params);
   }
   return fetchGet(action,params);
@@ -130,7 +130,7 @@ async function adminLoginPrompt(){
   if(!password) throw new Error('Admin password is required.');
 
   const payload=b64url({password});
-  const result=await fetchGet('adminLogin',{payload});
+  const result=await fetchPost('adminLogin',{payload});
 
   if(!result?.success || !result.token) {
     throw new Error('Admin sign-in failed.');
@@ -165,40 +165,19 @@ async function callProtected(action,params={}){
 
 async function loadAll(){
   await adminLoginPrompt();
-
+  try{ await callProtected('adminPing'); }catch(e){ throw new Error('Apps Script connection check failed: '+e.message); }
   try{
-    await callProtected('adminPing');
-    await call('health');
-  }catch(e){
-    throw new Error('Apps Script connection check failed: '+e.message);
-  }
-
-  let u=[];
-  try{u=await callProtected('adminUsers');}
-  catch(e){throw new Error('Users API failed after a healthy Apps Script check: '+e.message)}
-  users=Array.isArray(u)?u:(Array.isArray(u.users)?u.users:(Array.isArray(u.data)?u.data:[]));
-
-  try{const r=await callProtected('adminSections');sections=Array.isArray(r)?r:(r.sections||r.data||[]);}
-  catch(e){sections=[];console.warn('Sections API failed:',e);}
-
-  try{const r=await callProtected('adminCategories');categories=Array.isArray(r)?r:(r.categories||r.data||[]);}
-  catch(e){categories=[];console.warn('Categories API failed:',e);}
-
-  try{const r=await callProtected('adminGroups');groups=Array.isArray(r)?r:(r.groups||r.data||[]);}
-  catch(e){groups=[];console.warn('Saved groups unavailable:',e);}
-
-  let me={sender:'Admin',quota:'—'};
-  try{me=await callProtected('adminSender')||me;}
-  catch(e){console.warn('Sender/quota endpoint unavailable:',e);}
-
-  $('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';
-  renderStats(me.quota);
-  renderPeople();
-  renderGroups();
-  renderCategories();
-  renderSavedGroups();
-  refreshPreview();
+    const r=await callProtected('adminBootstrap');
+    users=Array.isArray(r.users)?r.users:[];
+    sections=Array.isArray(r.ageGroups)?r.ageGroups:[];
+    categories=Array.isArray(r.categories)?r.categories:[];
+    groups=Array.isArray(r.groups)?r.groups:[];
+    const me=r.sender||{sender:'Admin',quota:'—'};
+    $('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';
+    renderStats(me.quota); renderPeople(); renderGroups(); renderCategories(); renderSavedGroups(); refreshPreview();
+  }catch(e){ throw new Error('Admin data could not be loaded: '+e.message); }
 }
+
 function activeUsers(){return users.filter(u=>String(u.Status||'').toLowerCase()!=='disabled')}
 function renderStats(q){const a=activeUsers();$('userCount').textContent=a.length;$('parentCount').textContent=a.filter(u=>validEmail(u.ParentEmail)).length;$('youthCount').textContent=a.filter(u=>validEmail(u.Email)).length;$('quota').textContent=q??'—'}
 function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim())}
@@ -247,31 +226,32 @@ async function send(){try{const p=payload();if(!confirm('Send this email now to 
 function clearComposer(){['subject','body','driveAttachment'].forEach(id=>$(id).value='');$('certificatePlacement').value='none';$('certificateTitle').value='CERTIFICATE OF COMPLETION';$('certificateSubtitle').value='JOTA-JOTI 2026';$('certificateMessage').value='This certifies that {{childFullName}} has successfully taken part in JOTA-JOTI 2026 with Boulder Scout Group.';$('certificateFooter').value='Issued by Boulder Scout Group';selected=[];allSelected=[];$('personSearch').value='';$('sectionSearch').value='';$('activitySearch').value='';$('groupSearch').value='';delete $('sectionSearch').dataset.value;delete $('activitySearch').dataset.value;delete $('groupSearch').dataset.value;document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();$('emailMsg').className='message';refreshPreview()}
 function insertTag(tag){const el=focusEl||$('body'),a=el.selectionStart||el.value.length,b=el.selectionEnd||el.value.length;el.value=el.value.slice(0,a)+tag+el.value.slice(b);el.focus();el.selectionStart=el.selectionEnd=a+tag.length}
 async function findScout(q){const n=norm(q);const list=activeUsers().filter(u=>matches(u,n)).slice(0,8);const box=$('findOptions');box.innerHTML=list.map((u,i)=>optionHTML(u,i)).join('')||'<div class="option"><span>No matching active users</span></div>';box._matches=list;box.style.display='block'}
-function isLeader(u){return !!(u&&(u.IsLeader===true||/leader/i.test(String(u.AgeYear||u.AgeGroup||u.YouthSection||''))));}
+let currentScoutForTraining=null;
 function renderLeaderTraining(u){
-  const card=$('leaderTrainingCard');
-  if(!card)return;
-  if(!isLeader(u)){card.classList.add('hidden');return;}
-  card.classList.remove('hidden');
-  $('leaderTrainingName').textContent=u.Name||'Leader';
-  $('trainingStatus').value=u.TrainingStatus||'Course required';
-  $('scoutLearnStatus').value=u.ScoutLearnAccountStatus||'Unknown';
-  $('trainingNotes').value=u.TrainingNotes||'';
-  $('trainingCourseLink').href=(window.JOTA_CONFIG&&window.JOTA_CONFIG.SFH3_URL)||'https://learn.scout.org/resource/sfh-3-being-safe-online';
-  $('saveTrainingBtn').onclick=async()=>{
-    try{
-      $('saveTrainingBtn').disabled=true;
-      showMsg('trainingMsg','Saving Leader training status…',true);
-      const result=await callProtected('adminUpdateTraining',{payload:b64url({participantId:u.ParticipantID,trainingStatus:$('trainingStatus').value,scoutLearnAccountStatus:$('scoutLearnStatus').value,trainingNotes:$('trainingNotes').value})});
-      const updated=result.user||result;
-      users=users.map(x=>String(x.ParticipantID)===String(updated.ParticipantID)?Object.assign({},x,updated):x);
-      showScout(updated);
-      showMsg('trainingMsg','Leader training status saved.',true);
-    }catch(e){showMsg('trainingMsg',e.message,false)}finally{$('saveTrainingBtn').disabled=false;}
-  };
+  const card=$('leaderTrainingCard'); if(!card)return;
+  currentScoutForTraining=null;
+  if(!u || !u.IsLeader){card.classList.add('hidden');return;}
+  currentScoutForTraining=u; card.classList.remove('hidden');
+  $('leaderTrainingSummary').textContent='SFH 3 – Being Safe Online · '+(u.LeaderTrainingStatus||'Course required')+' · Scout Learn: '+(u.ScoutLearnStatus||'Not required');
+  $('leaderTrainingStatus').value=u.LeaderTrainingStatus||'Course required';
+  $('scoutLearnStatus').value=u.ScoutLearnStatus||'Not required';
+  $('leaderTrainingMsg').className='message'; $('leaderTrainingMsg').textContent='';
+}
+async function saveLeaderTraining(){
+  if(!currentScoutForTraining?.ParticipantID)return;
+  try{
+    showMsg('leaderTrainingMsg','Saving training status…',true);
+    const r=await callProtected('adminUserTraining',{participantId:currentScoutForTraining.ParticipantID,trainingStatus:$('leaderTrainingStatus').value,scoutLearnStatus:$('scoutLearnStatus').value});
+    const u=users.find(x=>String(x.ParticipantID)===String(currentScoutForTraining.ParticipantID));
+    if(u){u.LeaderTrainingStatus=r.trainingStatus;u.ScoutLearnStatus=r.scoutLearnStatus;}
+    currentScoutForTraining.LeaderTrainingStatus=r.trainingStatus; currentScoutForTraining.ScoutLearnStatus=r.scoutLearnStatus;
+    renderLeaderTraining(currentScoutForTraining);
+    showMsg('leaderTrainingMsg','Training status saved.',true);
+  }catch(e){showMsg('leaderTrainingMsg',e.message,false)}
 }
 function showScout(u){renderLeaderTraining(u);$('findResult').classList.remove('hidden');$('findResult').innerHTML=`<b>${esc(u.Name||'Scout')}</b><br>PIN: ${esc(u.PIN||'—')}<br>Username: ${esc(u.Username||'—')}<br>Section: ${esc(u.YouthSection||u.AgeYear||'—')}<br>Youth email: ${esc(u.Email||'—')}<br>Parent: ${esc(u.ParentName||'—')} · ${esc(u.ParentEmail||'—')}<br><br><button class="ghost" id="useScout">Use this scout for email</button>`;$('useScout').onclick=()=>{selected=[u];document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();refreshPreview()}}
 function setupEvents(){
+ $('saveLeaderTraining').onclick=saveLeaderTraining;
  $('refreshBtn').onclick=async()=>{try{await loadAll();showMsg('emailMsg','Live Users data refreshed.',true)}catch(e){showMsg('emailMsg',e.message,false)}};$('previewBtn').onclick=preview;$('sendBtn').onclick=send;$('clearBtn').onclick=clearComposer;
  document.querySelectorAll('input[name=scope]').forEach(e=>e.onchange=setScopeUI);document.querySelectorAll('input[name=targetType]').forEach(e=>e.onchange=refreshPreview);
  $('personSearch').onfocus=renderPeople;$('personSearch').oninput=renderPeople;$('personSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(!choosePersonDirectly()){const first=$('personOptions')._matches?.[0];if(first){selected.push(first);$('personSearch').value='';$('personOptions').style.display='none';renderChips();refreshPreview();}}}};$('personOptions').onmousedown=e=>{const x=e.target.closest('.option');if(x&&$('personOptions')._matches[x.dataset.i])choosePerson(Number(x.dataset.i))};$('chips').onclick=e=>{const id=e.target.dataset.remove;if(id){selected=selected.filter(u=>String(u.ParticipantID)!==String(id));renderChips();refreshPreview()}};
@@ -285,7 +265,7 @@ function setupEvents(){
  $('sectionCards').onclick=e=>{const b=e.target.closest('[data-section]');if(b){document.querySelector('input[name=scope][value=section]').checked=true;setScopeUI();$('sectionSearch').value=b.dataset.section;$('sectionSearch').dataset.value=b.dataset.section;refreshPreview()}};$('categoryCards').onclick=e=>{const b=e.target.closest('[data-category]');if(b){document.querySelector('input[name=scope][value=activity]').checked=true;setScopeUI();$('activitySearch').value=b.dataset.category;$('activitySearch').dataset.value=b.dataset.category;refreshPreview()}};
 }
 function setupPreviewLink(){
-  const link=(window.JOTA_CONFIG&&window.JOTA_CONFIG.SKIP_URL)||new URL('./skip',window.location.href).href;
+  const link=new URL('skip', String(APP_CONFIG.SITE_URL||window.location.href)).href;
   const input=$('previewLink');
   if(!input)return;
   input.value=link;

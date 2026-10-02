@@ -1,17 +1,15 @@
-        const API_URL = String((window.JOTA_CONFIG && window.JOTA_CONFIG.API_URL) || '').trim();
-        if (!API_URL) throw new Error('Missing JOTA_CONFIG.API_URL');
-
-        /* ==========================================================
-           COMBINED PORTAL CONFIGURATION
-           ========================================================== */
-
-        const SIGNUP_FORM_URL = String((window.JOTA_CONFIG && window.JOTA_CONFIG.SIGNUP_FORM_URL) || '');
-        const EVENT_START_ISO = String((window.JOTA_CONFIG && window.JOTA_CONFIG.EVENT_START_ISO) || '2026-10-16T00:00:00+08:00');
+        const APP_CONFIG = window.JOTA_CONFIG || {};
+        const API_URL = String(APP_CONFIG.API_URL || '').trim();
+        const SIGNUP_FORM_URL = String(APP_CONFIG.SIGNUP_FORM_URL || '').trim();
+        const EVENT_START_ISO = String(APP_CONFIG.EVENT_START_ISO || '2026-10-16T00:00:00+08:00');
         const EVENT_START_MS = new Date(EVENT_START_ISO).getTime();
         const FINAL_DAY_MS = EVENT_START_MS - (24 * 60 * 60 * 1000);
         const INSTALLED_KEY = "jota_installed";
-        const AUTH_SESSION_KEY = 'jotajoti_auth_session_v3';
-        const AUTH_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
+        const TRUSTED_SESSION_KEY = 'jotajoti_trusted_session_v1';
+        const TRUSTED_DEVICE_META_KEY = 'jotajoti_trusted_device_v1';
+        const DASH_CACHE_KEY_PREFIX = 'jotajoti_dashboard_cache_v2_';
+        const DASH_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
+        const API_TIMEOUT_MS = 12000;
         let dashboardView = 'login';
         let activeCategoryKey = '';
         let dashboardHandoffComplete = false;
@@ -47,76 +45,26 @@
             document.getElementById("dash-greeting-name").innerText = name;
         }
 
-        const SAVED_PIN_KEY = 'jotajoti_saved_pin';
-        const DASH_CACHE_KEY = 'jotajoti_dashboard_cache_v1';
-        const DASH_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
         let lastAttemptedPin = '';
 
         /* ==========================================================
            FAST START
            ----------------------------------------------------------
-           Apps Script answers in about a second and a half on a good
-           connection, longer on phone data. Two things fix that:
-
-           1. Fire the sign in request the moment this file runs,
-              before the page has even finished setting itself up, so
-              it overlaps with everything else instead of waiting.
-           2. Keep the last dashboard in localStorage so the app can
-              paint straight away and quietly update itself once the
-              real answer lands.
+           Public metadata can be cached, but the Users sheet is always
+           authoritative. A trusted-device session token is stored locally
+           so returning devices can restore the current account without a PIN.
            ========================================================== */
 
-        const API_TIMEOUT_MS = 15000;
         let loginPrefetch = null;
         let loginPrefetchPin = '';
-
-        async function fetchJsonWithTimeout(url, options = {}, label = 'request') {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-            try {
-                const response = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
-                const text = await response.text();
-                let data;
-                try { data = JSON.parse(text); } catch (_) {
-                    throw new Error(`${label} returned an invalid response.`);
-                }
-                if (!response.ok) throw new Error(data.error || `${label} failed (HTTP ${response.status}).`);
-                return data;
-            } catch (err) {
-                if (err && err.name === 'AbortError') throw new Error(`${label} timed out. Please try again.`);
-                if (err instanceof TypeError) throw new Error(`${label} could not be reached. Check your connection and try again.`);
-                throw err;
-            } finally {
-                clearTimeout(timer);
-            }
-        }
-
-        function resolveAssetUrl(value) {
-            const raw = String(value || '').trim();
-            if (!raw) return '';
-            if (/^(?:data:|blob:|https?:)/i.test(raw)) return raw;
-            try {
-                const clean = raw.startsWith('/') ? raw.slice(1) : raw.replace(/^\.\//, '');
-                return new URL(clean, new URL('./', window.location.href)).href;
-            } catch (_) {
-                return raw;
-            }
-        }
-
-        function imageHtml(source, fallback, alt) {
-            const src = resolveAssetUrl(source || fallback);
-            const fallbackSrc = resolveAssetUrl(fallback);
-            if (!src) return '';
-            const escapedSrc = escapeHtml(src);
-            const escapedFallback = escapeHtml(fallbackSrc).replace(/'/g, '&#039;');
-            const escapedAlt = escapeHtml(alt || '');
-            const onError = fallbackSrc && src !== fallbackSrc ? `this.src='${escapedFallback}'` : 'this.style.display=\'none\'';
-            return `<img src="${escapedSrc}" alt="${escapedAlt}" loading="lazy" decoding="async" onerror="this.onerror=null;${onError}">`;
-        }
+        let loginPrefetchTimer = null;
+        let loginPrefetchController = null;
+        let trustedDeviceKnown = false;
 
         (function warmUpConnection() {
             try {
-                ['https://script.googleusercontent.com', 'https://script.google.com'].forEach(host => {
+                if (!API_URL) return;
+                ['https://script.google.com', 'https://script.googleusercontent.com'].forEach(host => {
                     const link = document.createElement('link');
                     link.rel = 'preconnect';
                     link.href = host;
@@ -126,51 +74,147 @@
             } catch (_) {}
         })();
 
-        (function startLoginPrefetch() {
+        async function fetchJsonWithTimeout(url, options = {}) {
+            const controller = new AbortController();
+            const externalSignal = options && options.signal ? options.signal : null;
+            const abortFromExternal = () => controller.abort();
+            if (externalSignal) {
+                if (externalSignal.aborted) controller.abort();
+                else externalSignal.addEventListener('abort', abortFromExternal, { once: true });
+            }
+            const timer = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
             try {
-                const pin = localStorage.getItem(SAVED_PIN_KEY);
-                if (!pin || !/^\d{4}$/.test(pin)) return;
+                const response = await fetch(url, Object.assign({
+                    redirect: 'follow', cache: 'no-store', credentials: 'omit', signal: controller.signal
+                }, options, { signal: controller.signal }));
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); }
+                catch (_) { throw new Error('The sign-in service returned an invalid response.'); }
+                if (!response.ok) throw new Error(data.error || ('Request failed (HTTP ' + response.status + ').'));
+                return data;
+            } catch (error) {
+                if (error && error.name === 'AbortError') throw new Error('The sign-in service took too long to respond.');
+                throw error;
+            } finally {
+                window.clearTimeout(timer);
+                if (externalSignal) externalSignal.removeEventListener('abort', abortFromExternal);
+            }
+        }
+
+        function scheduleLoginPrefetch(pin) {
+            window.clearTimeout(loginPrefetchTimer);
+            if (loginPrefetchController) {
+                try { loginPrefetchController.abort(); } catch (_) {}
+                loginPrefetchController = null;
+            }
+            loginPrefetch = null;
+            loginPrefetchPin = '';
+            if (!API_URL || !/^\d{4}$/.test(pin)) return;
+            loginPrefetchTimer = window.setTimeout(() => {
                 loginPrefetchPin = pin;
-                loginPrefetch = fetchJsonWithTimeout(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' }, 'Sign-in check').catch(() => null);
-            } catch (_) {}
-        })();
+                loginPrefetchController = new AbortController();
+                const body = new URLSearchParams();
+                body.set('action', 'login');
+                body.set('pin', pin);
+                loginPrefetch = fetchJsonWithTimeout(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
+                    signal: loginPrefetchController.signal
+                }).catch(() => null);
+            }, 50);
+        }
 
         async function loginRequest(pin) {
             if (loginPrefetch && loginPrefetchPin === pin) {
                 const pending = loginPrefetch;
                 loginPrefetch = null;
                 loginPrefetchPin = '';
+                loginPrefetchController = null;
                 const early = await pending;
                 if (early) return early;
             }
-            return await fetchJsonWithTimeout(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' }, 'Sign-in request');
+            const body = new URLSearchParams();
+            body.set('action', 'login');
+            body.set('pin', pin);
+            return fetchJsonWithTimeout(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
         }
 
-        function saveDashboardCache(pin, data) {
-            if (!pin || pin === 'guest' || !data) return;
-            try {
-                localStorage.setItem(DASH_CACHE_KEY, JSON.stringify({ pin, data, savedAt: Date.now() }));
-            } catch (_) {}
+        async function sessionRequest(token) {
+            const body = new URLSearchParams();
+            body.set('action', 'session');
+            body.set('token', token);
+            return fetchJsonWithTimeout(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
         }
 
-        function loadDashboardCache(pin) {
+        function trustedSessionToken() {
+            try { return String(localStorage.getItem(TRUSTED_SESSION_KEY) || '').trim(); } catch (_) { return ''; }
+        }
+        function trustedDeviceMeta() {
             try {
-                const raw = localStorage.getItem(DASH_CACHE_KEY);
-                if (!raw) return null;
-                const saved = JSON.parse(raw);
-                if (!saved || saved.pin !== pin || !saved.data) return null;
-                if (saved.savedAt && Date.now() - Number(saved.savedAt) > DASH_CACHE_MAX_AGE_MS) return null;
-                const d = saved.data;
-                return {
-                    categories: Array.isArray(d.categories) ? d.categories : [],
-                    links: Array.isArray(d.links) ? d.links : [],
-                    logos: Array.isArray(d.logos) ? d.logos : []
-                };
+                const raw = localStorage.getItem(TRUSTED_DEVICE_META_KEY);
+                const meta = raw ? JSON.parse(raw) : null;
+                return meta && meta.participantID ? meta : null;
             } catch (_) { return null; }
         }
-
+        function saveTrustedDevice(data) {
+            const token = String(data && data.sessionToken || '').trim();
+            const user = data && data.user ? data.user : null;
+            if (!token || !user || !user.ParticipantID) return;
+            try {
+                localStorage.setItem(TRUSTED_SESSION_KEY, token);
+                localStorage.setItem(TRUSTED_DEVICE_META_KEY, JSON.stringify({
+                    participantID: user.ParticipantID, name: user.Name || '', savedAt: Date.now()
+                }));
+            } catch (_) {}
+        }
+        function clearTrustedDevice() {
+            const meta = trustedDeviceMeta();
+            try {
+                localStorage.removeItem(TRUSTED_SESSION_KEY);
+                localStorage.removeItem(TRUSTED_DEVICE_META_KEY);
+                if (meta && meta.participantID) localStorage.removeItem(dashboardCacheKey(meta.participantID));
+            } catch (_) {}
+            trustedDeviceKnown = false;
+        }
+        function dashboardCacheKey(participantID) {
+            const safe = String(participantID || '').replace(/[^A-Za-z0-9_-]/g, '_');
+            return safe ? DASH_CACHE_KEY_PREFIX + safe : '';
+        }
+        function saveDashboardCache(data, participantID) {
+            const key = dashboardCacheKey(participantID);
+            if (!key || !data) return;
+            try {
+                localStorage.setItem(key, JSON.stringify({
+                    categories: Array.isArray(data.categories) ? data.categories : [],
+                    links: Array.isArray(data.links) ? data.links : [],
+                    logos: Array.isArray(data.logos) ? data.logos : [],
+                    savedAt: Date.now()
+                }));
+            } catch (_) {}
+        }
+        function loadDashboardCache(participantID) {
+            const key = dashboardCacheKey(participantID);
+            if (!key) return null;
+            try {
+                const saved = JSON.parse(localStorage.getItem(key) || '');
+                if (!saved || (Date.now() - Number(saved.savedAt || 0)) > DASH_CACHE_MAX_AGE_MS) return null;
+                return { categories: Array.isArray(saved.categories) ? saved.categories : [], links: Array.isArray(saved.links) ? saved.links : [], logos: Array.isArray(saved.logos) ? saved.logos : [] };
+            } catch (_) { return null; }
+        }
         function clearDashboardCache() {
-            try { localStorage.removeItem(DASH_CACHE_KEY); } catch (_) {}
+            const meta = trustedDeviceMeta();
+            if (!meta) return;
+            try { localStorage.removeItem(dashboardCacheKey(meta.participantID)); } catch (_) {}
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -189,24 +233,11 @@
                 dashboardHandoffComplete = true;
                 setDashboardView(restored ? 'categories' : 'login');
                 openDashboardMode({source:'startup', preserveView:true, animate:false});
-                if (restored) {
-                    // With a cached dashboard the screen is already correct, so
-                    // the update happens quietly instead of behind an overlay.
-                    if (!dashboardData) showSessionRefreshLoader('Refreshing your dashboard…');
-                    refreshRememberedSession({keepOnFailure:true});
-                } else {
-                    restoreSavedSessionForDashboard();
-                }
+                if (restored) { refreshRememberedSession({keepOnFailure:true}); }
             } else {
                 showTimerMode();
                 startCountdown();
-                if (restored) {
-                    updatePortalGreeting();
-                    showSessionRefreshLoader('Checking your saved account…');
-                    refreshRememberedSession({keepOnFailure:true});
-                } else {
-                    restoreSavedSessionForTimer();
-                }
+                if (restored) { updatePortalGreeting(); showSessionRefreshLoader('Checking your saved sign-in…'); refreshRememberedSession({keepOnFailure:true}); }
             }
 
             window.setTimeout(() => checkPortalConnection(true), 4200);
@@ -242,6 +273,10 @@
             return window.__JOTA_FORCE_SKIP__ === true || Date.now() >= FINAL_DAY_MS;
         }
 
+        function isTimerSkipped() {
+            return window.__JOTA_FORCE_SKIP__ === true;
+        }
+
         function isEventLive() {
             return Date.now() >= EVENT_START_MS;
         }
@@ -272,6 +307,7 @@
             document.getElementById('prelogin-note').style.display = 'block';
             document.getElementById('back-to-timer-button').style.display = 'block';
             document.getElementById('signup-button').style.display = 'block';
+            updateTrustedDeviceButton();
             // Kept off the critical path so it does not compete with sign in.
             window.setTimeout(checkConnection, 1200);
             updateTopNavigation();
@@ -402,80 +438,97 @@
             countdownInterval=setInterval(updateCountdown,1000);
         }
 
+        function updateTrustedDeviceButton() {
+            const btn = document.getElementById('trusted-device-btn');
+            if (!btn) return;
+            const meta = trustedDeviceMeta();
+            const token = trustedSessionToken();
+            const forget = document.getElementById('forget-btn');
+            if (meta && token) {
+                btn.style.display = 'block';
+                btn.innerText = 'CONTINUE AS ' + String(meta.name || 'THIS USER').toUpperCase();
+                if (forget) forget.style.display = 'block';
+            } else {
+                btn.style.display = 'none';
+                if (forget) forget.style.display = 'none';
+            }
+        }
+
         function restoreRememberedSessionInstantly() {
-            const pin=localStorage.getItem(SAVED_PIN_KEY);
-            const raw=localStorage.getItem(AUTH_SESSION_KEY);
-            if (!pin || !/^\d{4}$/.test(pin) || !raw) return false;
+            const token = trustedSessionToken();
+            const meta = trustedDeviceMeta();
+            trustedDeviceKnown = !!(token && meta);
+            if (!trustedDeviceKnown) { updateTrustedDeviceButton(); return false; }
+            const cachedDashboard = loadDashboardCache(meta.participantID);
+            if (cachedDashboard) dashboardData = cachedDashboard;
+            updateTrustedDeviceButton();
+            return true;
+        }
+
+        function clearRememberedSession() {
+            clearTrustedDevice();
+            rememberedSessionLoaded = false;
+            updateTrustedDeviceButton();
+        }
+
+        async function resumeTrustedDevice(options = {}) {
+            const token = trustedSessionToken();
+            if (!token) { updateTrustedDeviceButton(); return false; }
+            hideLoginError();
+            const isBackground = options.background === true;
+            const loader = document.getElementById('welcome-screen');
+            const loadingText = document.getElementById('welcome-loading-text');
+            if (!isBackground && loadingText) loadingText.innerText = 'Checking your saved sign-in…';
+            if (!isBackground && loader) { loader.classList.remove('is-closing'); loader.style.display = 'flex'; }
             try {
-                const saved=JSON.parse(raw);
-                if (!saved || saved.pin!==pin || !saved.user) return false;
-                if (saved.savedAt && Date.now()-Number(saved.savedAt)>AUTH_SESSION_MAX_AGE_MS) return false;
-                sessionUser=saved.user; rememberedSessionLoaded=true;
-                const cachedDashboard=loadDashboardCache(pin);
-                if (cachedDashboard) dashboardData=cachedDashboard;
-                document.getElementById('forget-btn').style.display='block';
-                updatePortalGreeting(); updateTopNavigation();
-                return true;
-            } catch (_) { return false; }
-        }
-
-        function sanitizeSessionUser(user) {
-            if (!user || typeof user !== 'object') return null;
-            const safe = Object.assign({}, user);
-            delete safe.Password;
-            return safe;
-        }
-
-        function saveRememberedSession(pin,user) {
-            try { localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({pin,user:sanitizeSessionUser(user),savedAt:Date.now()})); } catch (_) {}
-        }
-
-        function clearRememberedSession() { localStorage.removeItem(AUTH_SESSION_KEY); clearDashboardCache(); rememberedSessionLoaded=false; }
-
-        function restoreSavedSessionForTimer() {
-            const savedPin=localStorage.getItem(SAVED_PIN_KEY);
-            if (!savedPin || !/^\d{4}$/.test(savedPin)) return;
-            document.getElementById('forget-btn').style.display='block';
-            refreshRememberedSession({keepOnFailure:true});
-        }
-
-        function restoreSavedSessionForDashboard() {
-            if (restoreRememberedSessionInstantly()) { refreshRememberedSession({keepOnFailure:true}); return; }
-            const savedPin=localStorage.getItem(SAVED_PIN_KEY);
-            if (!savedPin || !/^\d{4}$/.test(savedPin)) { document.getElementById('forget-btn').style.display='none'; return; }
-            refreshRememberedSession({keepOnFailure:false});
-        }
-
-        async function refreshRememberedSession(options={}) {
-            if (backgroundRefreshInFlight) return;
-            const pin=localStorage.getItem(SAVED_PIN_KEY);
-            if (!pin || !/^\d{4}$/.test(pin)) return;
-            backgroundRefreshInFlight=true;
-            try {
-                const data=await loginRequest(pin);
+                const data = await sessionRequest(token);
                 if (!data || !data.success || !data.user) {
-                    clearRememberedSession(); localStorage.removeItem(SAVED_PIN_KEY);
-                    sessionUser=null; dashboardData=null; setDashboardView('login'); updateTopNavigation();
-                    if (isFinalDayOrLater()) openDashboardMode({source:'invalid-session',preserveView:false});
-                    return;
+                    clearRememberedSession();
+                    sessionUser = null; dashboardData = null;
+                    if (!isBackground && loader) loader.style.display = 'none';
+                    updateTopNavigation(); updatePortalGreeting();
+                    return false;
                 }
-                sessionUser=data.user;
-                dashboardData={categories:Array.isArray(data.categories)?data.categories:[],links:Array.isArray(data.links)?data.links:[],logos:Array.isArray(data.logos)?data.logos:[]};
-                saveRememberedSession(pin,sessionUser);
-                saveDashboardCache(pin,dashboardData);
+                sessionUser = data.user;
+                trustedDeviceKnown = true;
+                if (data.sessionToken) saveTrustedDevice(data);
+                dashboardData = {
+                    categories: Array.isArray(data.categories) ? data.categories : [],
+                    links: Array.isArray(data.links) ? data.links : [],
+                    logos: Array.isArray(data.logos) ? data.logos : []
+                };
+                saveDashboardCache(dashboardData, sessionUser.ParticipantID);
+                rememberedSessionLoaded = true;
+                updateTrustedDeviceButton();
                 updatePortalGreeting(); updateTopNavigation();
+                if (!isBackground && loader) { loader.classList.add('is-closing'); window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },260); }
                 if (isFinalDayOrLater()) {
-                    if (dashboardView==='login') dashboardView='categories';
-                    buildDashboard({force:true,reason:'remembered-refresh'}); ensureDashboardScreenOnly();
+                    dashboardView = 'categories';
+                    openDashboardMode({source:'trusted-device',preserveView:true,animate:true});
                 }
-            } catch (_) {
-            } finally { backgroundRefreshInFlight=false; hideSessionRefreshLoader(); }
+                return true;
+            } catch (error) {
+                if (!isBackground && loader) loader.style.display = 'none';
+                return false;
+            }
+        }
+
+        async function refreshRememberedSession(options = {}) {
+            if (backgroundRefreshInFlight) return;
+            if (!trustedSessionToken()) return;
+            backgroundRefreshInFlight = true;
+            try {
+                await resumeTrustedDevice({background:true});
+            } finally {
+                backgroundRefreshInFlight = false;
+                hideSessionRefreshLoader();
+            }
         }
 
         function checkPortalConnection(silent=false) {
             const dot=document.getElementById('portal-network-dot'); const text=document.getElementById('portal-network-text');
             if (!dot||!text) return;
-            fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`,{cache:'no-store'},'Service check').then(data=>{
+            fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`).then(data=>{
                 if(data&&data.success){dot.className='portal-network-dot ok';text.innerText=silent?'Ready':'Dashboard service connected';}
                 else{dot.className='portal-network-dot bad';text.innerText=silent?'Service check unavailable':'Dashboard service reported a problem';}
             }).catch(()=>{dot.className='portal-network-dot bad';text.innerText=silent?'Offline (using saved account)':'Dashboard service is currently unreachable';});
@@ -671,7 +724,7 @@
             const dot = document.getElementById('status-dot');
             const text = document.getElementById('status-text');
             try {
-                const data = await fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`, { cache: 'no-store' }, 'Service check');
+                const data = await fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`);
                 if (data && data.success) {
                     dot.className = 'status-dot status-ok';
                     text.innerText = 'Connected';
@@ -690,15 +743,15 @@
             if (currentPin.length >= 4) return;
             currentPin += String(num);
             updatePinDisplay();
-            if (currentPin.length === 4) {
-                setTimeout(() => submitLogin(), 150);
-            }
+            scheduleLoginPrefetch(currentPin);
+            if (currentPin.length === 4) { setTimeout(() => submitLogin(), 80); }
         }
 
         function clearPin() {
             hideLoginError();
             currentPin = currentPin.slice(0, -1);
             updatePinDisplay();
+            scheduleLoginPrefetch(currentPin);
         }
 
         function updatePinDisplay() {
@@ -759,7 +812,8 @@
             event.preventDefault();
             currentPin = digits;
             updatePinDisplay();
-            if (digits.length === 4) setTimeout(() => submitLogin(), 150);
+            scheduleLoginPrefetch(digits);
+            if (digits.length === 4) setTimeout(() => submitLogin(), 80);
         }
 
         document.addEventListener('keydown', handlePinKeyboardInput);
@@ -767,6 +821,7 @@
 
         function resetLoginForm() {
             currentPin = '';
+            scheduleLoginPrefetch('');
             updatePinDisplay();
             hideLoginError();
             document.getElementById('retry-btn').style.display = 'none';
@@ -799,18 +854,16 @@
         }
 
         function forgetSavedPin() {
-            localStorage.removeItem(SAVED_PIN_KEY);
-            localStorage.removeItem('jotajoti_saved_user');
             clearRememberedSession();
-            loginPrefetch = null;
-            loginPrefetchPin = '';
+            sessionUser = null; dashboardData = null;
             document.getElementById('forget-btn').style.display = 'none';
-            resetLoginForm();
-            sessionUser = null;
-            dashboardData = null;
-            updatePortalGreeting();
-            updateTopNavigation();
+            resetLoginForm(); updatePortalGreeting(); updateTopNavigation();
         }
+
+        function clearTrustedDeviceAndReset() {
+            forgetSavedPin();
+        }
+
 
         async function fetchUserData(pin, options) {
             options = options || {};
@@ -830,7 +883,6 @@
 
                 if (!data.success || !data.user) {
                     clearRememberedSession();
-                    localStorage.removeItem(SAVED_PIN_KEY);
                     sessionUser = null;
                     dashboardData = null;
                     resetLoginForm();
@@ -855,9 +907,10 @@
                 };
 
                 if (pin !== 'guest') {
-                    localStorage.setItem(SAVED_PIN_KEY, pin);
-                    saveRememberedSession(pin, sessionUser);
-                    saveDashboardCache(pin, dashboardData);
+                    saveTrustedDevice(data);
+                    trustedDeviceKnown = true;
+                    saveDashboardCache(dashboardData, sessionUser.ParticipantID);
+                    updateTrustedDeviceButton();
                 }
             } catch (error) {
                 resetLoginForm();
@@ -901,8 +954,6 @@
             sessionUser = null;
             dashboardData = null;
             initialRouteApplied = false;
-            localStorage.removeItem(SAVED_PIN_KEY);
-            localStorage.removeItem('jotajoti_saved_user');
             clearRememberedSession();
             document.getElementById('forget-btn').style.display = 'none';
             resetLoginForm();
@@ -920,6 +971,10 @@
             }
 
             returnToTimer();
+        }
+
+        function continueWithTrustedDevice() {
+            resumeTrustedDevice({source:'skip-button'});
         }
 
         function escapeAttribute(value) { return String(value||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -995,6 +1050,27 @@
             if (!applyRouteFromHash()) showDashboard();
         });
 
+        function resolveAssetUrl(value, fallback) {
+            const raw = String(value || '').trim();
+            const fallbackValue = String(fallback || './photo1.png');
+            if (!raw) return new URL(fallbackValue, document.baseURI).href;
+            if (/^(?:https?:)?\/\//i.test(raw) || /^(?:data|blob):/i.test(raw)) return raw;
+            const base = new URL('./', document.baseURI);
+            if (raw.charAt(0) === '/') return new URL('.' + raw, base).href;
+            return new URL(raw.replace(/^\.\//,''), base).href;
+        }
+
+        function applySafeImage(img, value, fallback) {
+            if (!img) return;
+            const fallbackUrl = resolveAssetUrl(fallback || './photo1.png', './photo1.png');
+            img.onerror = function() {
+                if (img.dataset.fallbackApplied) return;
+                img.dataset.fallbackApplied = '1';
+                img.src = fallbackUrl;
+            };
+            img.src = resolveAssetUrl(value, fallback);
+        }
+
         function buildDashboard(options={}) {
             if (!dashboardData) return;
             updateDashboardGreeting();
@@ -1009,7 +1085,8 @@
                 const total=catLinks.length;
                 const btn=document.createElement('button'); btn.className='card-btn'; btn.type='button'; btn.dataset.categoryKey=catKey;
                 const badgeLabel=total===0?'Available':total+(total===1?' Option':' Options');
-                btn.innerHTML=`<img class="card-icon" src="${escapeAttribute(cat.LogoURL||'https://img.icons8.com/color/96/folder.png')}" alt=""><div class="card-title">${escapeHtml(cat.Title)}</div><div class="badge">${badgeLabel}</div>`;
+                btn.innerHTML=`<img class="card-icon" alt=""><div class="card-title">${escapeHtml(cat.Title)}</div><div class="badge">${badgeLabel}</div>`;
+                applySafeImage(btn.querySelector('.card-icon'), cat.LogoURL, './photo1.png');
                 addReactivePointer(btn);
                 btn.addEventListener('click',e=>{
                     e.preventDefault();
@@ -1040,9 +1117,9 @@
             const subGrid=document.getElementById('submenu-grid'); subGrid.innerHTML='';
             (links||[]).forEach(item=>{
                 const btn=document.createElement('button'); btn.className='card-btn'; btn.type='button';
-                let html=`<img class="card-icon" src="${escapeAttribute(item.LogoURL||category.LogoURL||'https://img.icons8.com/color/96/link.png')}" alt=""><div class="card-title">${escapeHtml(item.Title)}</div>`;
+                let html=`<img class="card-icon" alt=""><div class="card-title">${escapeHtml(item.Title)}</div>`;
                 const badgeLabel=accessBadgeLabel(item); if(badgeLabel) html+=`<div class="badge">${badgeLabel}</div>`;
-                btn.innerHTML=html; addReactivePointer(btn); btn.addEventListener('click',e=>{e.preventDefault();openSite(item);}); subGrid.appendChild(btn);
+                btn.innerHTML=html; applySafeImage(btn.querySelector('.card-icon'), item.LogoURL || category.LogoURL, './photo1.png'); addReactivePointer(btn); btn.addEventListener('click',e=>{e.preventDefault();openSite(item);}); subGrid.appendChild(btn);
             });
             if(!links||!links.length) subGrid.innerHTML='<div class="empty-state">No links in this category yet.</div>';
             document.getElementById('login-screen').style.display='none'; document.getElementById('dashboard-screen').style.display='none'; document.getElementById('submenu-screen').style.display='block';
@@ -1164,12 +1241,9 @@
 
             if (loginLevel === 1) {
                 if (sessionUser && sessionUser.Username) body.appendChild(createCopyRow("Username", sessionUser.Username));
-                body.appendChild(createInfoNote("Your site password is supplied in your onboarding email. It is not stored in the dashboard.", "ours"));
                 const loginEmail = resolveUserEmail();
                 if (loginEmail) body.appendChild(createCopyRow("Email", loginEmail));
-                if (!(sessionUser && (sessionUser.Username || loginEmail))) {
-                    body.appendChild(createInfoNote("No saved account details found, ask a leader.", "own"));
-                }
+                body.appendChild(createInfoNote("Your JOTA-JOTI account password is not stored in the dashboard. Use the original account email to retrieve your account details.", "own"));
             }
             if (emailLevel === 1 && loginLevel !== 1) {
                 const email = resolveUserEmail();
