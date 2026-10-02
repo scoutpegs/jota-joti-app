@@ -220,9 +220,18 @@
         @media (prefers-reduced-motion: reduce) {
             *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
+        .leader-callout { display:flex; gap:var(--spacing-5); align-items:flex-start; background:#f3ebf8; border:1px solid #d9c8e6; border-radius:var(--border-radius-lg); padding:var(--spacing-6); margin-top:var(--spacing-6); }
+        .leader-callout .leader-badge { flex:0 0 46px; width:46px; height:46px; border-radius:14px; display:grid; place-items:center; background:var(--color-primary-base); color:#fff; font-weight:800; }
+        .leader-callout h2 { margin:0 0 var(--spacing-2); color:var(--color-primary-dark); font-size:var(--font-size-xl); }
+        .leader-callout p { color:var(--color-neutral-text-muted); font-size:var(--font-size-sm); margin-bottom:var(--spacing-3); }
+        .leader-callout a.btn-primary { display:inline-flex; align-items:center; justify-content:center; }
+        @media (max-width: 600px) { .leader-callout { flex-direction:column; } }
     </style>
+  <script src="config.js"></script>
 </head>
 <body>
+
+
     <svg style="display: none;">
         <symbol id="icon-external" viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></symbol>
         <symbol id="icon-warning" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></symbol>
@@ -280,11 +289,21 @@
                 <a class="quick-link-chip" href="#section-forms"><svg><use href="#icon-doc"></use></svg>Jump to Forms & Costs</a>
                 <a class="quick-link-chip" href="#terms-conditions"><svg><use href="#icon-scroll"></use></svg>Jump to Terms & Conditions</a>
             </div>
+            <section id="leader-training" class="leader-callout" aria-labelledby="leader-training-title">
+                <div class="leader-badge" aria-hidden="true">L</div>
+                <div>
+                    <h2 id="leader-training-title">Leader onboarding is different</h2>
+                    <p>Leaders do <strong>not</strong> complete the Y3 process. Leaders must complete <strong>SFH 3 – Being Safe Online</strong> instead.</p>
+                    <p><a class="btn-primary" href="https://learn.scout.org/resource/sfh-3-being-safe-online" target="_blank" rel="noopener noreferrer">Open SFH 3 – Being Safe Online</a></p>
+                    <p>After completing the course, reply to the onboarding email with the completed course or required confirmation so it can be processed.</p>
+                    <p>Don&#39;t have a Scout Learn account? Don&#39;t worry. Just reply to the email and let us know that you don&#39;t have an account. We will send you your login details so you can access the course and continue with your training.</p>
+                </div>
+            </section>
         </section>
 
         <section class="card">
-            <header class="step-header-group"><div class="step-number-badge">1</div><h2 class="step-title-text">Submit Sign-Up Form</h2></header>
-            <p class="step-description">Fill out the official sign-up form. If you have more than one Scout participating, you must submit a separate form for each child to ensure they receive unique credentials.</p>
+            <header class="step-header-group"><div class="step-number-badge">1</div><h2 class="step-title-text">Submit Expression of Interest</h2></header>
+            <p class="step-description">Fill out the Expression of Interest form. This helps us collect the details needed to continue the setup process. If you have more than one Scout participating, submit a separate form for each child so they receive unique credentials.</p>
             <a href="https://docs.google.com/forms/d/e/1FAIpQLSeBhtFuVNzjqtAFOeluNfiA1hFPr1JXXfSx9xZcnivSV1fiUw/viewform?usp=header" target="_blank" rel="noopener noreferrer" class="btn-primary">
                 <span>Open Registration Form</span><svg class="btn-icon"><use href="#icon-external"></use></svg>
             </a>
@@ -318,7 +337,7 @@
             <p class="step-description">If your home network or device utilizes strict parental control filters (e.g., Family Link, Norton Family, or router-level blocks), you must manually allow the following domains. Failure to do so will result in blocked chat rooms and inaccessible activities.</p>
             <div class="code-container">
                 <div class="code-header"><span class="code-header-title">Allowed Event Domains</span><button class="copy-action-btn" id="btn-copy-domains" aria-label="Copy domains to clipboard"><svg class="copy-icon"><use href="#icon-copy"></use></svg>Copy All</button></div>
-                <div class="code-snippet-box" id="domain-list-text">scoutpegs.github.io/jota-joti-app/
+                <div class="code-snippet-box" id="domain-list-text">kalscouts.github.io/jota-joti-app/
 chat.jotajoti.info
 webchat.scoutlink.net
 jotajoti.info
@@ -330,7 +349,7 @@ minecraft.scoutlink.net</div>
             <header class="step-header-group"><div class="step-number-badge">5</div><h2 class="step-title-text">Quick Access Links</h2></header>
             <p class="step-description">Once everything is configured, use these direct links to jump straight into the apps and sites your Scout needs for the weekend.</p>
             <div class="app-link-grid">
-                <a class="app-link-card" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener noreferrer"><div class="app-link-icon-wrap"><svg><use href="#icon-dashboard"></use></svg></div><div class="app-link-text"><div class="app-link-title">JOTA-JOTI Dashboard</div><div class="app-link-desc">Main event web-app & activity hub</div></div><svg class="app-link-arrow"><use href="#icon-external"></use></svg></a>
+                <a class="app-link-card" href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener noreferrer"><div class="app-link-icon-wrap"><svg><use href="#icon-dashboard"></use></svg></div><div class="app-link-text"><div class="app-link-title">JOTA-JOTI Dashboard</div><div class="app-link-desc">Main event web-app & activity hub</div></div><svg class="app-link-arrow"><use href="#icon-external"></use></svg></a>
                 <a class="app-link-card" href="https://webchat.scoutlink.net/" target="_blank" rel="noopener noreferrer"><div class="app-link-icon-wrap"><svg><use href="#icon-chat"></use></svg></div><div class="app-link-text"><div class="app-link-title">ScoutLink Webchat</div><div class="app-link-desc">Moderated chat rooms (no app needed)</div></div><svg class="app-link-arrow"><use href="#icon-external"></use></svg></a>
                 <a class="app-link-card" href="https://www.jotajoti.info/" target="_blank" rel="noopener noreferrer"><div class="app-link-icon-wrap"><svg><use href="#icon-globe"></use></svg></div><div class="app-link-text"><div class="app-link-title">Official JOTA-JOTI Site</div><div class="app-link-desc">Event info, badges & world map</div></div><svg class="app-link-arrow"><use href="#icon-external"></use></svg></a>
                 <a class="app-link-card" href="https://www.minecraft.net/en-us/download" target="_blank" rel="noopener noreferrer"><div class="app-link-icon-wrap"><svg><use href="#icon-cube"></use></svg></div><div class="app-link-text"><div class="app-link-title">Minecraft (optional)</div><div class="app-link-desc">Optional game server download</div></div><svg class="app-link-arrow"><use href="#icon-external"></use></svg></a>
@@ -353,7 +372,7 @@ minecraft.scoutlink.net</div>
         <!-- STEP 7: Section Forms & Costs -->
         <section class="card" id="section-forms">
             <header class="step-header-group"><div class="step-number-badge">7</div><h2 class="step-title-text">Section Permission Forms & Costs</h2></header>
-            <p class="step-description">Every Scout must have a completed <strong>Application to Attend Activity (Y3)</strong> form returned to the Leader in Charge, and payment made, by <strong>Friday 16 October 2026</strong>. The cost below covers food and equipment for activities across the weekend &mdash; it does not include transport. Tap a section to download its form.</p>
+            <p class="step-description">Every participant who is not a Leader must have a completed <strong>Application to Attend Activity (Y3)</strong> form returned to the Leader in Charge, and payment made, by <strong>Friday 16 October 2026</strong>. Leaders use the separate SFH 3 online course instead of the Y3 process. The cost below covers food and equipment for activities across the weekend &mdash; it does not include transport. Tap a section to download its form.</p>
 
             <div class="section-form-grid">
                 <div class="section-form-card" id="form-cubs">
@@ -483,7 +502,7 @@ minecraft.scoutlink.net</div>
                     <li>Joeys &mdash; $25</li>
                     <li>Ventures & Scouts &mdash; $70</li>
                 </ul>
-                <p>A completed sign-up form (Step 1) and a signed Y3 Application to Attend Activity form (Step 7), emailed back to us, are both required before a place is confirmed. Once we receive your emailed, signed form, your Scout is officially signed up for JOTA-JOTI 2026 &mdash; no further action needed.</p>
+                <p>A completed Expression of Interest (Step 1) and any required follow-up paperwork are used to continue the registration process. The Expression of Interest is not official registration. We will confirm the next steps and participation arrangements after the required paperwork and permissions have been processed.</p>
             </div>
 
             <div class="terms-block" id="terms-medical">
@@ -554,9 +573,10 @@ minecraft.scoutlink.net</div>
 
     <footer class="site-footer">
         <div class="footer-inner">
-            <p>Boulder Scout Group &middot; Official JOTA-JOTI 2026 Preparation Portal</p>
+            <p>Boulder Scout Group &middot; JOTA-JOTI 2026 Preparation Portal</p>
             <p style="margin-top: var(--spacing-2);"><a href="#terms-conditions">Terms & Conditions</a></p>
             <p style="margin-top: var(--spacing-2); opacity: 0.7;">This setup guide is maintained by volunteer leaders to ensure a safe and smooth digital experience.</p>
+        <p style="margin-top: var(--spacing-2); opacity: 0.7;">Made by Hunter Miller from Boulder Scout Hall</p>
         </div>
     </footer>
 
@@ -568,21 +588,21 @@ minecraft.scoutlink.net</div>
     <script>
         "use strict";
         const deviceDataConfig = {
-            ios: { appSetup: `<h3 class="step-subheading">Web-App Installation (Safari)</h3><ol class="instruction-steps"><li>Open the <strong>Safari</strong> browser on your iPhone or iPad.</li><li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li><li>Tap the <strong>Share</strong> icon at the bottom of the screen (a box with an arrow pointing up).</li><li>Scroll down and tap <strong>Add to Home Screen</strong>.</li><li>Tap <strong>Add</strong> in the top right corner.</li></ol>`,
+            ios: { appSetup: `<h3 class="step-subheading">Web-App Installation (Safari)</h3><ol class="instruction-steps"><li>Open the <strong>Safari</strong> browser on your iPhone or iPad.</li><li>Navigate to: <a href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener">kalscouts.github.io/jota-joti-app/</a></li><li>Tap the <strong>Share</strong> icon at the bottom of the screen (a box with an arrow pointing up).</li><li>Scroll down and tap <strong>Add to Home Screen</strong>.</li><li>Tap <strong>Add</strong> in the top right corner.</li></ol>`,
                 screenTime: `<h3 class="step-subheading">Adjusting Apple Screen Time</h3><ol class="instruction-steps"><li>Open <strong>Settings</strong> and tap <strong>Screen Time</strong>.</li><li>Under <strong>Downtime</strong>, adjust hours for the 16–18 October weekend.</li><li>Under <strong>Always Allowed</strong>, ensure <em>Safari</em> is added so access is not cut off.</li></ol>`,
-                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open in Safari</a><a class="quick-link-chip" href="https://support.apple.com/en-us/108783" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Apple Screen Time Help</a></div>` },
-            android: { appSetup: `<h3 class="step-subheading">Web-App Installation (Chrome)</h3><ol class="instruction-steps"><li>Open <strong>Google Chrome</strong> on your Android device.</li><li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li><li>Tap the 3 vertical menu dots in the upper right corner.</li><li>Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li></ol>`,
+                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open in Safari</a><a class="quick-link-chip" href="https://support.apple.com/en-us/108783" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Apple Screen Time Help</a></div>` },
+            android: { appSetup: `<h3 class="step-subheading">Web-App Installation (Chrome)</h3><ol class="instruction-steps"><li>Open <strong>Google Chrome</strong> on your Android device.</li><li>Navigate to: <a href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener">kalscouts.github.io/jota-joti-app/</a></li><li>Tap the 3 vertical menu dots in the upper right corner.</li><li>Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li></ol>`,
                 screenTime: `<h3 class="step-subheading">Adjusting Family Link / Wellbeing</h3><ol class="instruction-steps"><li>Open <strong>Settings</strong> &gt; <strong>Digital Wellbeing & parental controls</strong>.</li><li>If using <strong>Family Link</strong>, open the parent app and increase the daily screen limit for Friday–Sunday.</li></ol>`,
-                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open in Chrome</a><a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Google Family Link</a></div>` },
-            windows: { appSetup: `<h3 class="step-subheading">Web-App Installation (Windows PC)</h3><ol class="instruction-steps"><li>Open Chrome or Microsoft Edge on your PC.</li><li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li><li>Click the <strong>App Available / Install</strong> icon in the right side of the URL address bar.</li></ol>`,
+                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Open in Chrome</a><a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Google Family Link</a></div>` },
+            windows: { appSetup: `<h3 class="step-subheading">Web-App Installation (Windows PC)</h3><ol class="instruction-steps"><li>Open Chrome or Microsoft Edge on your PC.</li><li>Navigate to: <a href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener">kalscouts.github.io/jota-joti-app/</a></li><li>Click the <strong>App Available / Install</strong> icon in the right side of the URL address bar.</li></ol>`,
                 screenTime: `<h3 class="step-subheading">Adjusting Microsoft Family Safety</h3><ol class="instruction-steps"><li>Visit <a href="https://account.microsoft.com/family" target="_blank" rel="noopener">account.microsoft.com/family</a> on the parent account.</li><li>Select your Scout's member profile and adjust screen time allowances under the <strong>Screen Time</strong> tab.</li></ol>`,
-                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a><a class="quick-link-chip" href="https://account.microsoft.com/family" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Microsoft Family Settings</a></div>` },
-            mac: { appSetup: `<h3 class="step-subheading">Web-App Installation (Mac)</h3><ol class="instruction-steps"><li>Open Safari or Google Chrome.</li><li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li><li>Drag the URL address from the browser top bar into your Mac Dock or Favorites for quick access.</li></ol>`,
+                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a><a class="quick-link-chip" href="https://account.microsoft.com/family" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Microsoft Family Settings</a></div>` },
+            mac: { appSetup: `<h3 class="step-subheading">Web-App Installation (Mac)</h3><ol class="instruction-steps"><li>Open Safari or Google Chrome.</li><li>Navigate to: <a href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener">kalscouts.github.io/jota-joti-app/</a></li><li>Drag the URL address from the browser top bar into your Mac Dock or Favorites for quick access.</li></ol>`,
                 screenTime: `<h3 class="step-subheading">Adjusting macOS Screen Time</h3><ol class="instruction-steps"><li>Open <strong>System Settings</strong> &gt; <strong>Screen Time</strong>.</li><li>Review Downtime & App Limits to allow browser access during event hours.</li></ol>`,
-                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a></div>` },
-            chromebook: { appSetup: `<h3 class="step-subheading">Web-App Installation (Chromebook)</h3><ol class="instruction-steps"><li>Open Chrome on your Chromebook.</li><li>Navigate to: <a href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener">scoutpegs.github.io/jota-joti-app/</a></li><li>Click the 3 dots menu &gt; <strong>Save and Share</strong> &gt; <strong>Create Shortcut</strong> to pin it to your shelf.</li></ol>`,
+                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a></div>` },
+            chromebook: { appSetup: `<h3 class="step-subheading">Web-App Installation (Chromebook)</h3><ol class="instruction-steps"><li>Open Chrome on your Chromebook.</li><li>Navigate to: <a href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener">kalscouts.github.io/jota-joti-app/</a></li><li>Click the 3 dots menu &gt; <strong>Save and Share</strong> &gt; <strong>Create Shortcut</strong> to pin it to your shelf.</li></ol>`,
                 screenTime: `<h3 class="step-subheading">Adjusting ChromeOS Limits</h3><ol class="instruction-steps"><li>Manage app timers and bonus time directly via the <strong>Google Family Link</strong> parent app.</li></ol>`,
-                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://scoutpegs.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a><a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Family Link</a></div>` }
+                quickLinks: `<h3 class="step-subheading">Quick Options</h3><div class="quick-links-wrapper"><a class="quick-link-chip" href="https://kalscouts.github.io/jota-joti-app/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Launch Dashboard</a><a class="quick-link-chip" href="https://families.google.com/familylink/" target="_blank" rel="noopener"><svg><use href="#icon-external"></use></svg>Family Link</a></div>` }
         };
 
         const deviceButtons = document.querySelectorAll('.device-tab-btn');
@@ -685,7 +705,7 @@ minecraft.scoutlink.net</div>
             toastTimeoutId = setTimeout(() => { toastElement.classList.remove('is-visible'); }, 3000);
         }
         function handleCopyDomains() {
-            const domainText = ["scoutpegs.github.io/jota-joti-app/","chat.jotajoti.info","webchat.scoutlink.net","jotajoti.info","minecraft.scoutlink.net"].join('\n');
+            const domainText = ["kalscouts.github.io/jota-joti-app/","chat.jotajoti.info","webchat.scoutlink.net","jotajoti.info","minecraft.scoutlink.net"].join('\n');
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(domainText).then(() => showToast('Domains copied to clipboard!')).catch(() => fallbackCopy(domainText));
             } else { fallbackCopy(domainText); }

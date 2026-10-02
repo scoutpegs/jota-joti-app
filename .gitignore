@@ -1,8 +1,7 @@
-# Private JOTA-JOTI backend / deployment material
-Code.gs
-jota-joti-private-*
-JOTA-JOTI-PRIVATE-*
-*.private.zip
-
-# Old build/archive ZIPs should not be committed
+# Keep deployment-only files out of the public GitHub Pages repository.
+/private/
+/Code.gs
 *.zip
+*.log
+.DS_Store
+Thumbs.db

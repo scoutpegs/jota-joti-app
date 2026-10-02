@@ -1,11 +1,12 @@
-        const API_URL = "https://script.google.com/macros/s/AKfycbxVuaODBuBIpa49j1Se_l9bNEC9RGHFK_H_4QSQ6Uo73ezriIDn4h_anjJCicYBXfJX/exec";
+        const API_URL = String((window.JOTA_CONFIG && window.JOTA_CONFIG.API_URL) || '').trim();
+        if (!API_URL) throw new Error('Missing JOTA_CONFIG.API_URL');
 
         /* ==========================================================
            COMBINED PORTAL CONFIGURATION
            ========================================================== */
 
-        const SIGNUP_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeBhtFuVNzjqtAFOeluNfiA1hFPr1JXXfSx9xZcnivSV1fiUw/viewform?usp=header";
-        const EVENT_START_ISO = "2026-10-16T00:00:00+08:00";
+        const SIGNUP_FORM_URL = String((window.JOTA_CONFIG && window.JOTA_CONFIG.SIGNUP_FORM_URL) || '');
+        const EVENT_START_ISO = String((window.JOTA_CONFIG && window.JOTA_CONFIG.EVENT_START_ISO) || '2026-10-16T00:00:00+08:00');
         const EVENT_START_MS = new Date(EVENT_START_ISO).getTime();
         const FINAL_DAY_MS = EVENT_START_MS - (24 * 60 * 60 * 1000);
         const INSTALLED_KEY = "jota_installed";
@@ -65,8 +66,53 @@
               real answer lands.
            ========================================================== */
 
+        const API_TIMEOUT_MS = 15000;
         let loginPrefetch = null;
         let loginPrefetchPin = '';
+
+        async function fetchJsonWithTimeout(url, options = {}, label = 'request') {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+            try {
+                const response = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); } catch (_) {
+                    throw new Error(`${label} returned an invalid response.`);
+                }
+                if (!response.ok) throw new Error(data.error || `${label} failed (HTTP ${response.status}).`);
+                return data;
+            } catch (err) {
+                if (err && err.name === 'AbortError') throw new Error(`${label} timed out. Please try again.`);
+                if (err instanceof TypeError) throw new Error(`${label} could not be reached. Check your connection and try again.`);
+                throw err;
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        function resolveAssetUrl(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            if (/^(?:data:|blob:|https?:)/i.test(raw)) return raw;
+            try {
+                const clean = raw.startsWith('/') ? raw.slice(1) : raw.replace(/^\.\//, '');
+                return new URL(clean, new URL('./', window.location.href)).href;
+            } catch (_) {
+                return raw;
+            }
+        }
+
+        function imageHtml(source, fallback, alt) {
+            const src = resolveAssetUrl(source || fallback);
+            const fallbackSrc = resolveAssetUrl(fallback);
+            if (!src) return '';
+            const escapedSrc = escapeHtml(src);
+            const escapedFallback = escapeHtml(fallbackSrc).replace(/'/g, '&#039;');
+            const escapedAlt = escapeHtml(alt || '');
+            const onError = fallbackSrc && src !== fallbackSrc ? `this.src='${escapedFallback}'` : 'this.style.display=\'none\'';
+            return `<img src="${escapedSrc}" alt="${escapedAlt}" loading="lazy" decoding="async" onerror="this.onerror=null;${onError}">`;
+        }
 
         (function warmUpConnection() {
             try {
@@ -85,9 +131,7 @@
                 const pin = localStorage.getItem(SAVED_PIN_KEY);
                 if (!pin || !/^\d{4}$/.test(pin)) return;
                 loginPrefetchPin = pin;
-                loginPrefetch = fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
-                    .then(r => r.json())
-                    .catch(() => null);
+                loginPrefetch = fetchJsonWithTimeout(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' }, 'Sign-in check').catch(() => null);
             } catch (_) {}
         })();
 
@@ -99,8 +143,7 @@
                 const early = await pending;
                 if (early) return early;
             }
-            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
-            return await response.json();
+            return await fetchJsonWithTimeout(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' }, 'Sign-in request');
         }
 
         function saveDashboardCache(pin, data) {
@@ -376,8 +419,15 @@
             } catch (_) { return false; }
         }
 
+        function sanitizeSessionUser(user) {
+            if (!user || typeof user !== 'object') return null;
+            const safe = Object.assign({}, user);
+            delete safe.Password;
+            return safe;
+        }
+
         function saveRememberedSession(pin,user) {
-            try { localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({pin,user,savedAt:Date.now()})); } catch (_) {}
+            try { localStorage.setItem(AUTH_SESSION_KEY,JSON.stringify({pin,user:sanitizeSessionUser(user),savedAt:Date.now()})); } catch (_) {}
         }
 
         function clearRememberedSession() { localStorage.removeItem(AUTH_SESSION_KEY); clearDashboardCache(); rememberedSessionLoaded=false; }
@@ -425,7 +475,7 @@
         function checkPortalConnection(silent=false) {
             const dot=document.getElementById('portal-network-dot'); const text=document.getElementById('portal-network-text');
             if (!dot||!text) return;
-            fetch(`${API_URL}?action=health&_=${Date.now()}`,{cache:'no-store'}).then(r=>r.json()).then(data=>{
+            fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`,{cache:'no-store'},'Service check').then(data=>{
                 if(data&&data.success){dot.className='portal-network-dot ok';text.innerText=silent?'Ready':'Dashboard service connected';}
                 else{dot.className='portal-network-dot bad';text.innerText=silent?'Service check unavailable':'Dashboard service reported a problem';}
             }).catch(()=>{dot.className='portal-network-dot bad';text.innerText=silent?'Offline (using saved account)':'Dashboard service is currently unreachable';});
@@ -621,8 +671,7 @@
             const dot = document.getElementById('status-dot');
             const text = document.getElementById('status-text');
             try {
-                const response = await fetch(`${API_URL}?action=health&_=${Date.now()}`, { cache: 'no-store' });
-                const data = await response.json();
+                const data = await fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`, { cache: 'no-store' }, 'Service check');
                 if (data && data.success) {
                     dot.className = 'status-dot status-ok';
                     text.innerText = 'Connected';
@@ -1115,10 +1164,10 @@
 
             if (loginLevel === 1) {
                 if (sessionUser && sessionUser.Username) body.appendChild(createCopyRow("Username", sessionUser.Username));
-                if (sessionUser && sessionUser.Password) body.appendChild(createCopyRow("Password", sessionUser.Password));
+                body.appendChild(createInfoNote("Your site password is supplied in your onboarding email. It is not stored in the dashboard.", "ours"));
                 const loginEmail = resolveUserEmail();
                 if (loginEmail) body.appendChild(createCopyRow("Email", loginEmail));
-                if (!(sessionUser && (sessionUser.Username || sessionUser.Password || loginEmail))) {
+                if (!(sessionUser && (sessionUser.Username || loginEmail))) {
                     body.appendChild(createInfoNote("No saved account details found, ask a leader.", "own"));
                 }
             }

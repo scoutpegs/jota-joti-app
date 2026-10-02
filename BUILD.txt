@@ -1,0 +1,4 @@
+JOTA-JOTI 2026 cleaned deployment package
+Backup implementation removed from deployable code.
+Users sheet is the authoritative account store.
+Leader onboarding uses SFH 3 – Being Safe Online instead of the participant Y3 workflow.

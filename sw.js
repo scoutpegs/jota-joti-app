@@ -1,5 +1,5 @@
 // JOTA-JOTI Dashboard PWA service worker
-const CACHE_NAME = 'jota-joti-shell-v10';
+const CACHE_NAME = 'jota-joti-shell-v11';
 
 const APP_SHELL = [
   './index.html',
@@ -12,7 +12,8 @@ const APP_SHELL = [
   './style.css',
   './script.js',
   './admin.css',
-  './admin.js'
+  './admin.js',
+  './config.js'
 ];
 
 self.addEventListener('install', event => {
@@ -67,15 +68,9 @@ self.addEventListener('fetch', event => {
       return;
     }
 
-    // Secret admin route
-    if (path.endsWith('/admin@5-6-4-3')) {
-      event.respondWith(loadPage('./admin.html'));
-      return;
-    }
-
-    // Never expose the old /admin route.
+    // Clean admin route. The page itself requires the Apps Script admin session.
     if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
-      event.respondWith(Response.redirect(new URL('./', self.location.origin).href, 302));
+      event.respondWith(loadPage('./admin.html'));
       return;
     }
 
@@ -87,7 +82,6 @@ self.addEventListener('fetch', event => {
   const pathname = url.pathname.toLowerCase();
   const isAppFile =
     pathname.endsWith('/index.html') ||
-    pathname.endsWith('/index(1).html') ||
     pathname.endsWith('/admin.html') ||
     pathname.endsWith('/skip.html') ||
     pathname.endsWith('/track.html') ||
@@ -96,7 +90,8 @@ self.addEventListener('fetch', event => {
     pathname.endsWith('/style.css') ||
     pathname.endsWith('/script.js') ||
     pathname.endsWith('/admin.css') ||
-    pathname.endsWith('/admin.js');
+    pathname.endsWith('/admin.js') ||
+    pathname.endsWith('/config.js');
 
   if (!isAppFile) return;
 

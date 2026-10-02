@@ -3,7 +3,8 @@
    real protection is the Apps Script admin password + short-lived session.
    No admin password is stored in this file.
 */
-const API_URL='https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec';
+const API_URL=String((window.JOTA_CONFIG&&window.JOTA_CONFIG.API_URL)||'').trim();
+if(!API_URL) throw new Error('Missing JOTA_CONFIG.API_URL');
 const ADMIN_TOKEN_KEY='jota_joti_admin_token_v1';
 const ADMIN_TOKEN_EXPIRY_KEY='jota_joti_admin_token_expiry_v1';
 let adminToken=sessionStorage.getItem(ADMIN_TOKEN_KEY)||'';
@@ -109,7 +110,7 @@ async function call(action,params={}){
   // Reads stay GET so they are easy to inspect directly in a new browser tab.
   // Preview and Send use POST because their base64 HTML/email payloads can be
   // much larger than a practical URL length.
-  if(action==='adminPreview' || action==='adminSend'){
+  if(action==='adminPreview' || action==='adminSend' || action==='adminUpdateTraining'){
     return fetchPost(action,params);
   }
   return fetchGet(action,params);
@@ -246,7 +247,30 @@ async function send(){try{const p=payload();if(!confirm('Send this email now to 
 function clearComposer(){['subject','body','driveAttachment'].forEach(id=>$(id).value='');$('certificatePlacement').value='none';$('certificateTitle').value='CERTIFICATE OF COMPLETION';$('certificateSubtitle').value='JOTA-JOTI 2026';$('certificateMessage').value='This certifies that {{childFullName}} has successfully taken part in JOTA-JOTI 2026 with Boulder Scout Group.';$('certificateFooter').value='Issued by Boulder Scout Group';selected=[];allSelected=[];$('personSearch').value='';$('sectionSearch').value='';$('activitySearch').value='';$('groupSearch').value='';delete $('sectionSearch').dataset.value;delete $('activitySearch').dataset.value;delete $('groupSearch').dataset.value;document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();$('emailMsg').className='message';refreshPreview()}
 function insertTag(tag){const el=focusEl||$('body'),a=el.selectionStart||el.value.length,b=el.selectionEnd||el.value.length;el.value=el.value.slice(0,a)+tag+el.value.slice(b);el.focus();el.selectionStart=el.selectionEnd=a+tag.length}
 async function findScout(q){const n=norm(q);const list=activeUsers().filter(u=>matches(u,n)).slice(0,8);const box=$('findOptions');box.innerHTML=list.map((u,i)=>optionHTML(u,i)).join('')||'<div class="option"><span>No matching active users</span></div>';box._matches=list;box.style.display='block'}
-function showScout(u){$('findResult').classList.remove('hidden');$('findResult').innerHTML=`<b>${esc(u.Name||'Scout')}</b><br>PIN: ${esc(u.PIN||'—')}<br>Username: ${esc(u.Username||'—')}<br>Section: ${esc(u.YouthSection||u.AgeYear||'—')}<br>Youth email: ${esc(u.Email||'—')}<br>Parent: ${esc(u.ParentName||'—')} · ${esc(u.ParentEmail||'—')}<br><br><button class="ghost" id="useScout">Use this scout for email</button>`;$('useScout').onclick=()=>{selected=[u];document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();refreshPreview()}}
+function isLeader(u){return !!(u&&(u.IsLeader===true||/leader/i.test(String(u.AgeYear||u.AgeGroup||u.YouthSection||''))));}
+function renderLeaderTraining(u){
+  const card=$('leaderTrainingCard');
+  if(!card)return;
+  if(!isLeader(u)){card.classList.add('hidden');return;}
+  card.classList.remove('hidden');
+  $('leaderTrainingName').textContent=u.Name||'Leader';
+  $('trainingStatus').value=u.TrainingStatus||'Course required';
+  $('scoutLearnStatus').value=u.ScoutLearnAccountStatus||'Unknown';
+  $('trainingNotes').value=u.TrainingNotes||'';
+  $('trainingCourseLink').href=(window.JOTA_CONFIG&&window.JOTA_CONFIG.SFH3_URL)||'https://learn.scout.org/resource/sfh-3-being-safe-online';
+  $('saveTrainingBtn').onclick=async()=>{
+    try{
+      $('saveTrainingBtn').disabled=true;
+      showMsg('trainingMsg','Saving Leader training status…',true);
+      const result=await callProtected('adminUpdateTraining',{payload:b64url({participantId:u.ParticipantID,trainingStatus:$('trainingStatus').value,scoutLearnAccountStatus:$('scoutLearnStatus').value,trainingNotes:$('trainingNotes').value})});
+      const updated=result.user||result;
+      users=users.map(x=>String(x.ParticipantID)===String(updated.ParticipantID)?Object.assign({},x,updated):x);
+      showScout(updated);
+      showMsg('trainingMsg','Leader training status saved.',true);
+    }catch(e){showMsg('trainingMsg',e.message,false)}finally{$('saveTrainingBtn').disabled=false;}
+  };
+}
+function showScout(u){renderLeaderTraining(u);$('findResult').classList.remove('hidden');$('findResult').innerHTML=`<b>${esc(u.Name||'Scout')}</b><br>PIN: ${esc(u.PIN||'—')}<br>Username: ${esc(u.Username||'—')}<br>Section: ${esc(u.YouthSection||u.AgeYear||'—')}<br>Youth email: ${esc(u.Email||'—')}<br>Parent: ${esc(u.ParentName||'—')} · ${esc(u.ParentEmail||'—')}<br><br><button class="ghost" id="useScout">Use this scout for email</button>`;$('useScout').onclick=()=>{selected=[u];document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();refreshPreview()}}
 function setupEvents(){
  $('refreshBtn').onclick=async()=>{try{await loadAll();showMsg('emailMsg','Live Users data refreshed.',true)}catch(e){showMsg('emailMsg',e.message,false)}};$('previewBtn').onclick=preview;$('sendBtn').onclick=send;$('clearBtn').onclick=clearComposer;
  document.querySelectorAll('input[name=scope]').forEach(e=>e.onchange=setScopeUI);document.querySelectorAll('input[name=targetType]').forEach(e=>e.onchange=refreshPreview);
@@ -261,7 +285,7 @@ function setupEvents(){
  $('sectionCards').onclick=e=>{const b=e.target.closest('[data-section]');if(b){document.querySelector('input[name=scope][value=section]').checked=true;setScopeUI();$('sectionSearch').value=b.dataset.section;$('sectionSearch').dataset.value=b.dataset.section;refreshPreview()}};$('categoryCards').onclick=e=>{const b=e.target.closest('[data-category]');if(b){document.querySelector('input[name=scope][value=activity]').checked=true;setScopeUI();$('activitySearch').value=b.dataset.category;$('activitySearch').dataset.value=b.dataset.category;refreshPreview()}};
 }
 function setupPreviewLink(){
-  const link=SKIP_PAGE_URL;
+  const link=(window.JOTA_CONFIG&&window.JOTA_CONFIG.SKIP_URL)||new URL('./skip',window.location.href).href;
   const input=$('previewLink');
   if(!input)return;
   input.value=link;

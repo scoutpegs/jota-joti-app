@@ -26,17 +26,14 @@ a{color:#5a2c84}
   let target = 'index.html';
 
   if (path.endsWith('/setup')) {
-    target = 'index(1).html';
+    target = 'setup.html';
     title.textContent = 'Opening setup guide…';
   } else if (path.endsWith('/track')) {
     target = 'track.html';
     title.textContent = 'Opening JID tracker…';
-  } else if (path.endsWith('/admin@5-6-4-3')) {
+  } else if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
     target = 'admin.html';
     title.textContent = 'Opening admin…';
-  } else if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
-    location.replace('./');
-    return;
   }
 
   try {

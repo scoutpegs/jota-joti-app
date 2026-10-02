@@ -6,6 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Admin Centre · JOTA-JOTI</title>
   <link rel="stylesheet" href="admin.css">
+  <script src="config.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -16,8 +17,8 @@
 
   <main>
     <section class="card" style="margin-bottom:18px">
-      <h2>No sign-in required</h2>
-      <p>This page connects directly to your Apps Script API and opens straight into the tools below. Keep this page's link private — don't put it in the public JOTA-JOTI site's menus — since anyone with the link can use it.</p>
+      <h2>Protected admin area</h2>
+      <p>This page requires the Apps Script admin password. The password is exchanged for a short-lived private session before user data or email tools are loaded.</p>
     </section>
 
     <section id="app">
@@ -72,32 +73,15 @@
           <section class="card"><h2>Find a scout</h2><p>Search the live Users sheet by <b>ParticipantID, PIN, Name, or Username</b>. You can type any one of those four and press Enter.</p><div class="combo"><input id="findSearch" placeholder="ParticipantID, PIN, Name or Username…" autocomplete="off"><div id="findOptions" class="options"></div></div><div id="findResult" class="result hidden"></div></section>
           <section class="card"><h2>Quick groups</h2><div id="sectionCards" class="section-cards"></div></section>
           <section class="card"><h2>Activity categories</h2><div id="categoryCards" class="section-cards"></div></section>
+          <section class="card hidden" id="leaderTrainingCard"><h2>Leader training</h2><p>Selected Leader: <b id="leaderTrainingName">—</b></p><p class="small">Leaders use <b>SFH 3 – Being Safe Online</b> instead of the Y3 process.</p><p><a id="trainingCourseLink" href="https://learn.scout.org/resource/sfh-3-being-safe-online" target="_blank" rel="noopener">Open SFH 3 – Being Safe Online</a></p><label>Training status<select id="trainingStatus"><option>Course required</option><option>Account details requested</option><option>Login details sent</option><option>Course in progress</option><option>Course completed</option><option>Completion received</option><option>Approved</option></select></label><label>Scout Learn account<select id="scoutLearnStatus"><option>Unknown</option><option>Has account</option><option>Account details requested</option><option>Login details sent</option></select></label><label>Training notes<textarea id="trainingNotes" rows="4" maxlength="1000" placeholder="Optional notes"></textarea></label><div class="actions"><button id="saveTrainingBtn" class="primary" type="button">Save training status</button></div><div id="trainingMsg" class="message"></div></section>
           <section class="card"><h2>Safety</h2><p class="small">Only active Users are eligible. Disabled accounts are excluded server-side even if an old browser has stale data. Every send is written to the <b>EmailLog</b> sheet.</p></section>
           <section class="card"><h2>Preview the site (skip countdown)</h2><p class="small">Use this link to test the site on any device before the countdown ends. Treat this preview link as private. Only use it with trusted leaders.</p><div class="combo"><input id="previewLink" readonly></div><div class="actions" style="margin-top:9px"><button id="copyPreviewLink" class="ghost" type="button">Copy link</button><a id="openPreviewLink" class="ghost" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 13px;border-radius:9px" href="#" target="_blank" rel="noopener">Open in new tab</a></div><div id="previewMsg" class="message"></div></section>
         </aside>
       </div>
     </section>
   </main>
+  <footer style="padding:0 28px 28px;color:#6b7280;font-size:12px;text-align:center;">Made by Hunter Miller from Boulder Scout Hall</footer>
 </div>
-<script>
-(function protectAdminPage(){
-  const secretRoute = atob('L2FkbWluQDUtNi00LTM=');
-  const path = location.pathname.replace(/\/+$/,'').toLowerCase();
-
-  // admin.html is only usable through the clean secret route.
-  if (!path.endsWith(secretRoute.toLowerCase())) {
-    document.documentElement.innerHTML =
-      '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JOTA-JOTI</title></head>' +
-      '<body style="font-family:system-ui,sans-serif;background:#f4f6f8;margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box">' +
-      '<main style="max-width:520px;background:#fff;border-radius:18px;padding:28px;box-shadow:0 10px 40px #0001;text-align:center">' +
-      '<h1>Page not available</h1>' +
-      '<p>This page is not available at this address.</p>' +
-      '<a href="./" style="color:#5a2c84;font-weight:700">Return to JOTA-JOTI</a>' +
-      '</main></body>';
-    return;
-  }
-})();
-</script>
 
 <script src="admin.js"></script>
 </body>
