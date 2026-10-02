@@ -181,8 +181,7 @@
             <button class="guest-btn" onclick="fetchUserData('guest')">Continue as Guest</button>
             <button class="signup-btn" id="signup-button" onclick="openSignupForm()">I DON'T HAVE AN ACCOUNT</button>
             <button class="back-to-timer-btn" id="back-to-timer-button" onclick="returnToTimer()" style="display:none;">BACK TO TIMER</button>
-            <button class="forget-btn" id="forget-btn" onclick="forgetSavedPin()" style="display:none;">Forget this device</button>
-            <button class="skip" id="trusted-device-btn" onclick="continueWithTrustedDevice()" style="display:none;">CONTINUE WITH THIS DEVICE</button>
+            <button class="forget-btn" id="forget-btn" onclick="forgetSavedPin()" style="display:none;">Not you? Forget this device</button>
         </div>
 
         <div id="dashboard-screen">
@@ -190,8 +189,9 @@
                 <div class="dash-greeting">
                     <div class="dash-greeting-line" id="dash-greeting-line">Welcome</div>
                     <div class="dash-greeting-name" id="dash-greeting-name">Scout</div>
+                    <div class="dash-greeting-save-note">Login saved on this device</div>
                 </div>
-                <button class="logout-btn" onclick="logout()">Log Out</button>
+                <div class="dash-actions"><button class="account-btn" type="button" onclick="showLoginDetails()">My Login</button><button class="logout-btn" onclick="logout()">Log Out</button></div>
             </div>
             <div class="section-title">Categories</div>
             <div class="grid" id="category-grid"></div>

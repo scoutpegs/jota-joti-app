@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Boulder Scout Group \u00b7 JOTA-JOTI 2026",
-  "short_name": "Boulder JOTA-JOTI",
-  "description": "Boulder Scout Group JOTA-JOTI 2026 dashboard",
+  "name": "JOTA-JOTI Dashboard",
+  "short_name": "JOTA-JOTI",
+  "description": "Scouts Australia JOTA-JOTI event dashboard",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

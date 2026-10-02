@@ -16,8 +16,8 @@
 
   <main>
     <section class="card" style="margin-bottom:18px">
-      <h2>Protected admin area</h2>
-      <p>The Apps Script will ask for the admin password before loading participant data or sending email. Keep that password private.</p>
+      <h2>No sign-in required</h2>
+      <p>This page connects directly to your Apps Script API and opens straight into the tools below. Keep this page's link private — don't put it in the public JOTA-JOTI site's menus — since anyone with the link can use it.</p>
     </section>
 
     <section id="app">
@@ -69,17 +69,35 @@
         </section>
 
         <aside class="side">
-          <section class="card"><h2>Find a scout</h2><div id="leaderTrainingCard" class="result hidden" style="margin-top:12px"><strong>Leader training</strong><div class="small" id="leaderTrainingSummary"></div><div class="actions" style="margin-top:9px"><select id="leaderTrainingStatus"><option value="Course required">Course required</option><option value="Account details requested">Account details requested</option><option value="Login details sent">Login details sent</option><option value="Course in progress">Course in progress</option><option value="Course completed">Course completed</option><option value="Completion received">Completion received</option><option value="Approved">Approved</option></select><select id="scoutLearnStatus"><option value="Not required">Not required</option><option value="Account needed">Account needed</option><option value="Account details sent">Account details sent</option><option value="Has account">Has account</option></select><button id="saveLeaderTraining" class="ghost" type="button">Save training status</button></div><div id="leaderTrainingMsg" class="message"></div></div><p>Search the live Users sheet by <b>ParticipantID, PIN, Name, or Username</b>. You can type any one of those four and press Enter.</p><div class="combo"><input id="findSearch" placeholder="ParticipantID, PIN, Name or Username…" autocomplete="off"><div id="findOptions" class="options"></div></div><div id="findResult" class="result hidden"></div></section>
+          <section class="card"><h2>Find a scout</h2><p>Search the live Users sheet by <b>ParticipantID, PIN, Name, or Username</b>. You can type any one of those four and press Enter.</p><div class="combo"><input id="findSearch" placeholder="ParticipantID, PIN, Name or Username…" autocomplete="off"><div id="findOptions" class="options"></div></div><div id="findResult" class="result hidden"></div></section>
           <section class="card"><h2>Quick groups</h2><div id="sectionCards" class="section-cards"></div></section>
           <section class="card"><h2>Activity categories</h2><div id="categoryCards" class="section-cards"></div></section>
           <section class="card"><h2>Safety</h2><p class="small">Only active Users are eligible. Disabled accounts are excluded server-side even if an old browser has stale data. Every send is written to the <b>EmailLog</b> sheet.</p></section>
-          <section class="card"><h2>Test the site without the countdown</h2><p class="small">Use <strong>/skip</strong> to test the real Boulder Scout site without waiting for the normal timer. It only bypasses the timer, not authentication or permissions.</p><div class="combo"><input id="previewLink" readonly></div><div class="actions" style="margin-top:9px"><button id="copyPreviewLink" class="ghost" type="button">Copy link</button><a id="openPreviewLink" class="ghost" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 13px;border-radius:9px" href="#" target="_blank" rel="noopener">Open in new tab</a></div><div id="previewMsg" class="message"></div></section>
+          <section class="card"><h2>Preview the site (skip countdown)</h2><p class="small">Use this link to test the site on any device before the countdown ends. Treat this preview link as private. Only use it with trusted leaders.</p><div class="combo"><input id="previewLink" readonly></div><div class="actions" style="margin-top:9px"><button id="copyPreviewLink" class="ghost" type="button">Copy link</button><a id="openPreviewLink" class="ghost" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 13px;border-radius:9px" href="#" target="_blank" rel="noopener">Open in new tab</a></div><div id="previewMsg" class="message"></div></section>
         </aside>
       </div>
     </section>
   </main>
 </div>
+<script>
+(function protectAdminPage(){
+  const secretRoute = atob('L2FkbWluQDUtNi00LTM=');
+  const path = location.pathname.replace(/\/+$/,'').toLowerCase();
 
+  // admin.html is only usable through the clean secret route.
+  if (!path.endsWith(secretRoute.toLowerCase())) {
+    document.documentElement.innerHTML =
+      '<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JOTA-JOTI</title></head>' +
+      '<body style="font-family:system-ui,sans-serif;background:#f4f6f8;margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box">' +
+      '<main style="max-width:520px;background:#fff;border-radius:18px;padding:28px;box-shadow:0 10px 40px #0001;text-align:center">' +
+      '<h1>Page not available</h1>' +
+      '<p>This page is not available at this address.</p>' +
+      '<a href="./" style="color:#5a2c84;font-weight:700">Return to JOTA-JOTI</a>' +
+      '</main></body>';
+    return;
+  }
+})();
+</script>
 
 <script src="config.js"></script>
 <script src="admin.js"></script>

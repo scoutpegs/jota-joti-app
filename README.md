@@ -1,117 +1,100 @@
-# Boulder Scout Group JOTA-JOTI 2026
+# Boulder Scout Group – JOTA-JOTI 2026
 
-This package is the cleaned deployment of the existing Boulder Scout Group JOTA-JOTI site. It keeps the original dashboard layout and visual framework, but removes the old backup implementation, makes `Users` the authoritative account store, adds trusted-device `.skip` login, and adds the separate Leader SFH 3 training workflow.
+## This package
 
-## Public site files
+This package is the cleaned Boulder Scout Group JOTA-JOTI deployment built from the supplied site framework.
 
-Upload these files to the root of the existing Boulder Scout GitHub Pages repository:
+It keeps the existing frontend structure and uses the exact existing Google Sheet schema. The live workbook is intentionally **not** included in this public deployment package because the supplied workbook contains real account credentials and participant information. Continue using that workbook as the bound Google Sheet for the Apps Script.
 
-`index.html`, `setup.html`, `skip.html`, `track.html`, `admin.html`, `script.js`, `style.css`, `admin.js`, `admin.css`, `config.js`, `sw.js`, `404.html`, `manifest.json`, `photo1.png`.
+## Important data rule
 
-Do not upload the `private` folder or the attached spreadsheet to the public repository.
+The original `Users` sheet is the single source of truth for accounts.
 
-## 1. Google Sheet
+Registration:
+`Google Form → Users sheet → account ready`
 
-Use the attached Boulder Scout spreadsheet exactly as supplied. Keep these existing sheet names unchanged:
+Login:
+`PIN → Users sheet → signed session → dashboard`
 
-`Form responses 1`, `EmailLog`, `EmailGroups`, `Users`, `Categories`, `Links`, `Logos`, `BlockedURLs`, `BlockedCategories`, `Settings`, `EmailTemplates`, `Setup Guide`.
+There is no backup account store, backup spreadsheet, backup Drive folder, backup trigger, backup restore path, or backup authentication dependency.
 
-Do not add, rename, reorder, or replace sheets just for this application. `Users` is the single source of truth for accounts.
+## Apps Script
 
-## 2. Apps Script
+1. Open the exact supplied Boulder JOTA-JOTI Google Sheet.
+2. Open **Extensions → Apps Script**.
+3. Replace the existing backend with `Code.gs` from this package.
+4. Save.
+5. Run `setupEOISystem()` once and authorise the required permissions.
+6. Deploy as **Web app**.
+7. Use the deployed `/exec` URL in `config.js` if it differs from the packaged value.
 
-Open the attached Google Sheet, then `Extensions → Apps Script`. Replace the existing script with `private/Code.gs`. Save it. Run `setupEOISystem()` once from the Apps Script editor and approve the Google permissions.
+`repairSystem` can be used as a lightweight recovery/validation helper if the installable Form trigger needs to be reinstalled.
 
-Setup validates the existing spreadsheet structure without changing it and installs only the `onFormSubmit` trigger. There is no backup trigger or backup operation.
+## Frontend
 
-Deploy as a Web App:
+Upload the files in the package root to the Boulder Scout GitHub Pages repository.
 
-`Execute as: Me`
+The frontend configuration is in `config.js`.
 
-`Who has access: Anyone`
+Change only these values when needed:
 
-Copy the final `/exec` URL into `config.js` as `API_URL`.
+* `API_URL`
+* `SITE_URL`
+* `SIGNUP_FORM_URL`
+* `EVENT_START_ISO`
 
-## 3. Frontend configuration
+The site is configured for the Boulder Scout URL:
+`https://scoutpegs.github.io/jota-joti-app/`
 
-`config.js` is the one public configuration file. Change only values that are specific to your deployment:
+## `/skip` and `.skip`
 
-`API_URL` = Apps Script `/exec` URL
+`/skip` is the timer test route. It bypasses the countdown/waiting stage only. It does not bypass account authentication or admin permissions.
 
-`SITE_URL` = the Boulder Scout GitHub Pages/custom-domain site URL
+`.skip` is the returning-device/session shortcut. A signed session token and a small non-sensitive account snapshot are kept on the trusted device so reloads can restore the dashboard immediately. The encrypted credential vault is persistent browser storage; the plain-text PIN and password are not written directly to localStorage.
 
-`SIGNUP_FORM_URL` = the existing Boulder Scout Google Form
+## Leader workflow
 
-`EVENT_START_ISO` = the existing event start used by the framework
+Leaders do not receive the participant Y3 workflow.
 
-`SCOUT_GROUP` = `Boulder Scout Group`
+They are directed to:
+`https://learn.scout.org/resource/sfh-3-being-safe-online`
 
-`SFH3_URL` = `https://learn.scout.org/resource/sfh-3-being-safe-online`
+A Leader without a Scout Learn account is told to reply to the email and request their access details.
 
-## 4. Clean routes
+## GitHub images
 
-`/` = normal countdown/dashboard
+Image paths may be stored as `/image.png`, `images/image.png`, `./images/image.png`, or full external URLs. The frontend resolves these without proxying them through the backend.
 
-`/skip` = timer test route only. It loads the same dashboard/login page without waiting for the countdown. It does not bypass authentication or permissions.
+## Email previews
 
-`/setup` = parent/scout setup guide
+Open:
 
-`/track` = JID tracker
+* `emails/parent-welcome.html`
+* `emails/leader-welcome.html`
 
-`/admin` = protected admin page
+The live Apps Script generates the same layouts with escaped account-specific values and a plain-text fallback.
 
-GitHub Pages uses `404.html` and the service worker so these clean paths resolve without changing the address bar.
+## Tests performed
 
-## 5. `.skip` trusted-device shortcut
+Static syntax checks, duplicate-function checks, backup-code scans, branding scans, spreadsheet-schema validation, login/registration mock flows, session tests, leader workflow tests, email template checks, frontend route checks, service-worker checks, and package integrity checks are included in the final QA process.
 
-After a successful login, the browser stores a signed, time-limited session token and a non-sensitive participant identifier/display name. The raw PIN and password are not stored for the shortcut.
+Live Google authorization, live Form submission, real MailApp delivery and the final GitHub Pages deployment still require your Google account and deployed services.
 
-On a returning device, `.skip` can continue as the recognised user after the server validates the live account. If the session is expired, disabled, or missing, the user is returned to normal PIN login.
+## Security
 
-`Log Out` clears the trusted-device session from the browser. `Forget this device` clears the trusted-device token and its local dashboard cache.
+Do not upload the attached live workbook or a copy containing participant passwords to a public GitHub repository. Keep the workbook private in Google Sheets and keep `Code.gs` and deployment secrets out of public repositories where practical.
 
-## 6. GitHub images / Logos sheet
+## Account details and trusted devices
 
-The frontend accepts all of these image path forms from the `Logos` sheet:
+After a successful sign in, the browser keeps an encrypted copy of the login details needed to restore the account on that device. The site never stores the PIN or password as plain text in localStorage. The dashboard has a **My Login** button where the saved username, PIN, password and participant ID can be viewed and copied. Sensitive values start masked and are revealed only when the user taps Reveal.
 
-`/scout-logo.png`
+The signed session is refreshed in the background. If the server session expires, the encrypted device vault can silently authenticate the account again. Browser storage can still be cleared by the user, browser privacy settings, or device cleanup tools, so no browser storage system can literally guarantee permanent storage. **Forget This Device** removes the saved account from that browser.
 
-`images/scout-logo.png`
+## URL routes
 
-`./images/scout-logo.png`
+`/skip` bypasses only the event timer and continues through the normal site flow. It never bypasses account or admin permissions. `.skip` remains the trusted-device/user shortcut.
 
-`https://example.com/scout-logo.png`
+## Forms
 
-Project-root `/filename.png` paths are resolved against the GitHub Pages repository path so they also work when the repository is not hosted at the domain root. Missing or broken images fall back to the local app logo.
+The setup page loads the three section forms from the `forms/` folder so they work as normal GitHub Pages files instead of carrying large base64 PDF strings inside the HTML.
 
-## 7. Leader training
-
-A person identified as `Leader` through the existing `AgeYear`/`AgeGroup` data is not sent the participant Y3 workflow. Their onboarding email instead points to `SFH 3 – Being Safe Online` and explains that they should reply if they do not already have a Scout Learn account.
-
-Leader training status is stored in the existing `PaperworkStatus` and `Notes` fields. No new spreadsheet columns are required. The admin page can identify Leaders and update their training and Scout Learn status.
-
-## 8. Admin
-
-Open `/admin`. The page is protected by the Apps Script admin password. It reads live `Users` data before send operations and logs emails to the existing `EmailLog` sheet.
-
-The admin bootstrap now loads users, sections, categories, groups and sender information in one protected request.
-
-## 9. API tests
-
-Open the deployed Apps Script `/exec?action=health` to check that the Web App responds. `diagnostics` performs a deeper spreadsheet schema check.
-
-Public API actions preserved include `health`, `diagnostics`, `login`, `user`, `categories`, `links`, `logos`, `blocks`, and `all`. The protected admin actions remain available with the existing names.
-
-## 10. Important security points
-
-No admin password is stored in frontend source. Normal dashboard data is not persisted with the password. Authentication is live against the `Users` sheet. A cache failure cannot make login fail.
-
-The previous backup implementation is not part of this package and is not required for registration, login, dashboard loading, or administration.
-
-## 11. What was fixed
-
-The cleanup repaired missing internal helpers, removed stale user caching, removed insecure unauthenticated admin endpoints, removed PIN leakage from diagnostics, added timeouts and POST login requests, removed the direct PIN from browser storage, added signed trusted-device sessions, added `/skip` route handling, corrected the setup route, consolidated public configuration, added GitHub project-path image handling, and added the Leader SFH 3 workflow without changing the spreadsheet structure.
-
-## 12. Live tests still required
-
-The final live step still needs your Google account, Google Form trigger, deployed Apps Script URL, and the real GitHub Pages host. Run one test participant submission, one Leader submission, one valid login, one invalid login, `/skip`, `/admin`, and one Leader training status update after deployment.

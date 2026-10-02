@@ -1,0 +1,107 @@
+{
+  "Form responses 1": [
+    "Timestamp",
+    "Parent/Guardian Full Name",
+    "Parent/Guardian Email",
+    "Child First Name",
+    "Child Last Name",
+    "Child's age/year group",
+    "Which activities would your child like access to?",
+    "I understand this is only an Expression of Interest",
+    "I understand further paperwork/permissions may be required before participation",
+    "I agree the the terms and conditions (link below)"
+  ],
+  "EmailLog": [
+    "Timestamp",
+    "AdminEmail",
+    "RecipientEmail",
+    "ParticipantID",
+    "RecipientType",
+    "Subject",
+    "Status",
+    "Error"
+  ],
+  "EmailGroups": [
+    "GroupKey",
+    "GroupName",
+    "ParticipantIDs",
+    "Active",
+    "Notes"
+  ],
+  "Users": [
+    "ParticipantID",
+    "PIN",
+    "Name",
+    "Username",
+    "Email",
+    "AllowedCategories",
+    "Password",
+    "ParentEmail",
+    "ParentName",
+    "ScoutGroup",
+    "AgeYear",
+    "Status",
+    "EOIReceived",
+    "AccountCreated",
+    "PaperworkStatus",
+    "EmailStatus",
+    "Notes",
+    "AgeGroup"
+  ],
+  "Categories": [
+    "CategoryKey",
+    "Title",
+    "LogoKey",
+    "LogoURL",
+    "Description"
+  ],
+  "Links": [
+    "LinkID",
+    "CategoryKey",
+    "Title",
+    "URL",
+    "CanEmbed",
+    "RequiresLogin",
+    "RequiresEmail",
+    "ParentApproval",
+    "LeaderApproved",
+    "Moderated",
+    "Active",
+    "LogoKey",
+    "LogoURL",
+    "BlockStatus",
+    "Notes"
+  ],
+  "Logos": [
+    "LogoKey",
+    "CategoryKey",
+    "ItemKey",
+    "Title",
+    "LogoURL"
+  ],
+  "BlockedURLs": [
+    "BlockID",
+    "Domain",
+    "URLPattern",
+    "BlockType",
+    "Reason",
+    "Active"
+  ],
+  "BlockedCategories": [
+    "CategoryKey",
+    "Reason",
+    "Active",
+    "AppliesTo",
+    "Notes"
+  ],
+  "Settings": [
+    "SettingKey",
+    "SettingValue",
+    "Description"
+  ],
+  "EmailTemplates": [
+    "TemplateKey",
+    "Subject",
+    "Body/HTML Notes"
+  ]
+}

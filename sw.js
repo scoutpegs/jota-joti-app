@@ -1,9 +1,10 @@
 // JOTA-JOTI Dashboard PWA service worker
-const CACHE_NAME = 'jota-joti-shell-v11';
+const CACHE_NAME = 'jota-joti-shell-v12';
 
 const APP_SHELL = [
   './index.html',
   './setup.html',
+  './config.js',
   './admin.html',
   './skip.html',
   './track.html',
@@ -11,9 +12,11 @@ const APP_SHELL = [
   './photo1.png',
   './style.css',
   './script.js',
-  './config.js',
   './admin.css',
-  './admin.js'
+  './admin.js',
+  './forms/Boulder-Scouts-Cub-Section-Form.pdf',
+  './forms/Boulder-Scouts-Joey-Section-Form.pdf',
+  './forms/Boulder-Scouts-Venturer-Section-Form.pdf'
 ];
 
 self.addEventListener('install', event => {
@@ -68,8 +71,15 @@ self.addEventListener('fetch', event => {
       return;
     }
 
-    if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
+    // Secret admin route
+    if (path.endsWith('/admin@5-6-4-3')) {
       event.respondWith(loadPage('./admin.html'));
+      return;
+    }
+
+    // Never expose the old /admin route.
+    if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
+      event.respondWith(Response.redirect(new URL('./', self.location.origin).href, 302));
       return;
     }
 
@@ -81,6 +91,7 @@ self.addEventListener('fetch', event => {
   const pathname = url.pathname.toLowerCase();
   const isAppFile =
     pathname.endsWith('/index.html') ||
+    pathname.endsWith('/index(1).html') ||
     pathname.endsWith('/admin.html') ||
     pathname.endsWith('/skip.html') ||
     pathname.endsWith('/track.html') ||
@@ -88,9 +99,12 @@ self.addEventListener('fetch', event => {
     pathname.endsWith('/photo1.png') ||
     pathname.endsWith('/style.css') ||
     pathname.endsWith('/script.js') ||
+    pathname.endsWith('/config.js') ||
     pathname.endsWith('/admin.css') ||
     pathname.endsWith('/admin.js') ||
-    pathname.endsWith('/config.js');
+    pathname.endsWith('/forms/boulder-scouts-cub-section-form.pdf') ||
+    pathname.endsWith('/forms/boulder-scouts-joey-section-form.pdf') ||
+    pathname.endsWith('/forms/boulder-scouts-venturer-section-form.pdf');
 
   if (!isAppFile) return;
 

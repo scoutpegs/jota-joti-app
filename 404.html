@@ -27,27 +27,23 @@ a{color:#5a2c84}
 
   if (path.endsWith('/skip')) {
     target = 'skip.html';
-    title.textContent = 'Opening test dashboard…';
+    title.textContent = 'Opening timer bypass…';
   } else if (path.endsWith('/setup')) {
     target = 'setup.html';
     title.textContent = 'Opening setup guide…';
   } else if (path.endsWith('/track')) {
     target = 'track.html';
     title.textContent = 'Opening JID tracker…';
-  } else if (path.endsWith('/admin')) {
+  } else if (path.endsWith('/admin@5-6-4-3')) {
     target = 'admin.html';
-    title.textContent = 'Opening protected admin…';
+    title.textContent = 'Opening admin…';
+  } else if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
+    location.replace('./');
+    return;
   }
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-    let r;
-    try {
-      r = await fetch(new URL(target, location.href), {cache:'no-store', signal:controller.signal});
-    } finally {
-      clearTimeout(timer);
-    }
+    const r = await fetch(new URL(target, location.href), {cache:'no-store'});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const html = await r.text();
 

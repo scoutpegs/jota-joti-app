@@ -1,0 +1,24 @@
+BOULDER SCOUT GROUP JOTA-JOTI 2026
+Exact spreadsheet reference
+
+This deployment is designed to run against the exact Google Spreadsheet supplied with the project. Do not replace it or rename its sheets.
+
+SHA-256 of the supplied workbook:
+20a45a1c172d741c54646c1a900e5344fe5a64c9b48d769aa3894bff08ec4864
+
+Original sheets, in order:
+1. Form responses 1
+2. EmailLog
+3. EmailGroups
+4. Users
+5. Categories
+6. Links
+7. Logos
+8. BlockedURLs
+9. BlockedCategories
+10. Settings
+11. EmailTemplates
+12. Setup Guide
+
+Users is the single source of truth for account creation and authentication.
+Do not upload the live workbook to a public GitHub repository because it contains participant account information.

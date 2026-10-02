@@ -1,20 +1,21 @@
-        const APP_CONFIG = window.JOTA_CONFIG || {};
-        const API_URL = String(APP_CONFIG.API_URL || '').trim();
-        const SIGNUP_FORM_URL = String(APP_CONFIG.SIGNUP_FORM_URL || '').trim();
-        const EVENT_START_ISO = String(APP_CONFIG.EVENT_START_ISO || '2026-10-16T00:00:00+08:00');
+const API_URL = window.JOTA_CONFIG.API_URL;
+        /* ==========================================================
+           COMBINED PORTAL CONFIGURATION
+           ========================================================== */
+const SIGNUP_FORM_URL = window.JOTA_CONFIG.SIGNUP_FORM_URL;
+const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
         const EVENT_START_MS = new Date(EVENT_START_ISO).getTime();
         const FINAL_DAY_MS = EVENT_START_MS - (24 * 60 * 60 * 1000);
         const INSTALLED_KEY = "jota_installed";
-        const TRUSTED_SESSION_KEY = 'jotajoti_trusted_session_v1';
-        const TRUSTED_DEVICE_META_KEY = 'jotajoti_trusted_device_v1';
-        const DASH_CACHE_KEY_PREFIX = 'jotajoti_dashboard_cache_v2_';
-        const DASH_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
-        const API_TIMEOUT_MS = 12000;
+        const AUTH_SESSION_KEY = 'jotajoti_auth_session_v4';
+        const LEGACY_AUTH_SESSION_KEY = 'jotajoti_auth_session_v3';
+        const AUTH_SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
         let dashboardView = 'login';
         let activeCategoryKey = '';
         let dashboardHandoffComplete = false;
         let lastDashboardBuildSignature = '';
         let backgroundRefreshInFlight = false;
+        let dashboardLoadSequence = 0;
         let rememberedSessionLoaded = false;
         let embedLoadToken = 0;
         let currentEmbeddedSite = null;
@@ -28,6 +29,7 @@
 
         let currentPin = "";
         let sessionUser = null;
+        let sessionCredentials = null;
         let dashboardData = null;
 
 
@@ -45,26 +47,39 @@
             document.getElementById("dash-greeting-name").innerText = name;
         }
 
+        const SAVED_PIN_KEY = 'jotajoti_saved_pin';
+        const LOGIN_VAULT_KEY = 'jotajoti_login_vault_v1';
+        const LOGIN_VAULT_DB = 'jotajoti_secure_vault_v1';
+        const LOGIN_VAULT_STORE = 'keys';
+        const LOGOUT_HOLD_KEY = 'jotajoti_logout_hold_v1';
+        const DASH_CACHE_KEY = 'jotajoti_dashboard_cache_v2';
+        const LEGACY_DASH_CACHE_KEY = 'jotajoti_dashboard_cache_v1';
+        const DASH_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
         let lastAttemptedPin = '';
 
         /* ==========================================================
            FAST START
            ----------------------------------------------------------
-           Public metadata can be cached, but the Users sheet is always
-           authoritative. A trusted-device session token is stored locally
-           so returning devices can restore the current account without a PIN.
+           Apps Script answers in about a second and a half on a good
+           connection, longer on phone data. Two things fix that:
+
+           1. Fire the sign in request the moment this file runs,
+              before the page has even finished setting itself up, so
+              it overlaps with everything else instead of waiting.
+           2. Keep the last dashboard in localStorage so the app can
+              paint straight away and quietly update itself once the
+              real answer lands.
            ========================================================== */
 
         let loginPrefetch = null;
         let loginPrefetchPin = '';
-        let loginPrefetchTimer = null;
         let loginPrefetchController = null;
-        let trustedDeviceKnown = false;
+        let loginRequestSequence = 0;
+        let credentialVaultWriteInFlight = null;
 
         (function warmUpConnection() {
             try {
-                if (!API_URL) return;
-                ['https://script.google.com', 'https://script.googleusercontent.com'].forEach(host => {
+                ['https://script.googleusercontent.com', 'https://script.google.com'].forEach(host => {
                     const link = document.createElement('link');
                     link.rel = 'preconnect';
                     link.href = host;
@@ -74,147 +89,114 @@
             } catch (_) {}
         })();
 
-        async function fetchJsonWithTimeout(url, options = {}) {
+        function fetchWithTimeout(url, options = {}, timeoutMs = 7500) {
             const controller = new AbortController();
-            const externalSignal = options && options.signal ? options.signal : null;
-            const abortFromExternal = () => controller.abort();
+            const externalSignal = options.signal;
+            const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+            const merged = Object.assign({}, options, { signal: controller.signal });
+            const abortExternal = () => controller.abort();
             if (externalSignal) {
                 if (externalSignal.aborted) controller.abort();
-                else externalSignal.addEventListener('abort', abortFromExternal, { once: true });
+                else externalSignal.addEventListener('abort', abortExternal, { once: true });
             }
-            const timer = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-            try {
-                const response = await fetch(url, Object.assign({
-                    redirect: 'follow', cache: 'no-store', credentials: 'omit', signal: controller.signal
-                }, options, { signal: controller.signal }));
-                const text = await response.text();
-                let data;
-                try { data = JSON.parse(text); }
-                catch (_) { throw new Error('The sign-in service returned an invalid response.'); }
-                if (!response.ok) throw new Error(data.error || ('Request failed (HTTP ' + response.status + ').'));
-                return data;
-            } catch (error) {
-                if (error && error.name === 'AbortError') throw new Error('The sign-in service took too long to respond.');
-                throw error;
-            } finally {
+
+            return fetch(url, merged).finally(() => {
                 window.clearTimeout(timer);
-                if (externalSignal) externalSignal.removeEventListener('abort', abortFromExternal);
-            }
+                if (externalSignal) externalSignal.removeEventListener('abort', abortExternal);
+            });
         }
 
-        function scheduleLoginPrefetch(pin) {
-            window.clearTimeout(loginPrefetchTimer);
-            if (loginPrefetchController) {
-                try { loginPrefetchController.abort(); } catch (_) {}
-                loginPrefetchController = null;
-            }
+        function abortLoginPrefetch() {
+            try { if (loginPrefetchController) loginPrefetchController.abort(); } catch (_) {}
+            loginPrefetchController = null;
             loginPrefetch = null;
             loginPrefetchPin = '';
-            if (!API_URL || !/^\d{4}$/.test(pin)) return;
-            loginPrefetchTimer = window.setTimeout(() => {
-                loginPrefetchPin = pin;
-                loginPrefetchController = new AbortController();
-                const body = new URLSearchParams();
-                body.set('action', 'login');
-                body.set('pin', pin);
-                loginPrefetch = fetchJsonWithTimeout(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body.toString(),
-                    signal: loginPrefetchController.signal
-                }).catch(() => null);
-            }, 50);
+        }
+
+        function prefetchLogin(pin) {
+            pin = String(pin || '').trim();
+            if (!/^\d{4}$/.test(pin)) {
+                abortLoginPrefetch();
+                return;
+            }
+            if (loginPrefetch && loginPrefetchPin === pin) return;
+
+            abortLoginPrefetch();
+            loginPrefetchPin = pin;
+            loginPrefetchController = new AbortController();
+            const seq = ++loginRequestSequence;
+            loginPrefetch = fetchWithTimeout(
+                `${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&r=${seq}`,
+                { cache: 'no-store', signal: loginPrefetchController.signal },
+                6500
+            )
+                .then(response => response.ok ? response.json() : null)
+                .catch(() => null);
         }
 
         async function loginRequest(pin) {
+            pin = String(pin || '').trim();
             if (loginPrefetch && loginPrefetchPin === pin) {
                 const pending = loginPrefetch;
                 loginPrefetch = null;
-                loginPrefetchPin = '';
                 loginPrefetchController = null;
+                loginPrefetchPin = '';
                 const early = await pending;
                 if (early) return early;
             }
-            const body = new URLSearchParams();
-            body.set('action', 'login');
-            body.set('pin', pin);
-            return fetchJsonWithTimeout(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            });
+
+            const response = await fetchWithTimeout(
+                `${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&r=${Date.now()}`,
+                { cache: 'no-store' },
+                7500
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
         }
 
         async function sessionRequest(token) {
-            const body = new URLSearchParams();
-            body.set('action', 'session');
-            body.set('token', token);
-            return fetchJsonWithTimeout(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            });
+            if (!token) throw new Error('Missing saved session');
+            const response = await fetchWithTimeout(
+                `${API_URL}?action=session&token=${encodeURIComponent(token)}&r=${Date.now()}`,
+                { cache: 'no-store' },
+                7500
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
         }
 
-        function trustedSessionToken() {
-            try { return String(localStorage.getItem(TRUSTED_SESSION_KEY) || '').trim(); } catch (_) { return ''; }
-        }
-        function trustedDeviceMeta() {
+        function saveDashboardCache(participantID, data) {
+            participantID = String(participantID || '').trim();
+            if (!participantID || !data) return;
             try {
-                const raw = localStorage.getItem(TRUSTED_DEVICE_META_KEY);
-                const meta = raw ? JSON.parse(raw) : null;
-                return meta && meta.participantID ? meta : null;
-            } catch (_) { return null; }
-        }
-        function saveTrustedDevice(data) {
-            const token = String(data && data.sessionToken || '').trim();
-            const user = data && data.user ? data.user : null;
-            if (!token || !user || !user.ParticipantID) return;
-            try {
-                localStorage.setItem(TRUSTED_SESSION_KEY, token);
-                localStorage.setItem(TRUSTED_DEVICE_META_KEY, JSON.stringify({
-                    participantID: user.ParticipantID, name: user.Name || '', savedAt: Date.now()
-                }));
+                localStorage.setItem(DASH_CACHE_KEY, JSON.stringify({ participantID, data, savedAt: Date.now() }));
             } catch (_) {}
         }
-        function clearTrustedDevice() {
-            const meta = trustedDeviceMeta();
-            try {
-                localStorage.removeItem(TRUSTED_SESSION_KEY);
-                localStorage.removeItem(TRUSTED_DEVICE_META_KEY);
-                if (meta && meta.participantID) localStorage.removeItem(dashboardCacheKey(meta.participantID));
-            } catch (_) {}
-            trustedDeviceKnown = false;
-        }
-        function dashboardCacheKey(participantID) {
-            const safe = String(participantID || '').replace(/[^A-Za-z0-9_-]/g, '_');
-            return safe ? DASH_CACHE_KEY_PREFIX + safe : '';
-        }
-        function saveDashboardCache(data, participantID) {
-            const key = dashboardCacheKey(participantID);
-            if (!key || !data) return;
-            try {
-                localStorage.setItem(key, JSON.stringify({
-                    categories: Array.isArray(data.categories) ? data.categories : [],
-                    links: Array.isArray(data.links) ? data.links : [],
-                    logos: Array.isArray(data.logos) ? data.logos : [],
-                    savedAt: Date.now()
-                }));
-            } catch (_) {}
-        }
+
         function loadDashboardCache(participantID) {
-            const key = dashboardCacheKey(participantID);
-            if (!key) return null;
+            participantID = String(participantID || '').trim();
+            if (!participantID) return null;
             try {
-                const saved = JSON.parse(localStorage.getItem(key) || '');
-                if (!saved || (Date.now() - Number(saved.savedAt || 0)) > DASH_CACHE_MAX_AGE_MS) return null;
-                return { categories: Array.isArray(saved.categories) ? saved.categories : [], links: Array.isArray(saved.links) ? saved.links : [], logos: Array.isArray(saved.logos) ? saved.logos : [] };
+                const raw = localStorage.getItem(DASH_CACHE_KEY);
+                if (!raw) return null;
+                const saved = JSON.parse(raw);
+                if (!saved || saved.participantID !== participantID || !saved.data) return null;
+                if (saved.savedAt && Date.now() - Number(saved.savedAt) > DASH_CACHE_MAX_AGE_MS) return null;
+                const d = saved.data;
+                return {
+                    categories: Array.isArray(d.categories) ? d.categories : [],
+                    links: Array.isArray(d.links) ? d.links : [],
+                    logos: Array.isArray(d.logos) ? d.logos : []
+                };
             } catch (_) { return null; }
         }
+
         function clearDashboardCache() {
-            const meta = trustedDeviceMeta();
-            if (!meta) return;
-            try { localStorage.removeItem(dashboardCacheKey(meta.participantID)); } catch (_) {}
+            try {
+                localStorage.removeItem(DASH_CACHE_KEY);
+                localStorage.removeItem(LEGACY_DASH_CACHE_KEY);
+            } catch (_) {}
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -228,19 +210,34 @@
             startGreetingClock();
 
             const restored = restoreRememberedSessionInstantly();
-
-            if (isFinalDayOrLater()) {
+            if (restored) {
+                if (isFinalDayOrLater()) {
+                    dashboardHandoffComplete = true;
+                    setDashboardView('categories');
+                    openDashboardMode({source:'saved-session', preserveView:true, animate:false});
+                    if (!dashboardData) showSessionRefreshLoader('Refreshing your dashboard…');
+                } else {
+                    updatePortalGreeting();
+                }
+                // Never block first paint on the network. Validate quietly.
+                refreshRememberedSession({keepOnFailure:true, silent:true});
+            } else if (isFinalDayOrLater()) {
                 dashboardHandoffComplete = true;
-                setDashboardView(restored ? 'categories' : 'login');
+                setDashboardView('login');
                 openDashboardMode({source:'startup', preserveView:true, animate:false});
-                if (restored) { refreshRememberedSession({keepOnFailure:true}); }
+                if (safeLocalStorageGet_(LOGIN_VAULT_KEY) && safeLocalStorageGet_(LOGOUT_HOLD_KEY) !== '1') {
+                    autoLoginFromSavedCredentials_();
+                } else {
+                    migrateLegacySavedPin();
+                }
             } else {
                 showTimerMode();
                 startCountdown();
-                if (restored) { updatePortalGreeting(); showSessionRefreshLoader('Checking your saved sign-in…'); refreshRememberedSession({keepOnFailure:true}); }
+                migrateLegacySavedPin();
             }
 
-            window.setTimeout(() => checkPortalConnection(true), 4200);
+            // Health is informational and deliberately off the critical path.
+            window.setTimeout(() => checkPortalConnection(true), 5000);
         }
 
         function setDashboardView(view) { dashboardView = view; }
@@ -273,10 +270,6 @@
             return window.__JOTA_FORCE_SKIP__ === true || Date.now() >= FINAL_DAY_MS;
         }
 
-        function isTimerSkipped() {
-            return window.__JOTA_FORCE_SKIP__ === true;
-        }
-
         function isEventLive() {
             return Date.now() >= EVENT_START_MS;
         }
@@ -307,7 +300,6 @@
             document.getElementById('prelogin-note').style.display = 'block';
             document.getElementById('back-to-timer-button').style.display = 'block';
             document.getElementById('signup-button').style.display = 'block';
-            updateTrustedDeviceButton();
             // Kept off the critical path so it does not compete with sign in.
             window.setTimeout(checkConnection, 1200);
             updateTopNavigation();
@@ -438,87 +430,383 @@
             countdownInterval=setInterval(updateCountdown,1000);
         }
 
-        function updateTrustedDeviceButton() {
-            const btn = document.getElementById('trusted-device-btn');
-            if (!btn) return;
-            const meta = trustedDeviceMeta();
-            const token = trustedSessionToken();
-            const forget = document.getElementById('forget-btn');
-            if (meta && token) {
-                btn.style.display = 'block';
-                btn.innerText = 'CONTINUE AS ' + String(meta.name || 'THIS USER').toUpperCase();
-                if (forget) forget.style.display = 'block';
-            } else {
-                btn.style.display = 'none';
-                if (forget) forget.style.display = 'none';
-            }
+        function getSavedSessionRecord() {
+            try {
+                const raw = localStorage.getItem(AUTH_SESSION_KEY);
+                if (!raw) return null;
+                const saved = JSON.parse(raw);
+                if (!saved || !saved.token || !saved.user || !saved.expiresAt) return null;
+                if (Number(saved.expiresAt) <= Date.now()) return null;
+                return saved;
+            } catch (_) { return null; }
+        }
+
+        function getSavedSessionRecordAnyAge_() {
+            try {
+                const raw = localStorage.getItem(AUTH_SESSION_KEY);
+                if (!raw) return null;
+                const saved = JSON.parse(raw);
+                if (!saved || !saved.token || !saved.user) return null;
+                return saved;
+            } catch (_) { return null; }
         }
 
         function restoreRememberedSessionInstantly() {
-            const token = trustedSessionToken();
-            const meta = trustedDeviceMeta();
-            trustedDeviceKnown = !!(token && meta);
-            if (!trustedDeviceKnown) { updateTrustedDeviceButton(); return false; }
-            const cachedDashboard = loadDashboardCache(meta.participantID);
+            try {
+                if (localStorage.getItem(LOGOUT_HOLD_KEY) === '1') return false;
+            } catch (_) {}
+
+            const saved = getSavedSessionRecord();
+            if (!saved) {
+                // A persistent credential vault can quietly renew an expired
+                // server session. We do not need to show the user the login
+                // screen while that renewal is happening.
+                const old = getSavedSessionRecordAnyAge_();
+                const hasVault = !!safeLocalStorageGet_(LOGIN_VAULT_KEY);
+                if (!old && !hasVault) return false;
+                if (old && old.user) {
+                    sessionUser = old.user;
+                    rememberedSessionLoaded = true;
+                    const cachedDashboard = loadDashboardCache(sessionUser.ParticipantID);
+                    if (cachedDashboard) dashboardData = cachedDashboard;
+                    const forgetBtn = document.getElementById('forget-btn');
+                    if (forgetBtn) forgetBtn.style.display = 'block';
+                    updatePortalGreeting();
+                    updateTopNavigation();
+                    return true;
+                }
+                return false;
+            }
+
+            sessionUser = saved.user;
+            rememberedSessionLoaded = true;
+            const cachedDashboard = loadDashboardCache(sessionUser.ParticipantID);
             if (cachedDashboard) dashboardData = cachedDashboard;
-            updateTrustedDeviceButton();
+
+            const forgetBtn = document.getElementById('forget-btn');
+            if (forgetBtn) forgetBtn.style.display = 'block';
+            updatePortalGreeting();
+            updateTopNavigation();
             return true;
         }
 
-        function clearRememberedSession() {
-            clearTrustedDevice();
-            rememberedSessionLoaded = false;
-            updateTrustedDeviceButton();
+        function safeLocalStorageGet_(key) {
+            try { return localStorage.getItem(key); } catch (_) { return null; }
         }
 
-        async function resumeTrustedDevice(options = {}) {
-            const token = trustedSessionToken();
-            if (!token) { updateTrustedDeviceButton(); return false; }
-            hideLoginError();
-            const isBackground = options.background === true;
-            const loader = document.getElementById('welcome-screen');
-            const loadingText = document.getElementById('welcome-loading-text');
-            if (!isBackground && loadingText) loadingText.innerText = 'Checking your saved sign-in…';
-            if (!isBackground && loader) { loader.classList.remove('is-closing'); loader.style.display = 'flex'; }
+        function safeLocalStorageSet_(key, value) {
+            try { localStorage.setItem(key, value); return true; } catch (_) { return false; }
+        }
+
+        function safeLocalStorageRemove_(key) {
+            try { localStorage.removeItem(key); } catch (_) {}
+        }
+
+        function openCredentialVaultDB_() {
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+                const request = indexedDB.open(LOGIN_VAULT_DB, 1);
+                request.onupgradeneeded = function () {
+                    const db = request.result;
+                    if (!db.objectStoreNames.contains(LOGIN_VAULT_STORE)) {
+                        db.createObjectStore(LOGIN_VAULT_STORE);
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error || new Error('Could not open secure vault'));
+            });
+        }
+
+        function getVaultKey_() {
+            return openCredentialVaultDB_().then(db => new Promise((resolve, reject) => {
+                const tx = db.transaction(LOGIN_VAULT_STORE, 'readonly');
+                const request = tx.objectStore(LOGIN_VAULT_STORE).get('encryptionKey');
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => reject(request.error || new Error('Could not read vault key'));
+            }).finally(() => db.close()));
+        }
+
+        function createVaultKey_() {
+            if (!window.crypto || !window.crypto.subtle) return Promise.reject(new Error('Web Crypto unavailable'));
+            return crypto.subtle.generateKey({ name:'AES-GCM', length:256 }, true, ['encrypt','decrypt']).then(key =>
+                openCredentialVaultDB_().then(db => new Promise((resolve, reject) => {
+                    const tx = db.transaction(LOGIN_VAULT_STORE, 'readwrite');
+                    tx.objectStore(LOGIN_VAULT_STORE).put(key, 'encryptionKey');
+                    tx.oncomplete = () => resolve(key);
+                    tx.onerror = () => reject(tx.error || new Error('Could not store vault key'));
+                    tx.onabort = () => reject(tx.error || new Error('Could not store vault key'));
+                }).finally(() => db.close()))
+            );
+        }
+
+        async function getOrCreateVaultKey_() {
+            try {
+                const existing = await getVaultKey_();
+                if (existing) return existing;
+            } catch (_) {}
+            return await createVaultKey_();
+        }
+
+        function bytesToBase64_(bytes) {
+            let binary = '';
+            const chunk = 0x8000;
+            for (let i=0; i<bytes.length; i+=chunk) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+            }
+            return btoa(binary);
+        }
+
+        function base64ToBytes_(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
+
+        async function encryptCredentialVault_(credentials) {
+            const key = await getOrCreateVaultKey_();
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const payload = new TextEncoder().encode(JSON.stringify({
+                version: 1,
+                savedAt: Date.now(),
+                credentials: credentials
+            }));
+            const cipher = await crypto.subtle.encrypt({ name:'AES-GCM', iv:iv }, key, payload);
+            return JSON.stringify({ version:1, iv:bytesToBase64_(iv), data:bytesToBase64_(new Uint8Array(cipher)) });
+        }
+
+        async function decryptCredentialVault_() {
+            const raw = safeLocalStorageGet_(LOGIN_VAULT_KEY);
+            if (!raw) return null;
+            try {
+                const record = JSON.parse(raw);
+                if (!record || !record.iv || !record.data) return null;
+                const key = await getVaultKey_();
+                if (!key) return null;
+                const plain = await crypto.subtle.decrypt(
+                    { name:'AES-GCM', iv:base64ToBytes_(record.iv) },
+                    key,
+                    base64ToBytes_(record.data)
+                );
+                const parsed = JSON.parse(new TextDecoder().decode(plain));
+                if (!parsed || !parsed.credentials) return null;
+                return parsed.credentials;
+            } catch (_) { return null; }
+        }
+
+        async function saveLoginCredentialsForever_(credentials) {
+            if (!credentials || !credentials.ParticipantID) return false;
+            const clean = {
+                ParticipantID: String(credentials.ParticipantID || '').trim(),
+                Username: String(credentials.Username || '').trim(),
+                PIN: String(credentials.PIN || '').trim(),
+                Password: String(credentials.Password || '').trim(),
+                Email: String(credentials.Email || '').trim(),
+                Name: String(credentials.Name || '').trim()
+            };
+            if (!clean.ParticipantID || !clean.Username || !clean.PIN || !clean.Password) return false;
+            try {
+                const encrypted = await encryptCredentialVault_(clean);
+                safeLocalStorageSet_(LOGIN_VAULT_KEY, encrypted);
+                safeLocalStorageRemove_(LOGOUT_HOLD_KEY);
+                return true;
+            } catch (_) {
+                // Some older browsers/private modes do not expose IndexedDB or
+                // Web Crypto. The main account session must continue to work.
+                return false;
+            }
+        }
+
+        function queueCredentialVaultSave_(credentials) {
+            try {
+                const pending = Promise.resolve().then(() => saveLoginCredentialsForever_(credentials));
+                credentialVaultWriteInFlight = pending;
+                pending.catch(() => {}).finally(() => {
+                    if (credentialVaultWriteInFlight === pending) credentialVaultWriteInFlight = null;
+                });
+                return pending;
+            } catch (_) {
+                credentialVaultWriteInFlight = null;
+                return Promise.resolve(false);
+            }
+        }
+
+        async function autoLoginFromSavedCredentials_(options={}) {
+            if (backgroundRefreshInFlight && !options.force) return false;
+            try {
+                if (safeLocalStorageGet_(LOGOUT_HOLD_KEY) === '1') return false;
+                const credentials = await decryptCredentialVault_();
+                if (!credentials || !/^[0-9]{4}$/.test(credentials.PIN)) return false;
+                const data = await loginRequest(credentials.PIN);
+                if (!data || !data.success || !data.sessionToken || !data.user) return false;
+                sessionUser = data.user;
+                sessionCredentials = data.credentials || sessionCredentials || null;
+                rememberedSessionLoaded = true;
+                updateSavedSessionFromResponse(data);
+                if (data.credentials) await queueCredentialVaultSave_(data.credentials);
+                dashboardData = loadDashboardCache(sessionUser.ParticipantID);
+                updatePortalGreeting();
+                updateTopNavigation();
+                if (isFinalDayOrLater()) {
+                    dashboardView = 'categories';
+                    openDashboardMode({source:'persistent-account-restore', preserveView:true, animate:false});
+                    if (!dashboardData) document.getElementById('category-grid').innerHTML = skeletonGridHTML(6);
+                    loadDashboardForSession_(data.sessionToken, true);
+                }
+                return true;
+            } catch (_) { return false; }
+        }
+
+        function saveRememberedSession(sessionToken, user, expiresAt) {
+            if (!sessionToken || !user || !user.ParticipantID) return;
+            try {
+                localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({
+                    token: String(sessionToken),
+                    participantID: String(user.ParticipantID),
+                    user: user,
+                    expiresAt: Number(expiresAt) || (Date.now() + AUTH_SESSION_MAX_AGE_MS),
+                    savedAt: Date.now(),
+                    lastVerifiedAt: Date.now()
+                }));
+                // Upgrade old installs away from storing the PIN.
+                localStorage.removeItem(SAVED_PIN_KEY);
+                localStorage.removeItem('jotajoti_saved_user');
+                localStorage.removeItem(LEGACY_AUTH_SESSION_KEY);
+            } catch (_) {}
+        }
+
+        function updateSavedSessionFromResponse(data) {
+            if (!data || !data.sessionToken || !data.user) return;
+            saveRememberedSession(data.sessionToken, data.user, data.sessionExpiresAt);
+        }
+
+        function clearRememberedSession() {
+            try {
+                localStorage.removeItem(AUTH_SESSION_KEY);
+                localStorage.removeItem(LEGACY_AUTH_SESSION_KEY);
+            } catch (_) {}
+            clearDashboardCache();
+            rememberedSessionLoaded = false;
+        }
+
+        async function migrateLegacySavedPin() {
+            try {
+                if (getSavedSessionRecord()) return;
+                const legacyPin = String(localStorage.getItem(SAVED_PIN_KEY) || '').trim();
+                if (!/^\d{4}$/.test(legacyPin)) return;
+
+                const data = await loginRequest(legacyPin);
+                if (!data || !data.success || !data.user || !data.sessionToken) {
+                    localStorage.removeItem(SAVED_PIN_KEY);
+                    return;
+                }
+
+                sessionUser = data.user;
+                sessionCredentials = data.credentials || null;
+                rememberedSessionLoaded = true;
+                updateSavedSessionFromResponse(data);
+                if (data.credentials) queueCredentialVaultSave_(data.credentials);
+                updatePortalGreeting();
+                updateTopNavigation();
+
+                if (isFinalDayOrLater()) {
+                    dashboardView = 'categories';
+                    openDashboardMode({source:'legacy-session-migrated', preserveView:true, animate:false});
+                    await loadDashboardForSession_(data.sessionToken, true);
+                }
+            } catch (_) {
+                // Legacy migration is optional. Never block the site when it fails.
+            }
+        }
+
+        async function loadDashboardForSession_(token, keepVisibleOnFailure) {
+            const loadSeq = ++dashboardLoadSequence;
             try {
                 const data = await sessionRequest(token);
                 if (!data || !data.success || !data.user) {
-                    clearRememberedSession();
-                    sessionUser = null; dashboardData = null;
-                    if (!isBackground && loader) loader.style.display = 'none';
-                    updateTopNavigation(); updatePortalGreeting();
+                    if (!keepVisibleOnFailure) {
+                        clearRememberedSession();
+                        sessionUser = null;
+                        dashboardData = null;
+                        return false;
+                    }
                     return false;
                 }
+
+                if (loadSeq !== dashboardLoadSequence) return false;
                 sessionUser = data.user;
-                trustedDeviceKnown = true;
-                if (data.sessionToken) saveTrustedDevice(data);
+                if (data.credentials) sessionCredentials = data.credentials;
                 dashboardData = {
                     categories: Array.isArray(data.categories) ? data.categories : [],
                     links: Array.isArray(data.links) ? data.links : [],
                     logos: Array.isArray(data.logos) ? data.logos : []
                 };
-                saveDashboardCache(dashboardData, sessionUser.ParticipantID);
-                rememberedSessionLoaded = true;
-                updateTrustedDeviceButton();
-                updatePortalGreeting(); updateTopNavigation();
-                if (!isBackground && loader) { loader.classList.add('is-closing'); window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },260); }
+                updateSavedSessionFromResponse(data);
+                saveDashboardCache(sessionUser.ParticipantID, dashboardData);
+                updatePortalGreeting();
+                updateTopNavigation();
+
                 if (isFinalDayOrLater()) {
-                    dashboardView = 'categories';
-                    openDashboardMode({source:'trusted-device',preserveView:true,animate:true});
+                    if (dashboardView === 'login') dashboardView = 'categories';
+                    buildDashboard({force:true, reason:'session-refresh'});
+                    ensureDashboardScreenOnly();
                 }
                 return true;
-            } catch (error) {
-                if (!isBackground && loader) loader.style.display = 'none';
+            } catch (_) {
                 return false;
             }
         }
 
-        async function refreshRememberedSession(options = {}) {
+        async function refreshRememberedSession(options={}) {
             if (backgroundRefreshInFlight) return;
-            if (!trustedSessionToken()) return;
+            const saved = getSavedSessionRecord();
+            if (!saved) {
+                const restored = await autoLoginFromSavedCredentials_();
+                if (!restored) await migrateLegacySavedPin();
+                return;
+            }
+
             backgroundRefreshInFlight = true;
             try {
-                await resumeTrustedDevice({background:true});
+                const data = await sessionRequest(saved.token);
+                if (!data || !data.success || !data.user) {
+                    // If the signed session is no longer valid, recover from
+                    // the persistent encrypted device credentials before ever
+                    // forcing a manual login screen.
+                    const restored = await autoLoginFromSavedCredentials_({force:true});
+                    if (restored) return;
+                    clearRememberedSession();
+                    sessionUser = null;
+                    dashboardData = null;
+                    setDashboardView('login');
+                    updateTopNavigation();
+                    if (isFinalDayOrLater()) openDashboardMode({source:'invalid-session',preserveView:false});
+                    else showTimerMode();
+                    return;
+                }
+
+                sessionUser = data.user;
+                if (data.credentials) sessionCredentials = data.credentials;
+                dashboardData = {
+                    categories: Array.isArray(data.categories) ? data.categories : [],
+                    links: Array.isArray(data.links) ? data.links : [],
+                    logos: Array.isArray(data.logos) ? data.logos : []
+                };
+                updateSavedSessionFromResponse(data);
+                saveDashboardCache(sessionUser.ParticipantID, dashboardData);
+                rememberedSessionLoaded = true;
+                document.getElementById('forget-btn').style.display = 'block';
+                updatePortalGreeting();
+                updateTopNavigation();
+
+                if (isFinalDayOrLater()) {
+                    if (dashboardView === 'login') dashboardView = 'categories';
+                    buildDashboard({force:true, reason:'saved-session-refresh'});
+                    ensureDashboardScreenOnly();
+                }
+            } catch (_) {
+                // Keep the already-restored dashboard visible while the network is unavailable.
+                // A later focus/online event will retry automatically.
             } finally {
                 backgroundRefreshInFlight = false;
                 hideSessionRefreshLoader();
@@ -528,7 +816,7 @@
         function checkPortalConnection(silent=false) {
             const dot=document.getElementById('portal-network-dot'); const text=document.getElementById('portal-network-text');
             if (!dot||!text) return;
-            fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`).then(data=>{
+            fetch(`${API_URL}?action=health&_=${Date.now()}`,{cache:'no-store'}).then(r=>r.json()).then(data=>{
                 if(data&&data.success){dot.className='portal-network-dot ok';text.innerText=silent?'Ready':'Dashboard service connected';}
                 else{dot.className='portal-network-dot bad';text.innerText=silent?'Service check unavailable':'Dashboard service reported a problem';}
             }).catch(()=>{dot.className='portal-network-dot bad';text.innerText=silent?'Offline (using saved account)':'Dashboard service is currently unreachable';});
@@ -724,7 +1012,8 @@
             const dot = document.getElementById('status-dot');
             const text = document.getElementById('status-text');
             try {
-                const data = await fetchJsonWithTimeout(`${API_URL}?action=health&_=${Date.now()}`);
+                const response = await fetch(`${API_URL}?action=health&_=${Date.now()}`, { cache: 'no-store' });
+                const data = await response.json();
                 if (data && data.success) {
                     dot.className = 'status-dot status-ok';
                     text.innerText = 'Connected';
@@ -743,15 +1032,17 @@
             if (currentPin.length >= 4) return;
             currentPin += String(num);
             updatePinDisplay();
-            scheduleLoginPrefetch(currentPin);
-            if (currentPin.length === 4) { setTimeout(() => submitLogin(), 80); }
+            if (currentPin.length === 4) {
+                prefetchLogin(currentPin);
+                setTimeout(() => submitLogin(), 90);
+            }
         }
 
         function clearPin() {
             hideLoginError();
             currentPin = currentPin.slice(0, -1);
+            abortLoginPrefetch();
             updatePinDisplay();
-            scheduleLoginPrefetch(currentPin);
         }
 
         function updatePinDisplay() {
@@ -812,8 +1103,10 @@
             event.preventDefault();
             currentPin = digits;
             updatePinDisplay();
-            scheduleLoginPrefetch(digits);
-            if (digits.length === 4) setTimeout(() => submitLogin(), 80);
+            if (digits.length === 4) {
+                prefetchLogin(digits);
+                setTimeout(() => submitLogin(), 90);
+            }
         }
 
         document.addEventListener('keydown', handlePinKeyboardInput);
@@ -821,7 +1114,6 @@
 
         function resetLoginForm() {
             currentPin = '';
-            scheduleLoginPrefetch('');
             updatePinDisplay();
             hideLoginError();
             document.getElementById('retry-btn').style.display = 'none';
@@ -853,17 +1145,99 @@
             fetchUserData(lastAttemptedPin);
         }
 
+        async function showLoginDetails() {
+            if (credentialVaultWriteInFlight) {
+                try { await credentialVaultWriteInFlight; } catch (_) {}
+            }
+            let credentials = null;
+            try { credentials = await decryptCredentialVault_(); } catch (_) {}
+            if (!credentials && sessionCredentials) credentials = sessionCredentials;
+            if (!credentials && sessionUser) {
+                credentials = {
+                    ParticipantID: sessionUser.ParticipantID || '',
+                    Username: sessionUser.Username || '',
+                    PIN: '',
+                    Password: sessionUser.Password || '',
+                    Email: sessionUser.Email || '',
+                    Name: sessionUser.Name || ''
+                };
+            }
+            if (!credentials) {
+                showLoginError('Your saved login details are not available on this device. Sign in again to save them.');
+                return;
+            }
+            const body = document.getElementById('sheet-body');
+            const title = document.getElementById('sheet-title');
+            if (!body || !title) return;
+            title.innerText = 'My Login Details';
+            body.innerHTML = '';
+            const intro = document.createElement('div');
+            intro.className = 'activity-desc';
+            intro.innerText = 'These are the account details saved for this device. Tap Reveal to show a password or PIN.';
+            body.appendChild(intro);
+            body.appendChild(createCredentialDisplayRow_('Username', credentials.Username, false));
+            body.appendChild(createCredentialDisplayRow_('PIN', credentials.PIN, true));
+            body.appendChild(createCredentialDisplayRow_('Password', credentials.Password, true));
+            body.appendChild(createCredentialDisplayRow_('Participant ID', credentials.ParticipantID, false));
+            if (credentials.Email) body.appendChild(createCredentialDisplayRow_('Email', credentials.Email, false));
+
+            const actions = document.createElement('div');
+            actions.className = 'btn-row';
+            const forget = document.createElement('button');
+            forget.className = 'activity-open-btn secondary';
+            forget.type = 'button';
+            forget.innerText = 'Forget This Device';
+            forget.onclick = () => { forgetSavedPin(); closeSheet({reason:'forget-device'}); };
+            actions.appendChild(forget);
+            body.appendChild(actions);
+            openSheet({title:'My Login Details', body:body.innerHTML});
+        }
+
+        function createCredentialDisplayRow_(label, value, masked) {
+            const row = document.createElement('div');
+            row.className = 'copy-row credential-row';
+            const left = document.createElement('div');
+            left.className = 'copy-label';
+            left.innerText = label;
+            const val = document.createElement('code');
+            val.className = 'copy-value';
+            val.dataset.value = String(value || '');
+            val.innerText = masked && value ? '••••••••' : String(value || 'Not saved');
+            const reveal = document.createElement('button');
+            reveal.type = 'button';
+            reveal.className = 'copy-btn';
+            reveal.innerText = masked ? 'Reveal' : 'Copy';
+            reveal.onclick = async () => {
+                if (masked) {
+                    const showing = reveal.dataset.showing === '1';
+                    val.innerText = showing ? '••••••••' : String(value || 'Not saved');
+                    reveal.dataset.showing = showing ? '0' : '1';
+                    reveal.innerText = showing ? 'Reveal' : 'Hide';
+                } else {
+                    try { await navigator.clipboard.writeText(String(value || '')); reveal.innerText = 'Copied'; setTimeout(()=>reveal.innerText='Copy',900); } catch (_) {}
+                }
+            };
+            row.appendChild(left);
+            row.appendChild(val);
+            row.appendChild(reveal);
+            return row;
+        }
+
         function forgetSavedPin() {
+            abortLoginPrefetch();
             clearRememberedSession();
-            sessionUser = null; dashboardData = null;
+            safeLocalStorageRemove_(LOGIN_VAULT_KEY);
+            safeLocalStorageSet_(LOGOUT_HOLD_KEY, '1');
+            safeLocalStorageRemove_(SAVED_PIN_KEY);
+            safeLocalStorageRemove_('jotajoti_saved_user');
             document.getElementById('forget-btn').style.display = 'none';
-            resetLoginForm(); updatePortalGreeting(); updateTopNavigation();
+            resetLoginForm();
+            sessionUser = null;
+            sessionCredentials = null;
+            dashboardData = null;
+            updatePortalGreeting();
+            updateTopNavigation();
         }
-
-        function clearTrustedDeviceAndReset() {
-            forgetSavedPin();
-        }
-
 
         async function fetchUserData(pin, options) {
             options = options || {};
@@ -871,90 +1245,93 @@
             hideLoginError();
             document.getElementById('retry-btn').style.display = 'none';
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('welcome-name').innerText = pin === 'guest' ? `${getGreeting()}, Guest!` : 'Checking your details...';
-            const loadingText=document.getElementById('welcome-loading-text');
-            if (loadingText) loadingText.innerText=pin==='guest'?'Loading guest dashboard…':'Checking your account and loading dashboard…';
-            const loader=document.getElementById('welcome-screen');
+
+            const loader = document.getElementById('welcome-screen');
+            const loadingText = document.getElementById('welcome-loading-text');
+            document.getElementById('welcome-name').innerText = pin === 'guest' ? `${getGreeting()}, Guest!` : 'Signing you in…';
+            if (loadingText) loadingText.innerText = pin === 'guest' ? 'Opening guest dashboard…' : 'Signing in…';
             loader.classList.remove('is-closing');
-            loader.style.display='flex';
+            loader.style.display = 'flex';
 
             try {
                 const data = await loginRequest(pin);
 
-                if (!data.success || !data.user) {
+                if (!data || !data.success || !data.user || (pin !== 'guest' && !data.sessionToken)) {
                     clearRememberedSession();
                     sessionUser = null;
                     dashboardData = null;
                     resetLoginForm();
                     loader.classList.add('is-closing');
-                    window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },300);
+                    window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },160);
                     document.getElementById('login-screen').style.display = 'block';
                     document.getElementById('dashboard-screen').style.display = 'none';
                     document.getElementById('submenu-screen').style.display = 'none';
                     document.getElementById('prelogin-note').style.display = isFinalDayOrLater() ? 'none' : 'block';
                     document.getElementById('back-to-timer-button').style.display = isFinalDayOrLater() ? 'none' : 'block';
                     document.getElementById('signup-button').style.display = 'block';
-                    showLoginError(data.error || 'Invalid PIN.');
+                    showLoginError(data && data.error ? data.error : 'Invalid PIN.');
                     updateTopNavigation();
                     return;
                 }
 
                 sessionUser = data.user;
-                dashboardData = {
-                    categories: Array.isArray(data.categories) ? data.categories : [],
-                    links: Array.isArray(data.links) ? data.links : [],
-                    logos: Array.isArray(data.logos) ? data.logos : []
-                };
+                sessionCredentials = data.credentials || null;
+                rememberedSessionLoaded = pin !== 'guest';
 
                 if (pin !== 'guest') {
-                    saveTrustedDevice(data);
-                    trustedDeviceKnown = true;
-                    saveDashboardCache(dashboardData, sessionUser.ParticipantID);
-                    updateTrustedDeviceButton();
+                    updateSavedSessionFromResponse(data);
+                    if (data.credentials) { queueCredentialVaultSave_(data.credentials); }
+                    document.getElementById('forget-btn').style.display = 'block';
+                    // Paint any matching dashboard cache immediately.
+                    dashboardData = loadDashboardCache(sessionUser.ParticipantID);
+                } else {
+                    dashboardData = null;
                 }
-            } catch (error) {
-                resetLoginForm();
-                const rememberedLoader=document.getElementById('welcome-screen');
-                rememberedLoader.classList.add('is-closing');
-                window.setTimeout(()=>{ rememberedLoader.style.display='none'; rememberedLoader.classList.remove('is-closing'); },360);
-                if (rememberedSessionLoaded && sessionUser) {
-                    updateTopNavigation(); updatePortalGreeting();
-                    return;
-                }
-                document.getElementById('login-screen').style.display = 'block';
-                document.getElementById('dashboard-screen').style.display = 'none';
-                showLoginError('Could not reach the sign-in system. Check your connection and try again.');
-                document.getElementById('retry-btn').style.display = 'block';
-                if (!isFinalDayOrLater()) openPreLogin();
-                return;
-            }
-
-            document.getElementById('welcome-name').innerText = `${getGreeting()}, ${sessionUser.Name || 'Scout'}!`;
-
-            setTimeout(() => {
-                const loader=document.getElementById('welcome-screen');
-                loader.classList.add('is-closing');
-                window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },300);
 
                 updatePortalGreeting();
                 updateTopNavigation();
 
-                if (isFinalDayOrLater()) {
-                    dashboardView='categories';
-                    openDashboardMode({source:'login-success',preserveView:true,animate:true});
-                    return;
-                }
+                loader.classList.add('is-closing');
+                window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },120);
 
-                showTimerMode();
-                updatePortalGreeting();
-            }, 500);
+                if (isFinalDayOrLater()) {
+                    dashboardView = 'categories';
+                    openDashboardMode({source:'login-fast-success', preserveView:true, animate:false});
+                    if (!dashboardData) document.getElementById('category-grid').innerHTML = skeletonGridHTML(6);
+
+                    if (pin !== 'guest') {
+                        // Full dashboard data loads independently from authentication.
+                        loadDashboardForSession_(data.sessionToken, true);
+                    }
+                } else {
+                    showTimerMode();
+                    updatePortalGreeting();
+                }
+            } catch (error) {
+                resetLoginForm();
+                loader.classList.add('is-closing');
+                window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },160);
+                document.getElementById('login-screen').style.display = 'block';
+                document.getElementById('dashboard-screen').style.display = 'none';
+                showLoginError('The sign-in service is taking too long to respond. Check your connection and try again.');
+                document.getElementById('retry-btn').style.display = 'block';
+                if (!isFinalDayOrLater()) openPreLogin();
+            }
         }
 
         function logout() {
             sessionUser = null;
+            sessionCredentials = null;
             dashboardData = null;
             initialRouteApplied = false;
+            abortLoginPrefetch();
             clearRememberedSession();
+            // Keep the encrypted credential vault so a normal reload can
+            // restore this device without requiring the user to re-enter
+            // the PIN. Use Forget This Device when the account should be
+            // removed from this browser entirely.
+            safeLocalStorageRemove_(SAVED_PIN_KEY);
+            safeLocalStorageRemove_('jotajoti_saved_user');
             document.getElementById('forget-btn').style.display = 'none';
             resetLoginForm();
             setRouteHash('#/', true);
@@ -973,8 +1350,16 @@
             returnToTimer();
         }
 
-        function continueWithTrustedDevice() {
-            resumeTrustedDevice({source:'skip-button'});
+        function resolveAssetURL(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            if (/^(?:https?:)?\/\//i.test(raw)) return raw;
+            try {
+                const base = new URL(window.JOTA_CONFIG.SITE_URL.endsWith('/') ? window.JOTA_CONFIG.SITE_URL : window.JOTA_CONFIG.SITE_URL + '/');
+                return new URL(raw.replace(/^\/+/, ''), base.href).href;
+            } catch (_) {
+                return raw.replace(/^\/+/, '');
+            }
         }
 
         function escapeAttribute(value) { return String(value||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1050,27 +1435,6 @@
             if (!applyRouteFromHash()) showDashboard();
         });
 
-        function resolveAssetUrl(value, fallback) {
-            const raw = String(value || '').trim();
-            const fallbackValue = String(fallback || './photo1.png');
-            if (!raw) return new URL(fallbackValue, document.baseURI).href;
-            if (/^(?:https?:)?\/\//i.test(raw) || /^(?:data|blob):/i.test(raw)) return raw;
-            const base = new URL('./', document.baseURI);
-            if (raw.charAt(0) === '/') return new URL('.' + raw, base).href;
-            return new URL(raw.replace(/^\.\//,''), base).href;
-        }
-
-        function applySafeImage(img, value, fallback) {
-            if (!img) return;
-            const fallbackUrl = resolveAssetUrl(fallback || './photo1.png', './photo1.png');
-            img.onerror = function() {
-                if (img.dataset.fallbackApplied) return;
-                img.dataset.fallbackApplied = '1';
-                img.src = fallbackUrl;
-            };
-            img.src = resolveAssetUrl(value, fallback);
-        }
-
         function buildDashboard(options={}) {
             if (!dashboardData) return;
             updateDashboardGreeting();
@@ -1085,8 +1449,7 @@
                 const total=catLinks.length;
                 const btn=document.createElement('button'); btn.className='card-btn'; btn.type='button'; btn.dataset.categoryKey=catKey;
                 const badgeLabel=total===0?'Available':total+(total===1?' Option':' Options');
-                btn.innerHTML=`<img class="card-icon" alt=""><div class="card-title">${escapeHtml(cat.Title)}</div><div class="badge">${badgeLabel}</div>`;
-                applySafeImage(btn.querySelector('.card-icon'), cat.LogoURL, './photo1.png');
+                btn.innerHTML=`<img class="card-icon" src="${escapeAttribute(resolveAssetURL(cat.LogoURL||'https://img.icons8.com/color/96/folder.png'))}" alt=""><div class="card-title">${escapeHtml(cat.Title)}</div><div class="badge">${badgeLabel}</div>`;
                 addReactivePointer(btn);
                 btn.addEventListener('click',e=>{
                     e.preventDefault();
@@ -1117,9 +1480,9 @@
             const subGrid=document.getElementById('submenu-grid'); subGrid.innerHTML='';
             (links||[]).forEach(item=>{
                 const btn=document.createElement('button'); btn.className='card-btn'; btn.type='button';
-                let html=`<img class="card-icon" alt=""><div class="card-title">${escapeHtml(item.Title)}</div>`;
+                let html=`<img class="card-icon" src="${escapeAttribute(resolveAssetURL(item.LogoURL||category.LogoURL||'https://img.icons8.com/color/96/link.png'))}" alt=""><div class="card-title">${escapeHtml(item.Title)}</div>`;
                 const badgeLabel=accessBadgeLabel(item); if(badgeLabel) html+=`<div class="badge">${badgeLabel}</div>`;
-                btn.innerHTML=html; applySafeImage(btn.querySelector('.card-icon'), item.LogoURL || category.LogoURL, './photo1.png'); addReactivePointer(btn); btn.addEventListener('click',e=>{e.preventDefault();openSite(item);}); subGrid.appendChild(btn);
+                btn.innerHTML=html; addReactivePointer(btn); btn.addEventListener('click',e=>{e.preventDefault();openSite(item);}); subGrid.appendChild(btn);
             });
             if(!links||!links.length) subGrid.innerHTML='<div class="empty-state">No links in this category yet.</div>';
             document.getElementById('login-screen').style.display='none'; document.getElementById('dashboard-screen').style.display='none'; document.getElementById('submenu-screen').style.display='block';
@@ -1225,7 +1588,7 @@
             }
         }
 
-        function showAccessPopup(site, embedded, loginLevel, emailLevel) {
+        async function showAccessPopup(site, embedded, loginLevel, emailLevel) {
             const needsOwnSomething = loginLevel === 3 || emailLevel === 3;
             document.getElementById("sheet-title").innerText = needsOwnSomething ? "Before You Continue" : "Your Login Details";
 
@@ -1240,10 +1603,20 @@
             body.appendChild(intro);
 
             if (loginLevel === 1) {
-                if (sessionUser && sessionUser.Username) body.appendChild(createCopyRow("Username", sessionUser.Username));
-                const loginEmail = resolveUserEmail();
-                if (loginEmail) body.appendChild(createCopyRow("Email", loginEmail));
-                body.appendChild(createInfoNote("Your JOTA-JOTI account password is not stored in the dashboard. Use the original account email to retrieve your account details.", "own"));
+                let saved = null;
+                try { saved = await decryptCredentialVault_(); } catch (_) {}
+                const details = saved || sessionCredentials || {
+                    Username: sessionUser && sessionUser.Username || '',
+                    Password: sessionUser && sessionUser.Password || '',
+                    PIN: '',
+                    Email: resolveUserEmail(),
+                    ParticipantID: sessionUser && sessionUser.ParticipantID || ''
+                };
+                if (details.Username) body.appendChild(createCopyRow("Username", details.Username));
+                if (details.PIN) body.appendChild(createCopyRow("PIN", details.PIN));
+                if (details.Password) body.appendChild(createCopyRow("Password", details.Password));
+                if (details.Email) body.appendChild(createCopyRow("Email", details.Email));
+                body.appendChild(createInfoNote('Your JOTA-JOTI account details are saved securely on this device after a successful sign-in. You can also open My Login Details from the dashboard to reveal the saved PIN or password.', 'own'));
             }
             if (emailLevel === 1 && loginLevel !== 1) {
                 const email = resolveUserEmail();
