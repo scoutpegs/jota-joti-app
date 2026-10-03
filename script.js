@@ -85,7 +85,7 @@
                 const pin = localStorage.getItem(SAVED_PIN_KEY);
                 if (!pin || !/^\d{4}$/.test(pin)) return;
                 loginPrefetchPin = pin;
-                loginPrefetch = fetch(`${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
+                loginPrefetch = fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
                     .then(r => r.json())
                     .catch(() => null);
             } catch (_) {}
@@ -99,12 +99,12 @@
                 const early = await pending;
                 if (early) return early;
             }
-            const response = await fetch(`${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
+            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
             return await response.json();
         }
 
         async function dashboardRequest(pin) {
-            const response = await fetch(`${API_URL}?action=dashboard&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
+            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
             return await response.json();
         }
 
@@ -792,8 +792,8 @@
             // update the welcome message while the larger dashboard response
             // is still arriving. Returning users can use their local dashboard
             // cache instantly while the fresh copy updates in the background.
-            const identityPromise = loginRequest(pin);
-            const dashboardPromise = pin === 'guest' ? dashboardRequest(pin) : dashboardRequest(pin);
+            const dashboardPromise = loginRequest(pin);
+            const identityPromise = dashboardPromise;
 
             try {
                 const identity = await identityPromise;
