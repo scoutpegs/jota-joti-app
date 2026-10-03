@@ -3,7 +3,7 @@
    real protection is the Apps Script admin password + short-lived session.
    No admin password is stored in this file.
 */
-const API_URL='https://script.google.com/macros/s/AKfycbwYi0tF7kjXnZr2EM8eyMe1evYAvt2-m_SLk3OCjUQzbbnlxJsgXs0TcGjXVClbbWyc/exec';
+const API_URL='https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec';
 const ADMIN_TOKEN_KEY='jota_joti_admin_token_v1';
 const ADMIN_TOKEN_EXPIRY_KEY='jota_joti_admin_token_expiry_v1';
 let adminToken=sessionStorage.getItem(ADMIN_TOKEN_KEY)||'';
