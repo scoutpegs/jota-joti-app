@@ -112,3 +112,7 @@ The setup page loads the three section forms from the root directory so they wor
 * Service worker cache bumped to v15 so phones pick up the new code.
 
 `Code.gs` is kept at the root so the whole package has no folders, and it can remain public because you requested the source to be open. Deploy it separately in the bound Apps Script project.
+
+
+## Login transport
+The GitHub Pages frontend uses the Apps Script iframe response transport first, with JSONP fallback. The deployed Apps Script web app must be the current `Code.gs` version and remain deployed as **Execute as me** with **Anyone** access.

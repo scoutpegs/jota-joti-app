@@ -11,7 +11,7 @@ const CONFIG = {
   EMAIL_TEMPLATES_SHEET: 'EmailTemplates',
 
   WEBSITE_URL: 'https://scoutpegs.github.io/jota-joti-app/',
-  APP_VERSION: '2026.10.03-run-ready',
+  APP_VERSION: '2026.10.03-login-transport-2',
   SCOUT_GROUP: 'Boulder Scout Group',
   SFH3_URL: 'https://learn.scout.org/resource/sfh-3-being-safe-online',
 
@@ -693,7 +693,40 @@ function rowToMappedUser_(info, rowNumber) {
 }
 
 function findUserByPin_(pin) {
-  return getUserByColumnValue_('PIN', pin);
+  const wanted = normaliseLookupValue(pin);
+  if (!wanted) return null;
+
+  // Login is the hottest endpoint. Read the Users table once and find the
+  // matching PIN in memory; this avoids the slower TextFinder + second row
+  // fetch used by the generic lookup helper. The Users sheet remains the
+  // live source of truth and is not written to or cached between executions.
+  const sheet = getSheet_(CONFIG.USERS_SHEET);
+  const values = sheet.getDataRange().getValues();
+  if (!values || values.length < 2) return null;
+
+  const headers = values[0].map(function(header) { return String(header || '').trim(); });
+  const pinIndex = headers.findIndex(function(header) {
+    return normaliseHeader(header) === 'pin';
+  });
+  if (pinIndex < 0) return null;
+
+  const propertyKeys = headers.map(function(header) {
+    const key = normaliseHeader(header);
+    return USER_PROPERTY_NAMES_[key] || key;
+  });
+
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    if (normaliseLookupValue(values[rowIndex][pinIndex]) !== wanted) continue;
+    const user = {};
+    for (let columnIndex = 0; columnIndex < propertyKeys.length; columnIndex++) {
+      const key = propertyKeys[columnIndex];
+      if (!key) continue;
+      user[key] = values[rowIndex][columnIndex];
+    }
+    return user;
+  }
+
+  return null;
 }
 
 function findUserByParticipantId_(participantID) {

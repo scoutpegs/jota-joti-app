@@ -89,11 +89,89 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             } catch (_) {}
         })();
 
-        // Google Apps Script ContentService responses are redirected and do not
-        // reliably expose CORS headers to GitHub Pages fetch(). Use the backend's
-        // supported JSONP transport for read-only API calls instead.
+        // GitHub Pages is static, while Apps Script is on another origin. The
+        // most reliable browser transport here is a tiny hidden iframe that
+        // receives a postMessage from the Apps Script HTML response. JSONP is
+        // retained as a fallback for older deployments.
         let jsonpSequence = 0;
-        function apiGetJsonp(url, options = {}, timeoutMs = 7500) {
+        let iframeSequence = 0;
+        const iframeRequests = new Map();
+        let iframeMessageReady = false;
+
+        function apiAddParams(url, params) {
+            const parts = Object.keys(params || {}).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(String(params[key])));
+            if (!parts.length) return url;
+            return url + (url.includes('?') ? '&' : '?') + parts.join('&');
+        }
+
+        function ensureIframeMessageListener() {
+            if (iframeMessageReady) return;
+            iframeMessageReady = true;
+            window.addEventListener('message', event => {
+                const message = event && event.data;
+                if (!message || message.type !== 'jota-joti-admin-response') return;
+                const rid = String(message.requestId || '');
+                const pending = iframeRequests.get(rid);
+                if (!pending) return;
+                iframeRequests.delete(rid);
+                window.clearTimeout(pending.timer);
+                if (pending.iframe && pending.iframe.parentNode) pending.iframe.parentNode.removeChild(pending.iframe);
+                if (pending.signal && pending.onAbort) pending.signal.removeEventListener('abort', pending.onAbort);
+                pending.resolve(message.data);
+            });
+        }
+
+        function apiGetIframe(url, options = {}, timeoutMs = 10000) {
+            ensureIframeMessageListener();
+            return new Promise((resolve, reject) => {
+                if (options.signal && options.signal.aborted) {
+                    reject(new DOMException('Request aborted', 'AbortError'));
+                    return;
+                }
+
+                const rid = 'jota_' + Date.now() + '_' + (++iframeSequence);
+                const iframe = document.createElement('iframe');
+                iframe.setAttribute('aria-hidden', 'true');
+                iframe.tabIndex = -1;
+                iframe.style.position = 'fixed';
+                iframe.style.width = '1px';
+                iframe.style.height = '1px';
+                iframe.style.border = '0';
+                iframe.style.opacity = '0';
+                iframe.style.pointerEvents = 'none';
+
+                let settled = false;
+                const cleanup = () => {
+                    if (settled) return;
+                    settled = true;
+                    const pending = iframeRequests.get(rid);
+                    if (pending) iframeRequests.delete(rid);
+                    window.clearTimeout(timer);
+                    if (options.signal) options.signal.removeEventListener('abort', onAbort);
+                    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                };
+                const finishReject = err => { cleanup(); reject(err); };
+                const onAbort = () => finishReject(new DOMException('Request aborted', 'AbortError'));
+                const timer = window.setTimeout(() => {
+                    finishReject(new Error('The sign-in service did not respond in time.'));
+                }, timeoutMs);
+
+                iframeRequests.set(rid, {
+                    resolve: data => { if (!settled) { cleanup(); resolve(data); } },
+                    reject,
+                    iframe,
+                    timer,
+                    signal: options.signal,
+                    onAbort
+                });
+
+                if (options.signal) options.signal.addEventListener('abort', onAbort, { once: true });
+                iframe.src = apiAddParams(url, { transport: 'iframe', rid });
+                document.body ? document.body.appendChild(iframe) : document.documentElement.appendChild(iframe);
+            });
+        }
+
+        function apiGetJsonp(url, options = {}, timeoutMs = 9000) {
             return new Promise((resolve, reject) => {
                 if (options.signal && options.signal.aborted) {
                     reject(new DOMException('Request aborted', 'AbortError'));
@@ -118,24 +196,33 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 window[callback] = data => { cleanup(); resolve(data); };
                 script.onerror = () => { cleanup(); reject(new Error('Could not load the sign-in service.')); };
                 if (options.signal) options.signal.addEventListener('abort', onAbort, { once: true });
-                script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + encodeURIComponent(callback);
+                script.src = apiAddParams(url, { callback });
                 script.async = true;
                 document.head.appendChild(script);
             });
         }
 
+        async function apiGet(url, options = {}, timeoutMs = 10000) {
+            try {
+                return await apiGetIframe(url, options, timeoutMs);
+            } catch (iframeError) {
+                if (options.signal && options.signal.aborted) throw iframeError;
+                return await apiGetJsonp(url, options, Math.max(7000, timeoutMs));
+            }
+        }
+
         function fetchWithTimeout(url, options = {}, timeoutMs = 7500) {
+            // Kept for non-login legacy callers. Apps Script itself is handled
+            // through apiGet/apiGetIframe rather than browser fetch().
             const controller = new AbortController();
             const externalSignal = options.signal;
             const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-
             const merged = Object.assign({}, options, { signal: controller.signal });
             const abortExternal = () => controller.abort();
             if (externalSignal) {
                 if (externalSignal.aborted) controller.abort();
                 else externalSignal.addEventListener('abort', abortExternal, { once: true });
             }
-
             return fetch(url, merged).finally(() => {
                 window.clearTimeout(timer);
                 if (externalSignal) externalSignal.removeEventListener('abort', abortExternal);
@@ -161,10 +248,10 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             loginPrefetchPin = pin;
             loginPrefetchController = new AbortController();
             const seq = ++loginRequestSequence;
-            loginPrefetch = apiGetJsonp(
+            loginPrefetch = apiGet(
                 `${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&r=${seq}`,
                 { signal: loginPrefetchController.signal },
-                6500
+                10000
             ).catch(() => null);
         }
 
@@ -179,26 +266,26 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 if (early) return early;
             }
 
-            return await apiGetJsonp(
+            return await apiGet(
                 `${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&r=${Date.now()}`,
-                {}, 7500
+                {}, 10000
             );
         }
 
         async function sessionRequest(token, fastMode = false) {
             if (!token) throw new Error('Missing saved session');
             const fast = fastMode ? '&fast=1' : '';
-            return await apiGetJsonp(
+            return await apiGet(
                 `${API_URL}?action=session${fast}&token=${encodeURIComponent(token)}&r=${Date.now()}`,
-                {}, fastMode ? 4500 : 7500
+                {}, fastMode ? 7000 : 10000
             );
         }
 
         async function credentialsRequest(token) {
             if (!token) throw new Error('Missing saved session');
-            return await apiGetJsonp(
+            return await apiGet(
                 `${API_URL}?action=credentials&token=${encodeURIComponent(token)}&r=${Date.now()}`,
-                {}, 4500
+                {}, 8000
             );
         }
 

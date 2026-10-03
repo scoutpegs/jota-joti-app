@@ -22,3 +22,7 @@ Open the normal site URL and `/skip`. `/skip` only bypasses the timer. `.skip` i
 
 ## Account test
 Submit a test EOI, verify the new row is written directly to `Users`, then log in immediately using that account. Refresh the page and confirm the saved signed session restores the dashboard without asking for the PIN again.
+
+
+## Login transport
+The GitHub Pages frontend uses the Apps Script iframe response transport first, with JSONP fallback. The deployed Apps Script web app must be the current `Code.gs` version and remain deployed as **Execute as me** with **Anyone** access.
