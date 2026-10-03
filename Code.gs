@@ -41,6 +41,7 @@ const CACHEABLE_SHEETS = [
 var SS_ = null;
 var SHEET_CACHE_ = {};
 var SHEET_DATA_MEMO_ = {};
+var USERS_HEADER_INFO_ = null;
 
 function normaliseLookupValue(value) {
   return String(value || '')
@@ -104,7 +105,10 @@ function handleRequest(e) {
     }
 
     if (action === 'session') {
-      return getUserDashboardFromSession_(String(params.token || '').trim());
+      return getUserDashboardFromSession_(
+        String(params.token || '').trim(),
+        String(params.fast || '') === '1'
+      );
     }
 
     if (action === 'credentials') {
@@ -457,12 +461,14 @@ function buildDashboardResponse_(user, sessionToken) {
     CONFIG.CATEGORIES_SHEET,
     CONFIG.LINKS_SHEET,
     CONFIG.LOGOS_SHEET,
+    CONFIG.BLOCKED_URLS_SHEET,
     CONFIG.BLOCKED_CATEGORIES_SHEET
   ]);
 
   const categories = sheets[CONFIG.CATEGORIES_SHEET] || [];
   const links = sheets[CONFIG.LINKS_SHEET] || [];
   const logos = sheets[CONFIG.LOGOS_SHEET] || [];
+  const blockedURLs = sheets[CONFIG.BLOCKED_URLS_SHEET] || [];
   const blockedCategories = sheets[CONFIG.BLOCKED_CATEGORIES_SHEET] || [];
 
   let allowedCategories = [];
@@ -511,7 +517,15 @@ function buildDashboardResponse_(user, sessionToken) {
 
   const filteredLinks = links.filter(function(link) {
     const categoryKey = String(link.CategoryKey || '').trim().toLowerCase();
-    return !!allowed[categoryKey];
+    if (!allowed[categoryKey]) return false;
+
+    // Never surface inactive links to the client.
+    if (Object.prototype.hasOwnProperty.call(link, 'Active') && !parseBoolean(link.Active)) return false;
+
+    // Apply the existing block lists server-side so blocked content never
+    // reaches a user's dashboard.
+    if (isURLBlocked_(String(link.URL || '').trim(), blockedURLs)) return false;
+    return true;
   }).map(function(link) {
     const logoKey = String(link.LogoKey || '').trim();
     return {
@@ -555,6 +569,8 @@ function buildDashboardResponse_(user, sessionToken) {
 }
 
 function getUsersHeaderMap_() {
+  if (USERS_HEADER_INFO_) return USERS_HEADER_INFO_;
+
   const sheet = getSheet_(CONFIG.USERS_SHEET);
   const lastColumn = Math.max(1, sheet.getLastColumn());
   const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
@@ -563,7 +579,9 @@ function getUsersHeaderMap_() {
     const key = normaliseHeader(header);
     if (key) map[key] = index + 1;
   });
-  return {sheet: sheet, lastColumn: lastColumn, map: map};
+
+  USERS_HEADER_INFO_ = {sheet: sheet, lastColumn: lastColumn, map: map};
+  return USERS_HEADER_INFO_;
 }
 
 function getUserByColumnValue_(columnName, value) {
@@ -597,6 +615,59 @@ function getUserByColumnValue_(columnName, value) {
     return rowToMappedUser_(info, i + 2);
   }
   return null;
+}
+
+
+function normaliseBlockDomain_(domain) {
+  return String(domain || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^\*:\/\/(?:\*\.)?/i, '')
+    .replace(/^www\./i, '')
+    .replace(/\/+$/, '');
+}
+
+function isURLBlocked_(url, rows) {
+  const value = String(url || '').trim();
+  if (!value || !Array.isArray(rows) || !rows.length) return false;
+
+  const hostMatch = value.match(/^(?:[a-z][a-z0-9+.-]*:)?\/\/(?:[^@\/]+@)?([^\/:]+)(?::\d+)?(?:[\/]|$)/i);
+  const hostname = hostMatch ? String(hostMatch[1] || '').toLowerCase().replace(/^www\./, '') : '';
+  const fullUrl = value.toLowerCase();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || {};
+    if (!parseBoolean(row.Active)) continue;
+
+    const domain = normaliseBlockDomain_(row.Domain);
+    const pattern = String(row.URLPattern || '').trim();
+
+    let domainMatch = false;
+    if (domain && hostname) {
+      domainMatch = hostname === domain || hostname.endsWith('.' + domain);
+    }
+
+    let patternMatch = false;
+    if (pattern) {
+      const blockType = String(row.BlockType || '').trim().toLowerCase();
+      if (blockType.indexOf('regex') !== -1) {
+        try {
+          patternMatch = new RegExp(pattern, 'i').test(value);
+        } catch (_) {
+          patternMatch = fullUrl.indexOf(pattern.toLowerCase()) !== -1;
+        }
+      } else {
+        patternMatch = fullUrl.indexOf(pattern.toLowerCase()) !== -1;
+      }
+    }
+
+    if ((domain && pattern && domainMatch && patternMatch) ||
+        (domain && !pattern && domainMatch) ||
+        (!domain && pattern && patternMatch)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function rowToMappedUser_(info, rowNumber) {
@@ -2753,11 +2824,14 @@ function sendParentWelcomeEmail(account) {
 
 function buildLeaderWelcomeEmailHtml_(account) {
   const courseURL = CONFIG.SFH3_URL;
+  const setupURL = CONFIG.WEBSITE_URL.replace(/\/$/, '') + '/setup';
   const content =
     '<h2>Hello ' + escapeHtml(account.parentName || 'Leader') + ',</h2>' +
     '<p>This message is for a <strong>Leader</strong> who has submitted an Expression of Interest for JOTA-JOTI 2026 with Boulder Scout Group.</p>' +
     '<div class="notice"><strong>Leader training:</strong> You do <strong>not</strong> need to complete the Y3 form/process for this Leader workflow. Instead, please complete <strong>SFH 3 – Being Safe Online</strong>.</div>' +
     buttonHtml_(courseURL, 'Open SFH 3 – Being Safe Online') +
+    buttonHtml_(CONFIG.WEBSITE_URL, 'Open JOTA-JOTI Website') +
+    buttonHtml_(setupURL, 'Open Setup Guide') +
     '<h3>Your JOTA-JOTI account</h3>' +
     '<table class="account" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">' +
       '<tr><td><span class="label">Name</span><br>' + escapeHtml((account.childFirstName || '') + ' ' + (account.childLastName || '')) + '</td></tr>' +
@@ -2777,11 +2851,14 @@ function buildLeaderWelcomeEmailHtml_(account) {
 function sendLeaderWelcomeEmail(account) {
   const subject = 'JOTA-JOTI 2026 — Leader training information';
   const htmlBody = buildLeaderWelcomeEmailHtml_(account);
+  const setupURL = CONFIG.WEBSITE_URL.replace(/\/$/, '') + '/setup';
   const plainTextBody =
     'Boulder Scout Group – JOTA-JOTI 2026\n\n' +
     'Hello ' + (account.parentName || 'Leader') + ',\n\n' +
     'You have been identified as a Leader. You do not need to complete the Y3 form/process for this Leader workflow.\n\n' +
     'Please complete SFH 3 – Being Safe Online:\n' + CONFIG.SFH3_URL + '\n\n' +
+    'JOTA-JOTI Website: ' + CONFIG.WEBSITE_URL + '\n' +
+    'Setup Guide: ' + setupURL + '\n\n' +
     'Once complete, send the required completion confirmation back to Boulder Scout Group.\n\n' +
     "Don't have a Scout Learn account? Don't worry. Just reply to this email and let us know that you don't have an account. We will send you your login details so you can access the course and continue with your training.\n\n" +
     'Made by Hunter Miller from Boulder Scout Hall';
@@ -2817,7 +2894,18 @@ function setupEOISystem() {
   PropertiesService.getScriptProperties().setProperty('JOTA_JOTI_SPREADSHEET_ID', spreadsheet.getId());
 
   const requiredSchema = {
-    'Form responses 1': ['Timestamp','Parent/Guardian Full Name','Parent/Guardian Email','Child First Name','Child Last Name',"Child's age/year group",'Which activities would your child like access to?'],
+    'Form responses 1': [
+      'Timestamp',
+      'Parent/Guardian Full Name',
+      'Parent/Guardian Email',
+      'Child First Name',
+      'Child Last Name',
+      "Child's age/year group",
+      'Which activities would your child like access to?',
+      'I understand this is only an Expression of Interest',
+      'I understand further paperwork/permissions may be required before participation',
+      'I agree to the Terms & Conditions'
+    ],
     'EmailLog': ['Timestamp','AdminEmail','RecipientEmail','ParticipantID','RecipientType','Subject','Status','Error'],
     'EmailGroups': ['GroupKey','GroupName','ParticipantIDs','Active','Notes'],
     'Users': ['ParticipantID','PIN','Name','Username','Email','AllowedCategories','Password','ParentEmail','ParentName','ScoutGroup','AgeYear','Status','EOIReceived','AccountCreated','PaperworkStatus','EmailStatus','Notes','AgeGroup'],
@@ -2845,11 +2933,16 @@ function setupEOISystem() {
   });
   if (problems.length) throw new Error('The attached spreadsheet structure was not changed. Fix the existing workbook before running setup:\n\n' + problems.join('\n'));
 
-  // This Apps Script project is owned by the JOTA-JOTI application. Remove all
-  // existing project triggers, then install exactly one application trigger.
-  // This guarantees an old scheduled/legacy trigger cannot remain attached.
+  // Remove only this application's Form submit trigger and any old trigger
+  // whose handler is clearly part of the retired backup/restore system.
+  // Unrelated project triggers are left alone.
   ScriptApp.getProjectTriggers().forEach(function(trigger) {
-    try { ScriptApp.deleteTrigger(trigger); } catch (err) {}
+    const handler = String(trigger.getHandlerFunction() || '').toLowerCase();
+    const isOurFormTrigger = handler === 'onformsubmit';
+    const isRetiredTrigger = /(backup|restore|mirror|sync)/i.test(handler);
+    if (isOurFormTrigger || isRetiredTrigger) {
+      try { ScriptApp.deleteTrigger(trigger); } catch (err) {}
+    }
   });
   ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(spreadsheet).onFormSubmit().create();
 

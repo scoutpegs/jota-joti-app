@@ -155,15 +155,109 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             return await response.json();
         }
 
-        async function sessionRequest(token) {
+        async function sessionRequest(token, fastMode = false) {
             if (!token) throw new Error('Missing saved session');
+            const fast = fastMode ? '&fast=1' : '';
             const response = await fetchWithTimeout(
-                `${API_URL}?action=session&token=${encodeURIComponent(token)}&r=${Date.now()}`,
+                `${API_URL}?action=session${fast}&token=${encodeURIComponent(token)}&r=${Date.now()}`,
                 { cache: 'no-store' },
-                7500
+                fastMode ? 4500 : 7500
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return await response.json();
+        }
+
+        async function credentialsRequest(token) {
+            if (!token) throw new Error('Missing saved session');
+            const response = await fetchWithTimeout(
+                `${API_URL}?action=credentials&token=${encodeURIComponent(token)}&r=${Date.now()}`,
+                { cache: 'no-store' },
+                4500
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
+        }
+
+        function credentialsAreComplete_(value) {
+            return !!(
+                value &&
+                String(value.ParticipantID || '').trim() &&
+                String(value.Username || '').trim() &&
+                String(value.PIN || '').trim() &&
+                String(value.Password || '').trim()
+            );
+        }
+
+        async function getCurrentAccountCredentials_() {
+            if (credentialVaultWriteInFlight) {
+                try { await credentialVaultWriteInFlight; } catch (_) {}
+            }
+
+            let credentials = null;
+
+            try {
+                credentials = await decryptCredentialVault_();
+                if (credentialsAreComplete_(credentials)) {
+                    sessionCredentials = credentials;
+                    return credentials;
+                }
+            } catch (_) {}
+
+            if (credentialsAreComplete_(sessionCredentials)) {
+                return sessionCredentials;
+            }
+
+            const saved = getSavedSessionRecord();
+            if (saved && saved.token) {
+                try {
+                    const response = await credentialsRequest(saved.token);
+                    if (response && response.success && credentialsAreComplete_(response.credentials)) {
+                        credentials = response.credentials;
+                        sessionCredentials = credentials;
+                        updateSavedSessionFromResponse({
+                            sessionToken: saved.token,
+                            sessionExpiresAt: response.sessionExpiresAt || saved.expiresAt,
+                            user: sessionUser || response.user || {
+                                ParticipantID: credentials.ParticipantID,
+                                Username: credentials.Username,
+                                Name: credentials.Name,
+                                Email: credentials.Email
+                            }
+                        });
+                        queueCredentialVaultSave_(credentials);
+                        return credentials;
+                    }
+                } catch (_) {}
+
+                // A session can be valid enough for the browser shell but no
+                // longer valid for the credential endpoint. Re-authenticate
+                // once from the encrypted device vault, then retry. This keeps
+                // My Login Details working after a long period away without
+                // ever putting a raw password into localStorage.
+                try {
+                    const vaulted = await decryptCredentialVault_();
+                    if (credentialsAreComplete_(vaulted)) {
+                        const fresh = await autoLoginFromSavedCredentials_({
+                            force: true,
+                            silent: true
+                        });
+                        if (fresh && fresh.success) {
+                            const retry = getSavedSessionRecord();
+                            if (retry && retry.token) {
+                                const response2 = await credentialsRequest(retry.token);
+                                if (response2 && response2.success && credentialsAreComplete_(response2.credentials)) {
+                                    credentials = response2.credentials;
+                                    sessionCredentials = credentials;
+                                    queueCredentialVaultSave_(credentials);
+                                    return credentials;
+                                }
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            return credentials;
         }
 
         function saveDashboardCache(participantID, data) {
@@ -642,6 +736,7 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 sessionUser = data.user;
                 sessionCredentials = data.credentials || sessionCredentials || null;
                 rememberedSessionLoaded = true;
+                safeLocalStorageRemove_(LOGOUT_HOLD_KEY);
                 updateSavedSessionFromResponse(data);
                 if (data.credentials) await queueCredentialVaultSave_(data.credentials);
                 dashboardData = loadDashboardCache(sessionUser.ParticipantID);
@@ -758,55 +853,67 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
         }
 
         async function refreshRememberedSession(options={}) {
-            if (backgroundRefreshInFlight) return;
+            if (backgroundRefreshInFlight) return false;
             const saved = getSavedSessionRecord();
             if (!saved) {
                 const restored = await autoLoginFromSavedCredentials_();
                 if (!restored) await migrateLegacySavedPin();
-                return;
+                return false;
             }
 
             backgroundRefreshInFlight = true;
             try {
-                const data = await sessionRequest(saved.token);
+                // Verify the signed session with the smallest possible response.
+                // The dashboard already has a local cache and is painted before this runs.
+                const data = await sessionRequest(saved.token, true);
                 if (!data || !data.success || !data.user) {
-                    // If the signed session is no longer valid, recover from
-                    // the persistent encrypted device credentials before ever
-                    // forcing a manual login screen.
                     const restored = await autoLoginFromSavedCredentials_({force:true});
-                    if (restored) return;
+                    if (restored) return true;
+
                     clearRememberedSession();
                     sessionUser = null;
+                    sessionCredentials = null;
                     dashboardData = null;
                     setDashboardView('login');
                     updateTopNavigation();
                     if (isFinalDayOrLater()) openDashboardMode({source:'invalid-session',preserveView:false});
                     else showTimerMode();
-                    return;
+                    return false;
                 }
 
                 sessionUser = data.user;
                 if (data.credentials) sessionCredentials = data.credentials;
-                dashboardData = {
-                    categories: Array.isArray(data.categories) ? data.categories : [],
-                    links: Array.isArray(data.links) ? data.links : [],
-                    logos: Array.isArray(data.logos) ? data.logos : []
-                };
                 updateSavedSessionFromResponse(data);
-                saveDashboardCache(sessionUser.ParticipantID, dashboardData);
                 rememberedSessionLoaded = true;
                 document.getElementById('forget-btn').style.display = 'block';
                 updatePortalGreeting();
                 updateTopNavigation();
 
+                // Do not block the verified-session path on a full dashboard refresh.
+                // Only fetch the full dashboard when the local copy is unavailable.
+                dashboardData = dashboardData || loadDashboardCache(sessionUser.ParticipantID);
+
                 if (isFinalDayOrLater()) {
-                    if (dashboardView === 'login') dashboardView = 'categories';
-                    buildDashboard({force:true, reason:'saved-session-refresh'});
-                    ensureDashboardScreenOnly();
+                    if (!dashboardData) {
+                        showSessionRefreshLoader('Loading your dashboard…');
+                        await loadDashboardForSession_(data.sessionToken, true);
+                        hideSessionRefreshLoader();
+                    } else {
+                        // A quiet refresh keeps the local dashboard responsive while
+                        // allowing categories/links/logos to become current shortly after.
+                        window.setTimeout(() => {
+                            const activeToken = getSavedSessionRecord()?.token;
+                            if (activeToken && activeToken === data.sessionToken && sessionUser) {
+                                loadDashboardForSession_(activeToken, true).catch(() => {});
+                            }
+                        }, 900);
+                    }
                 }
+                return true;
             } catch (_) {
-                // Keep the already-restored dashboard visible while the network is unavailable.
-                // A later focus/online event will retry automatically.
+                // Saved dashboard remains usable while the network is unavailable.
+                // A later focus/online event will retry.
+                return false;
             } finally {
                 backgroundRefreshInFlight = false;
                 hideSessionRefreshLoader();
@@ -814,12 +921,25 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
         }
 
         function checkPortalConnection(silent=false) {
-            const dot=document.getElementById('portal-network-dot'); const text=document.getElementById('portal-network-text');
-            if (!dot||!text) return;
-            fetch(`${API_URL}?action=health&_=${Date.now()}`,{cache:'no-store'}).then(r=>r.json()).then(data=>{
-                if(data&&data.success){dot.className='portal-network-dot ok';text.innerText=silent?'Ready':'Dashboard service connected';}
-                else{dot.className='portal-network-dot bad';text.innerText=silent?'Service check unavailable':'Dashboard service reported a problem';}
-            }).catch(()=>{dot.className='portal-network-dot bad';text.innerText=silent?'Offline (using saved account)':'Dashboard service is currently unreachable';});
+            const dot=document.getElementById('portal-network-dot');
+            const text=document.getElementById('portal-network-text');
+            if (!dot || !text) return;
+            fetchWithTimeout(
+                `${API_URL}?action=health&_=${Date.now()}`,
+                {cache:'no-store'},
+                3500
+            ).then(r=>r.json()).then(data=>{
+                if(data&&data.success){
+                    dot.className='portal-network-dot ok';
+                    text.innerText=silent?'Ready':'Dashboard service connected';
+                } else {
+                    dot.className='portal-network-dot bad';
+                    text.innerText=silent?'Service check unavailable':'Dashboard service reported a problem';
+                }
+            }).catch(()=>{
+                dot.className='portal-network-dot bad';
+                text.innerText=silent?'Offline (using saved account)':'Dashboard service is currently unreachable';
+            });
         }
 
 
@@ -1146,51 +1266,65 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
         }
 
         async function showLoginDetails() {
-            if (credentialVaultWriteInFlight) {
-                try { await credentialVaultWriteInFlight; } catch (_) {}
-            }
-            let credentials = null;
-            try { credentials = await decryptCredentialVault_(); } catch (_) {}
-            if (!credentials && sessionCredentials) credentials = sessionCredentials;
-            if (!credentials && sessionUser) {
-                credentials = {
-                    ParticipantID: sessionUser.ParticipantID || '',
-                    Username: sessionUser.Username || '',
-                    PIN: '',
-                    Password: sessionUser.Password || '',
-                    Email: sessionUser.Email || '',
-                    Name: sessionUser.Name || ''
-                };
-            }
-            if (!credentials) {
-                showLoginError('Your saved login details are not available on this device. Sign in again to save them.');
-                return;
-            }
             const body = document.getElementById('sheet-body');
             const title = document.getElementById('sheet-title');
             if (!body || !title) return;
+
             title.innerText = 'My Login Details';
+            body.innerHTML = '<div class="activity-desc">Loading your saved account details…</div>';
+            openSheet({title:'My Login Details'});
+
+            const credentials = await getCurrentAccountCredentials_();
+
+            if (!credentials || !credentialsAreComplete_(credentials)) {
+                body.innerHTML = '';
+                const message = document.createElement('div');
+                message.className = 'access-note access-note-ours';
+                message.innerText = 'Your account is signed in, but the saved login details could not be retrieved. Sign in again once to refresh the saved details.';
+                body.appendChild(message);
+
+                const signIn = document.createElement('button');
+                signIn.className = 'activity-open-btn';
+                signIn.type = 'button';
+                signIn.innerText = 'Sign In Again';
+                signIn.onclick = () => {
+                    closeSheet({reason:'reauthenticate'});
+                    logout({keepVault:false});
+                };
+                body.appendChild(signIn);
+                return;
+            }
+
             body.innerHTML = '';
             const intro = document.createElement('div');
             intro.className = 'activity-desc';
-            intro.innerText = 'These are the account details saved for this device. Tap Reveal to show a password or PIN.';
+            intro.innerText = 'Your Boulder Scout JOTA-JOTI account details are saved on this device. Tap Reveal to show the PIN or password, then use Copy when needed.';
             body.appendChild(intro);
+
             body.appendChild(createCredentialDisplayRow_('Username', credentials.Username, false));
             body.appendChild(createCredentialDisplayRow_('PIN', credentials.PIN, true));
             body.appendChild(createCredentialDisplayRow_('Password', credentials.Password, true));
             body.appendChild(createCredentialDisplayRow_('Participant ID', credentials.ParticipantID, false));
             if (credentials.Email) body.appendChild(createCredentialDisplayRow_('Email', credentials.Email, false));
 
+            const note = document.createElement('div');
+            note.className = 'access-note access-note-own';
+            note.innerText = 'These details are retrieved only for your authenticated account. Forget This Device removes the saved account from this browser.';
+            body.appendChild(note);
+
             const actions = document.createElement('div');
             actions.className = 'btn-row';
+
             const forget = document.createElement('button');
             forget.className = 'activity-open-btn secondary';
             forget.type = 'button';
             forget.innerText = 'Forget This Device';
-            forget.onclick = () => { forgetSavedPin(); closeSheet({reason:'forget-device'}); };
+            forget.onclick = () => {
+                forgetSavedPin();
+                closeSheet({reason:'forget-device'});
+            };
             actions.appendChild(forget);
             body.appendChild(actions);
-            openSheet({title:'My Login Details', body:body.innerHTML});
         }
 
         function createCredentialDisplayRow_(label, value, masked) {
@@ -1203,23 +1337,42 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             val.className = 'copy-value';
             val.dataset.value = String(value || '');
             val.innerText = masked && value ? '••••••••' : String(value || 'Not saved');
-            const reveal = document.createElement('button');
-            reveal.type = 'button';
-            reveal.className = 'copy-btn';
-            reveal.innerText = masked ? 'Reveal' : 'Copy';
-            reveal.onclick = async () => {
-                if (masked) {
+            const actions = document.createElement('div');
+            actions.className = 'credential-actions';
+
+            if (masked) {
+                const reveal = document.createElement('button');
+                reveal.type = 'button';
+                reveal.className = 'copy-btn';
+                reveal.innerText = 'Reveal';
+                reveal.onclick = () => {
                     const showing = reveal.dataset.showing === '1';
                     val.innerText = showing ? '••••••••' : String(value || 'Not saved');
                     reveal.dataset.showing = showing ? '0' : '1';
                     reveal.innerText = showing ? 'Reveal' : 'Hide';
-                } else {
-                    try { await navigator.clipboard.writeText(String(value || '')); reveal.innerText = 'Copied'; setTimeout(()=>reveal.innerText='Copy',900); } catch (_) {}
+                };
+                actions.appendChild(reveal);
+            }
+
+            const copy = document.createElement('button');
+            copy.type = 'button';
+            copy.className = 'copy-btn';
+            copy.innerText = 'Copy';
+            copy.onclick = async () => {
+                try {
+                    await navigator.clipboard.writeText(String(value || ''));
+                    copy.innerText = 'Copied';
+                    window.setTimeout(() => { copy.innerText = 'Copy'; }, 900);
+                } catch (_) {
+                    copy.innerText = 'Copy failed';
+                    window.setTimeout(() => { copy.innerText = 'Copy'; }, 1200);
                 }
             };
+            actions.appendChild(copy);
+
             row.appendChild(left);
             row.appendChild(val);
-            row.appendChild(reveal);
+            row.appendChild(actions);
             return row;
         }
 
@@ -1277,6 +1430,7 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 sessionUser = data.user;
                 sessionCredentials = data.credentials || null;
                 rememberedSessionLoaded = pin !== 'guest';
+                if (pin !== 'guest') safeLocalStorageRemove_(LOGOUT_HOLD_KEY);
 
                 if (pin !== 'guest') {
                     updateSavedSessionFromResponse(data);
@@ -1319,17 +1473,24 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             }
         }
 
-        function logout() {
+        function logout(options={}) {
+            const keepVault = options.keepVault !== false;
             sessionUser = null;
             sessionCredentials = null;
             dashboardData = null;
             initialRouteApplied = false;
             abortLoginPrefetch();
             clearRememberedSession();
-            // Keep the encrypted credential vault so a normal reload can
-            // restore this device without requiring the user to re-enter
-            // the PIN. Use Forget This Device when the account should be
-            // removed from this browser entirely.
+
+            // A real logout stops automatic session restoration until the user
+            // signs in again. The encrypted credential vault may remain so the
+            // user can deliberately sign back in without retyping the password.
+            safeLocalStorageSet_(LOGOUT_HOLD_KEY, '1');
+            if (!keepVault) {
+                safeLocalStorageRemove_(LOGIN_VAULT_KEY);
+                safeLocalStorageRemove_(LOGOUT_HOLD_KEY);
+            }
+
             safeLocalStorageRemove_(SAVED_PIN_KEY);
             safeLocalStorageRemove_('jotajoti_saved_user');
             document.getElementById('forget-btn').style.display = 'none';
@@ -1603,20 +1764,17 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             body.appendChild(intro);
 
             if (loginLevel === 1) {
-                let saved = null;
-                try { saved = await decryptCredentialVault_(); } catch (_) {}
-                const details = saved || sessionCredentials || {
-                    Username: sessionUser && sessionUser.Username || '',
-                    Password: sessionUser && sessionUser.Password || '',
-                    PIN: '',
-                    Email: resolveUserEmail(),
-                    ParticipantID: sessionUser && sessionUser.ParticipantID || ''
-                };
-                if (details.Username) body.appendChild(createCopyRow("Username", details.Username));
-                if (details.PIN) body.appendChild(createCopyRow("PIN", details.PIN));
-                if (details.Password) body.appendChild(createCopyRow("Password", details.Password));
-                if (details.Email) body.appendChild(createCopyRow("Email", details.Email));
-                body.appendChild(createInfoNote('Your JOTA-JOTI account details are saved securely on this device after a successful sign-in. You can also open My Login Details from the dashboard to reveal the saved PIN or password.', 'own'));
+                const details = await getCurrentAccountCredentials_();
+                if (details && details.Username) body.appendChild(createCopyRow("Username", details.Username));
+                if (details && details.PIN) body.appendChild(createCopyRow("PIN", details.PIN));
+                if (details && details.Password) body.appendChild(createCopyRow("Password", details.Password));
+                if (details && details.Email) body.appendChild(createCopyRow("Email", details.Email));
+                if (details && details.ParticipantID) body.appendChild(createCopyRow("Participant ID", details.ParticipantID));
+                if (details && credentialsAreComplete_(details)) {
+                    body.appendChild(createInfoNote('Your Boulder Scout JOTA-JOTI account details are saved securely on this device. Tap any copied detail to use it on the external site.', 'own'));
+                } else {
+                    body.appendChild(createInfoNote('Your saved account details are incomplete. Open My Login Details or sign in again once to refresh them.', 'own'));
+                }
             }
             if (emailLevel === 1 && loginLevel !== 1) {
                 const email = resolveUserEmail();
