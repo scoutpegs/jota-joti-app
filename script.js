@@ -189,6 +189,9 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
         }
 
         async function getCurrentAccountCredentials_() {
+            // Fast path: already in memory for this session.
+            if (credentialsAreComplete_(sessionCredentials)) return sessionCredentials;
+
             if (credentialVaultWriteInFlight) {
                 try { await credentialVaultWriteInFlight; } catch (_) {}
             }
@@ -696,6 +699,8 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 PIN: String(credentials.PIN || '').trim(),
                 Password: String(credentials.Password || '').trim(),
                 Email: String(credentials.Email || '').trim(),
+                ParentEmail: String(credentials.ParentEmail || '').trim(),
+                ParentName: String(credentials.ParentName || '').trim(),
                 Name: String(credentials.Name || '').trim()
             };
             if (!clean.ParticipantID || !clean.Username || !clean.PIN || !clean.Password) return false;
@@ -1306,6 +1311,7 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             body.appendChild(createCredentialDisplayRow_('Password', credentials.Password, true));
             body.appendChild(createCredentialDisplayRow_('Participant ID', credentials.ParticipantID, false));
             if (credentials.Email) body.appendChild(createCredentialDisplayRow_('Email', credentials.Email, false));
+            if (credentials.ParentEmail) body.appendChild(createCredentialDisplayRow_('Parent/Guardian Email', credentials.ParentEmail, false));
 
             const note = document.createElement('div');
             note.className = 'access-note access-note-own';
@@ -1749,6 +1755,10 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             }
         }
 
+        // Every protected link now shows the full set of account details the
+        // person might be asked for (username, PIN, password, email, parent
+        // email, participant ID), whatever the access level. The sheet opens
+        // instantly and the details fill in as soon as they are available.
         async function showAccessPopup(site, embedded, loginLevel, emailLevel) {
             const needsOwnSomething = loginLevel === 3 || emailLevel === 3;
             document.getElementById("sheet-title").innerText = needsOwnSomething ? "Before You Continue" : "Your Login Details";
@@ -1759,42 +1769,19 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             const intro = document.createElement("div");
             intro.className = "activity-desc";
             intro.innerText = needsOwnSomething
-                ? `${site.Title} is an external site. Check what you need below before you head over.`
-                : `${site.Title} needs a login. Tap to copy your details, then continue.`;
+                ? `${site.Title} is an external site and may ask you to sign in or sign up. Your details are below to copy.`
+                : `${site.Title} needs a login. Tap any detail to copy it, then continue.`;
             body.appendChild(intro);
 
-            if (loginLevel === 1) {
-                const details = await getCurrentAccountCredentials_();
-                if (details && details.Username) body.appendChild(createCopyRow("Username", details.Username));
-                if (details && details.PIN) body.appendChild(createCopyRow("PIN", details.PIN));
-                if (details && details.Password) body.appendChild(createCopyRow("Password", details.Password));
-                if (details && details.Email) body.appendChild(createCopyRow("Email", details.Email));
-                if (details && details.ParticipantID) body.appendChild(createCopyRow("Participant ID", details.ParticipantID));
-                if (details && credentialsAreComplete_(details)) {
-                    body.appendChild(createInfoNote('Your Boulder Scout JOTA-JOTI account details are saved securely on this device. Tap any copied detail to use it on the external site.', 'own'));
-                } else {
-                    body.appendChild(createInfoNote('Your saved account details are incomplete. Open My Login Details or sign in again once to refresh them.', 'own'));
-                }
-            }
-            if (emailLevel === 1 && loginLevel !== 1) {
-                const email = resolveUserEmail();
-                if (email) {
-                    body.appendChild(createCopyRow("Email", email));
-                } else {
-                    body.appendChild(createInfoNote("No saved email found on this account, ask a leader.", "own"));
-                }
-            }
+            const detailsBox = document.createElement("div");
+            detailsBox.className = "access-details";
+            body.appendChild(detailsBox);
 
-            if (loginLevel === 3) {
-                body.appendChild(createInfoNote("This site needs its own account. You may already have one, or you may need to sign up (and it might need to be bought).", "own"));
-            }
-            if (emailLevel === 3) {
-                body.appendChild(createInfoNote("This site needs your own email address, not the one saved here.", "own"));
-            }
+            const notes = document.createElement("div");
+            body.appendChild(notes);
 
             const row = document.createElement("div");
             row.className = "btn-row";
-
             const continueBtn = document.createElement("button");
             continueBtn.className = "activity-open-btn";
             continueBtn.type = "button";
@@ -1807,7 +1794,6 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 closeSheet({reason: 'continue'});
             };
             row.appendChild(continueBtn);
-
             if (needsOwnSomething) {
                 const cancelBtn = document.createElement("button");
                 cancelBtn.className = "activity-open-btn btn-secondary";
@@ -1820,9 +1806,44 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 };
                 row.appendChild(cancelBtn);
             }
-
             body.appendChild(row);
             openSheet();
+
+            // Instant paint from memory, then refine once the vault/server answers.
+            const paint = (details) => {
+                detailsBox.innerHTML = "";
+                const d = details || {};
+                const add = (label, value) => { if (value) detailsBox.appendChild(createCopyRow(label, String(value))); };
+                add("Username", d.Username);
+                add("PIN", d.PIN);
+                add("Password", d.Password);
+                add("Email", d.Email || (sessionUser && sessionUser.Email));
+                add("Parent/Guardian Email", d.ParentEmail);
+                add("Participant ID", d.ParticipantID);
+                add("Name", d.Name || (sessionUser && sessionUser.Name));
+                if (!detailsBox.children.length) {
+                    detailsBox.appendChild(createInfoNote('Loading your saved account details…', 'own'));
+                }
+                notes.innerHTML = "";
+                if (d && credentialsAreComplete_(d)) {
+                    notes.appendChild(createInfoNote('These are your Boulder Scout JOTA-JOTI account details. Tap one to copy it.', 'ours'));
+                } else if (detailsBox.children.length && !credentialsAreComplete_(d)) {
+                    notes.appendChild(createInfoNote('Some details are missing on this device. Open My Login Details or sign in again once to refresh them.', 'own'));
+                }
+                if (loginLevel === 3) notes.appendChild(createInfoNote("This site has its own accounts. You may already have one, or you may need to sign up (it might need to be bought). Ask a leader if unsure.", "own"));
+                if (emailLevel === 3) notes.appendChild(createInfoNote("This site wants your own email address. You can use the email above, or ask a parent or leader which one to use.", "own"));
+                if (emailLevel === 1 && !(d.Email || (sessionUser && sessionUser.Email))) notes.appendChild(createInfoNote("No scout email is saved on this account, so the parent/guardian email is shown instead. Ask a leader if the site needs a different one.", "own"));
+            };
+
+            paint(credentialsAreComplete_(sessionCredentials) ? sessionCredentials : (sessionCredentials || null));
+            try {
+                const details = await getCurrentAccountCredentials_();
+                if (details) paint(details);
+                else if (!detailsBox.querySelector('.copy-row')) {
+                    detailsBox.innerHTML = '';
+                    detailsBox.appendChild(createInfoNote('No saved details found. If you are using Guest access there is no account to show; otherwise sign in again.', 'own'));
+                }
+            } catch (_) {}
         }
 
         function createInfoNote(text, kind) {

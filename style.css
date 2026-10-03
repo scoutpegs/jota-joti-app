@@ -1675,3 +1675,6 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
 @media(max-width:600px){.dash-actions{width:100%;justify-content:stretch}.dash-actions button{flex:1;min-width:0}.credential-row{grid-template-columns:1fr auto}.credential-row .copy-value{grid-column:1 / -1;grid-row:2}}
 
 .dash-greeting-save-note{font-size:11px;font-weight:700;color:var(--text-sub,#7f8c8d);margin-top:3px}
+
+/* Account details block shown when a protected link is opened */
+.access-details { display: flex; flex-direction: column; gap: 2px; }

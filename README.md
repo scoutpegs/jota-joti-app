@@ -22,7 +22,7 @@ There is no backup account store, backup spreadsheet, backup Drive folder, backu
 
 1. Open the exact supplied Boulder JOTA-JOTI Google Sheet.
 2. Open **Extensions → Apps Script**.
-3. Replace the existing backend with `Code.gs` from this package.
+3. Replace the existing backend with `backend/Code.gs` from this package.
 4. Save.
 5. Run `setupEOISystem()` once and authorise the required permissions.
 6. Deploy as **Web app**.
@@ -98,3 +98,15 @@ The signed session is refreshed in the background. If the server session expires
 
 The setup page loads the three section forms from the `forms/` folder so they work as normal GitHub Pages files instead of carrying large base64 PDF strings inside the HTML.
 
+
+## What changed in the run-ready build
+
+* Clicking any link that needs a login or email now shows **all** account details (username, PIN, password, email, parent/guardian email, participant ID) with tap-to-copy, for both "saved account" and "external site" links. The popup opens instantly and fills from memory, then the encrypted vault, then the server.
+* Setup no longer fails on harmless header differences. The Form header now matches your real sheet, and missing `EmailLog` / `EmailGroups` sheets are created automatically.
+* Links whose `Active` cell is blank are now shown (only an explicit FALSE/0/No hides a link). This brings back games_002–006 and chat_004.
+* `BlockedCategories` rows with `AppliesTo = participants` no longer hide content from Leader accounts.
+* New accounts always receive the `event` and `website` categories.
+* Faster logins: cached session secret and simpler row mapping.
+* Service worker cache bumped to v14 so phones pick up the new code.
+
+Keep `backend/` out of the public GitHub repo (or just paste `Code.gs` into Apps Script and delete the folder).
