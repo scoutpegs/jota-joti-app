@@ -47,12 +47,12 @@
         }
 
         const SAVED_PIN_KEY = 'jotajoti_saved_pin';
-        const DASH_CACHE_KEY = 'jotajoti_dashboard_cache_v1';
+        const DASH_CACHE_KEY = 'jotajoti_dashboard_cache_v2';
         const DASH_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
         let lastAttemptedPin = '';
 
         /* ==========================================================
-           FAST START
+           FAST START v2
            ----------------------------------------------------------
            Apps Script answers in about a second and a half on a good
            connection, longer on phone data. Two things fix that:
@@ -85,7 +85,7 @@
                 const pin = localStorage.getItem(SAVED_PIN_KEY);
                 if (!pin || !/^\d{4}$/.test(pin)) return;
                 loginPrefetchPin = pin;
-                loginPrefetch = fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
+                loginPrefetch = fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&fast=1&_=${Date.now()}`, { cache: 'no-store' })
                     .then(r => r.json())
                     .catch(() => null);
             } catch (_) {}
@@ -99,7 +99,10 @@
                 const early = await pending;
                 if (early) return early;
             }
-            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
+            // Fast identity-only request. This returns the name/PIN status without
+            // loading the larger dashboard payload. It is deliberately separate
+            // from the full dashboard request below.
+            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&fast=1&_=${Date.now()}`, { cache: 'no-store' });
             return await response.json();
         }
 
@@ -788,12 +791,11 @@
             welcome.classList.remove('is-closing');
             welcome.style.display = 'flex';
 
-            // Start both requests immediately. The small identity response can
-            // update the welcome message while the larger dashboard response
-            // is still arriving. Returning users can use their local dashboard
-            // cache instantly while the fresh copy updates in the background.
-            const dashboardPromise = loginRequest(pin);
-            const identityPromise = dashboardPromise;
+            // Start the lightweight identity request and the full dashboard
+            // request together. The identity response updates the welcome screen
+            // immediately while the larger payload loads in parallel.
+            const identityPromise = loginRequest(pin);
+            const dashboardPromise = dashboardRequest(pin);
 
             try {
                 const identity = await identityPromise;

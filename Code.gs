@@ -1,5 +1,6 @@
 /* ================================================================
    JOTA-JOTI 2026 — Boulder Scout Group backend (Google Apps Script)
+   FAST LOGIN BUILD 2026-10-03
    ----------------------------------------------------------------
    This file keeps the existing API, form trigger handlers, sheet names,
    and admin function names intact. New registrations are always written
@@ -53,6 +54,7 @@ const CONFIG = {
   // active spreadsheet, so the web app never falls back to another group's sheet.
   SPREADSHEET_ID: '',
   SPREADSHEET_PROPERTY: 'BOULDER_JOTA_JOTI_SPREADSHEET_ID',
+  SPREADSHEET_NAME: 'Jota joti boulder scouts',
 
   // Boulder deployment URL used by the site and admin dashboard.
   WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwYi0tF7kjXnZr2EM8eyMe1evYAvt2-m_SLk3OCjUQzbbnlxJsgXs0TcGjXVClbbWyc/exec',
@@ -234,9 +236,8 @@ function handleRequest(e) {
     }
 
     if (action === 'login') {
-      // New site builds request with fast=1 for the lightweight identity check.
-      // Older site builds that call action=login without fast=1 still receive
-      // the complete dashboard response for backward compatibility.
+      // fast=1 is the lightweight identity check used by the current site.
+      // Without it, preserve the original full dashboard response for older clients.
       if (String(e && e.parameter ? e.parameter.fast || '' : '') === '1') {
         return loginUser(pin, e);
       }
@@ -606,24 +607,46 @@ function getBoulderSpreadsheetId_() {
 function getSpreadsheet_() {
   if (SS_) return SS_;
 
+  const wantedName = String(CONFIG.SPREADSHEET_NAME || '').trim().toLowerCase();
   const configuredId = getBoulderSpreadsheetId_();
-  if (!configuredId) {
-    throw new Error('Boulder JOTA-JOTI is not configured. Open Apps Script from the "Jota joti boulder scouts" spreadsheet and run setup() once.');
+  const props = PropertiesService.getScriptProperties();
+
+  // First choice: the explicitly stored Boulder spreadsheet ID.
+  if (configuredId) {
+    try {
+      const sheet = SpreadsheetApp.openById(configuredId);
+      const name = String(sheet.getName() || '').trim().toLowerCase();
+      if (name === wantedName) {
+        SS_ = sheet;
+        return SS_;
+      }
+      // Never use a sheet that is not the exact Boulder workbook.
+      props.deleteProperty(CONFIG.SPREADSHEET_PROPERTY);
+    } catch (err) {
+      // Keep going so a bound-sheet fallback can recover the setup.
+    }
   }
 
+  // Second choice: when this Apps Script is bound to the Boulder spreadsheet,
+  // getActiveSpreadsheet() is available even when the web app handles a request.
   try {
-    SS_ = SpreadsheetApp.openById(configuredId);
-    const liveName = String(SS_.getName() || '').trim().toLowerCase();
-    if (liveName !== 'jota joti boulder scouts') {
-      SS_ = null;
-      throw new Error('Configured spreadsheet is not the Boulder JOTA-JOTI spreadsheet.');
+    const active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) {
+      const name = String(active.getName() || '').trim().toLowerCase();
+      if (name === wantedName) {
+        SS_ = active;
+        props.setProperty(CONFIG.SPREADSHEET_PROPERTY, String(active.getId()));
+        return SS_;
+      }
     }
-    return SS_;
   } catch (err) {
-    throw new Error(
-      'Boulder JOTA-JOTI could not open its configured Google Sheet. Confirm the Apps Script account has access to the Boulder spreadsheet.'
-    );
+    // Continue to the clear error below.
   }
+
+  throw new Error(
+    'Boulder JOTA-JOTI cannot find the spreadsheet "' + CONFIG.SPREADSHEET_NAME + '". ' +
+    'Open that spreadsheet, open Extensions > Apps Script, save this code, run setup(), and redeploy the web app.'
+  );
 }
 
 function getSheetData(sheetName) {
