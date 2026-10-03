@@ -22,7 +22,7 @@ There is no backup account store, backup spreadsheet, backup Drive folder, backu
 
 1. Open the exact supplied Boulder JOTA-JOTI Google Sheet.
 2. Open **Extensions → Apps Script**.
-3. Replace the existing backend with `backend/Code.gs` from this package.
+3. Replace the existing backend with `Code.gs` from this package.
 4. Save.
 5. Run `setupEOISystem()` once and authorise the required permissions.
 6. Deploy as **Web app**.
@@ -35,6 +35,8 @@ There is no backup account store, backup spreadsheet, backup Drive folder, backu
 Upload the files in the package root to the Boulder Scout GitHub Pages repository.
 
 The frontend configuration is in `config.js`.
+
+The frontend uses JSONP for read-only Apps Script requests because Apps Script `ContentService` redirects may fail browser CORS checks from GitHub Pages. The login, session, credential, and health routes now use the backend callback response consistently. Styling, spreadsheet schema, and account flow are otherwise unchanged.
 
 Change only these values when needed:
 
@@ -69,8 +71,8 @@ Image paths may be stored as `/image.png`, `images/image.png`, `./images/image.p
 
 Open:
 
-* `emails/parent-welcome.html`
-* `emails/leader-welcome.html`
+* `email-parent-welcome-preview.html`
+* `email-leader-welcome-preview.html`
 
 The live Apps Script generates the same layouts with escaped account-specific values and a plain-text fallback.
 
@@ -96,7 +98,7 @@ The signed session is refreshed in the background. If the server session expires
 
 ## Forms
 
-The setup page loads the three section forms from the `forms/` folder so they work as normal GitHub Pages files instead of carrying large base64 PDF strings inside the HTML.
+The setup page loads the three section forms from the root directory so they work as normal GitHub Pages files instead of carrying large base64 PDF strings inside the HTML.
 
 
 ## What changed in the run-ready build
@@ -107,6 +109,6 @@ The setup page loads the three section forms from the `forms/` folder so they wo
 * `BlockedCategories` rows with `AppliesTo = participants` no longer hide content from Leader accounts.
 * New accounts always receive the `event` and `website` categories.
 * Faster logins: cached session secret and simpler row mapping.
-* Service worker cache bumped to v14 so phones pick up the new code.
+* Service worker cache bumped to v15 so phones pick up the new code.
 
-Keep `backend/` out of the public GitHub repo (or just paste `Code.gs` into Apps Script and delete the folder).
+`Code.gs` is kept at the root so the whole package has no folders, and it can remain public because you requested the source to be open. Deploy it separately in the bound Apps Script project.

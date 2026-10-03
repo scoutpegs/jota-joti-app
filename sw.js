@@ -1,5 +1,5 @@
 // JOTA-JOTI Dashboard PWA service worker
-const CACHE_NAME = 'jota-joti-shell-v14';
+const CACHE_NAME = 'jota-joti-shell-v15';
 
 const APP_SHELL = [
   './index.html',
@@ -14,9 +14,9 @@ const APP_SHELL = [
   './script.js',
   './admin.css',
   './admin.js',
-  './forms/Boulder-Scouts-Cub-Section-Form.pdf',
-  './forms/Boulder-Scouts-Joey-Section-Form.pdf',
-  './forms/Boulder-Scouts-Venturer-Section-Form.pdf'
+  './Boulder-Scouts-Cub-Section-Form.pdf',
+  './Boulder-Scouts-Joey-Section-Form.pdf',
+  './Boulder-Scouts-Venturer-Section-Form.pdf'
 ];
 
 self.addEventListener('install', event => {
@@ -96,9 +96,9 @@ self.addEventListener('fetch', event => {
     pathname.endsWith('/config.js') ||
     pathname.endsWith('/admin.css') ||
     pathname.endsWith('/admin.js') ||
-    pathname.endsWith('/forms/Boulder-Scouts-Cub-Section-Form.pdf') ||
-    pathname.endsWith('/forms/Boulder-Scouts-Joey-Section-Form.pdf') ||
-    pathname.endsWith('/forms/Boulder-Scouts-Venturer-Section-Form.pdf');
+    pathname.endsWith('/Boulder-Scouts-Cub-Section-Form.pdf') ||
+    pathname.endsWith('/Boulder-Scouts-Joey-Section-Form.pdf') ||
+    pathname.endsWith('/Boulder-Scouts-Venturer-Section-Form.pdf');
 
   if (!isAppFile) return;
 

@@ -11,7 +11,7 @@ const CONFIG = {
   EMAIL_TEMPLATES_SHEET: 'EmailTemplates',
 
   WEBSITE_URL: 'https://scoutpegs.github.io/jota-joti-app/',
-  APP_VERSION: '2026.10.03-final',
+  APP_VERSION: '2026.10.03-run-ready',
   SCOUT_GROUP: 'Boulder Scout Group',
   SFH3_URL: 'https://learn.scout.org/resource/sfh-3-being-safe-online',
 
@@ -95,24 +95,24 @@ function handleRequest(e) {
     }
 
     if (action === 'login') {
-      return getUserDashboard(pin, String(params.fast || '') === '1');
+      return getUserDashboard(pin, String(params.fast || '') === '1', e);
     }
 
     if (action === 'user') {
       const token = String(params.token || '').trim();
-      if (token) return getUserDashboardFromSession_(token, false);
-      return getUserDashboard(pin, false);
+      if (token) return getUserDashboardFromSession_(token, false, e);
+      return getUserDashboard(pin, false, e);
     }
 
     if (action === 'session') {
       return getUserDashboardFromSession_(
         String(params.token || '').trim(),
-        String(params.fast || '') === '1'
+        String(params.fast || '') === '1', e
       );
     }
 
     if (action === 'credentials') {
-      return getUserCredentialsFromSession_(String(params.token || '').trim());
+      return getUserCredentialsFromSession_(String(params.token || '').trim(), e);
     }
 
     if (action === 'logout') {
@@ -396,9 +396,9 @@ function clearSheetCache() {
    ============================================================ */
 
 
-function getUserDashboard(pin, fastMode) {
+function getUserDashboard(pin, fastMode, e) {
   const rawPin = String(pin || '').trim();
-  if (!rawPin) return jsonResponse({ success: false, error: 'PIN required' });
+  if (!rawPin) return apiResponse(e, { success: false, error: 'PIN required' });
 
   if (rawPin.toLowerCase() === 'guest') {
     const guest = {
@@ -406,17 +406,17 @@ function getUserDashboard(pin, fastMode) {
       Email: '', Password: '', AllowedCategories: '*', Status: 'Active',
       PaperworkStatus: 'Not Required'
     };
-    return buildDashboardResponse_(guest, '')
+    return buildDashboardResponse_(guest, '', e)
   }
 
   const user = findUserByPin_(rawPin);
-  if (!user) return jsonResponse({ success: false, error: 'PIN not found' });
+  if (!user) return apiResponse(e, { success: false, error: 'PIN not found' });
   if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
-    return jsonResponse({ success: false, error: 'This account has been disabled.' });
+    return apiResponse(e, { success: false, error: 'This account has been disabled.' });
   }
 
   const sessionToken = createUserSession_(user.ParticipantID);
-  if (fastMode) return jsonResponse({
+  if (fastMode) return apiResponse(e, {
     success: true,
     fast: true,
     sessionToken: sessionToken,
@@ -427,21 +427,21 @@ function getUserDashboard(pin, fastMode) {
     appVersion: CONFIG.APP_VERSION
   });
 
-  return buildDashboardResponse_(user, sessionToken);
+  return buildDashboardResponse_(user, sessionToken, e);
 }
 
-function getUserDashboardFromSession_(token, fastMode) {
+function getUserDashboardFromSession_(token, fastMode, e) {
   const participantID = verifyUserSession_(token);
-  if (!participantID) return jsonResponse({ success: false, error: 'Your saved sign-in has expired. Please enter your PIN again.' });
+  if (!participantID) return apiResponse(e, { success: false, error: 'Your saved sign-in has expired. Please enter your PIN again.' });
 
   const user = findUserByParticipantId_(participantID);
-  if (!user) return jsonResponse({ success: false, error: 'This saved account no longer exists.' });
+  if (!user) return apiResponse(e, { success: false, error: 'This saved account no longer exists.' });
   if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
-    return jsonResponse({ success: false, error: 'This account has been disabled.' });
+    return apiResponse(e, { success: false, error: 'This account has been disabled.' });
   }
 
   const refreshedToken = createUserSession_(user.ParticipantID);
-  if (fastMode) return jsonResponse({
+  if (fastMode) return apiResponse(e, {
     success: true,
     fast: true,
     sessionToken: refreshedToken,
@@ -452,11 +452,11 @@ function getUserDashboardFromSession_(token, fastMode) {
     appVersion: CONFIG.APP_VERSION
   });
 
-  return buildDashboardResponse_(user, refreshedToken);
+  return buildDashboardResponse_(user, refreshedToken, e);
 }
 
 
-function buildDashboardResponse_(user, sessionToken) {
+function buildDashboardResponse_(user, sessionToken, e) {
   const sheets = getCachedSheets_([
     CONFIG.CATEGORIES_SHEET,
     CONFIG.LINKS_SHEET,
@@ -486,6 +486,10 @@ function buildDashboardResponse_(user, sessionToken) {
   const blocked = {};
   blockedCategories.forEach(function(row) {
     if (!parseBoolean(row.Active)) return;
+    const appliesTo = String(row.AppliesTo || 'all').trim().toLowerCase();
+    // 'participants' rules (e.g. the Leaders / Staff category) do not hide
+    // content from Leader accounts.
+    if (appliesTo.indexOf('participant') !== -1 && isLeaderSection_(user.AgeYear, user.AgeGroup)) return;
     const key = String(row.CategoryKey || '').trim().toLowerCase();
     if (key) blocked[key] = true;
   });
@@ -520,7 +524,7 @@ function buildDashboardResponse_(user, sessionToken) {
     if (!allowed[categoryKey]) return false;
 
     // Never surface inactive links to the client.
-    if (Object.prototype.hasOwnProperty.call(link, 'Active') && !parseBoolean(link.Active)) return false;
+    if (!isActiveValue_(link.Active)) return false;
 
     // Apply the existing block lists server-side so blocked content never
     // reaches a user's dashboard.
@@ -542,7 +546,7 @@ function buildDashboardResponse_(user, sessionToken) {
     };
   });
 
-  return jsonResponse({
+  return apiResponse(e, {
     success: true,
     sessionToken: sessionToken || '',
     sessionExpiresAt: sessionToken ? Date.now() + USER_SESSION_TTL_MS : null,
@@ -670,13 +674,20 @@ function isURLBlocked_(url, rows) {
   return false;
 }
 
+const USER_PROPERTY_NAMES_ = {
+  participantid: 'ParticipantID', pin: 'PIN', name: 'Name', username: 'Username',
+  email: 'Email', allowedcategories: 'AllowedCategories', password: 'Password',
+  parentemail: 'ParentEmail', parentname: 'ParentName', scoutgroup: 'ScoutGroup',
+  ageyear: 'AgeYear', agegroup: 'AgeGroup', status: 'Status', eoireceived: 'EOIReceived',
+  accountcreated: 'AccountCreated', paperworkstatus: 'PaperworkStatus',
+  emailstatus: 'EmailStatus', notes: 'Notes'
+};
+
 function rowToMappedUser_(info, rowNumber) {
   const row = info.sheet.getRange(rowNumber, 1, 1, info.lastColumn).getValues()[0];
   const user = {};
   Object.keys(info.map).forEach(function(key) {
-    const col = info.map[key];
-    const property = key === 'participantid' ? 'ParticipantID' : key === 'pin' ? 'PIN' : key === 'name' ? 'Name' : key === 'username' ? 'Username' : key === 'email' ? 'Email' : key === 'allowedcategories' ? 'AllowedCategories' : key === 'password' ? 'Password' : key === 'parentemail' ? 'ParentEmail' : key === 'parentname' ? 'ParentName' : key === 'scoutgroup' ? 'ScoutGroup' : key === 'ageyear' ? 'AgeYear' : key === 'status' ? 'Status' : key === 'eoireceived' ? 'EOIReceived' : key === 'accountcreated' ? 'AccountCreated' : key === 'paperworkstatus' ? 'PaperworkStatus' : key === 'emailstatus' ? 'EmailStatus' : key === 'notes' ? 'Notes' : key === 'agegroup' ? 'AgeGroup' : key;
-    user[property] = row[col - 1];
+    user[USER_PROPERTY_NAMES_[key] || key] = row[info.map[key] - 1];
   });
   return user;
 }
@@ -689,13 +700,16 @@ function findUserByParticipantId_(participantID) {
   return getUserByColumnValue_('ParticipantID', participantID);
 }
 
+var USER_SECRET_MEMO_ = '';
 function ensureUserSessionSecret_() {
+  if (USER_SECRET_MEMO_) return USER_SECRET_MEMO_;
   const props = PropertiesService.getScriptProperties();
   let secret = String(props.getProperty(USER_SESSION_SECRET_PROPERTY) || '').trim();
   if (!secret) {
     secret = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
     props.setProperty(USER_SESSION_SECRET_PROPERTY, secret);
   }
+  USER_SECRET_MEMO_ = secret;
   return secret;
 }
 
@@ -761,19 +775,21 @@ function credentialsForClient_(user) {
     PIN: String(user && user.PIN || '').trim(),
     Password: String(user && user.Password || '').trim(),
     Email: String(user && user.Email || '').trim(),
+    ParentEmail: String(user && user.ParentEmail || '').trim(),
+    ParentName: String(user && user.ParentName || '').trim(),
     Name: String(user && user.Name || '').trim()
   };
 }
 
-function getUserCredentialsFromSession_(token) {
+function getUserCredentialsFromSession_(token, e) {
   const participantID = verifyUserSession_(token);
-  if (!participantID) return jsonResponse({ success: false, error: 'Your saved sign-in has expired. Please sign in again.' });
+  if (!participantID) return apiResponse(e, { success: false, error: 'Your saved sign-in has expired. Please sign in again.' });
   const user = findUserByParticipantId_(participantID);
-  if (!user) return jsonResponse({ success: false, error: 'This saved account no longer exists.' });
+  if (!user) return apiResponse(e, { success: false, error: 'This saved account no longer exists.' });
   if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
-    return jsonResponse({ success: false, error: 'This account has been disabled.' });
+    return apiResponse(e, { success: false, error: 'This account has been disabled.' });
   }
-  return jsonResponse({
+  return apiResponse(e, {
     success: true,
     credentials: credentialsForClient_(user),
     sessionExpiresAt: Date.now() + USER_SESSION_TTL_MS
@@ -889,6 +905,13 @@ function parseBoolean(value) {
   if (value === true || value === 1) return true;
   const text = String(value || '').trim().toLowerCase();
   return text === 'true' || text === 'yes' || text === '1' || text === 'active';
+}
+
+// Blank means "on"; only an explicit false/no/0/inactive hides a row.
+function isActiveValue_(value) {
+  const text = String(value == null ? '' : value).trim().toLowerCase();
+  if (!text) return true;
+  return !(text === 'false' || text === 'no' || text === '0' || text === 'inactive' || text === 'off');
 }
 
 function parseAccessLevel(value) {
@@ -1308,6 +1331,10 @@ function convertActivitiesToCategories(activities) {
   if (text.includes('activit')) categories.push('activities');
   if (text.includes('world') || text.includes('international')) categories.push('international');
   if (text.includes('resource') || text.includes('help')) categories.push('resources');
+
+  // Official event pages are open to everyone who registers.
+  categories.push('event', 'website');
+  if (text.includes('minecraft') || text.includes('game')) categories.push('terraria');
 
   return [...new Set(categories)].join(',');
 }
@@ -2904,7 +2931,7 @@ function setupEOISystem() {
       'Which activities would your child like access to?',
       'I understand this is only an Expression of Interest',
       'I understand further paperwork/permissions may be required before participation',
-      'I agree to the Terms & Conditions'
+      'I agree the the terms and conditions (link below)'
     ],
     'EmailLog': ['Timestamp','AdminEmail','RecipientEmail','ParticipantID','RecipientType','Subject','Status','Error'],
     'EmailGroups': ['GroupKey','GroupName','ParticipantIDs','Active','Notes'],
@@ -2918,20 +2945,34 @@ function setupEOISystem() {
     'EmailTemplates': ['TemplateKey','Subject','Body/HTML Notes']
   };
 
+  // Hard requirements: the sheets the website cannot run without. Header
+  // comparison ignores case, spacing and curly quotes so harmless formatting
+  // differences (e.g. padded Form headers) never block setup.
+  const hardSheets = ['Users', 'Categories', 'Links', 'Logos'];
   const problems = [];
+  const warnings = [];
   Object.keys(requiredSchema).forEach(function(sheetName) {
-    const sheet = spreadsheet.getSheetByName(sheetName);
+    let sheet = spreadsheet.getSheetByName(sheetName);
+    if (!sheet && (sheetName === 'EmailLog' || sheetName === 'EmailGroups')) {
+      sheet = spreadsheet.insertSheet(sheetName);
+      sheet.getRange(1, 1, 1, requiredSchema[sheetName].length).setValues([requiredSchema[sheetName]]);
+      warnings.push('Created missing sheet: ' + sheetName);
+      return;
+    }
     if (!sheet) {
-      problems.push('Missing sheet: ' + sheetName);
+      (hardSheets.indexOf(sheetName) !== -1 ? problems : warnings).push('Missing sheet: ' + sheetName);
       return;
     }
     const headerCount = sheet.getLastColumn();
-    const headers = headerCount ? sheet.getRange(1,1,1,headerCount).getValues()[0].map(function(v){return String(v || '').trim();}) : [];
+    const headers = headerCount ? sheet.getRange(1,1,1,headerCount).getValues()[0].map(normaliseHeader) : [];
+    const strict = hardSheets.indexOf(sheetName) !== -1 || sheetName === 'EmailLog' || sheetName === 'EmailGroups';
     requiredSchema[sheetName].forEach(function(header) {
-      if (headers.indexOf(header) === -1) problems.push('Missing header in ' + sheetName + ': ' + header);
+      if (headers.indexOf(normaliseHeader(header)) === -1) {
+        (strict ? problems : warnings).push('Missing header in ' + sheetName + ': ' + header);
+      }
     });
   });
-  if (problems.length) throw new Error('The attached spreadsheet structure was not changed. Fix the existing workbook before running setup:\n\n' + problems.join('\n'));
+  if (problems.length) throw new Error('Please fix these in the spreadsheet, then run setup again:\n\n' + problems.join('\n'));
 
   // Remove only this application's Form submit trigger and any old trigger
   // whose handler is clearly part of the retired backup/restore system.
@@ -2951,7 +2992,7 @@ function setupEOISystem() {
   clearSheetCache();
   SpreadsheetApp.flush();
 
-  const message = 'Boulder Scout Group JOTA-JOTI setup complete.\n\nThe existing spreadsheet structure was validated unchanged.\nUsers remain the single source of truth.\nThe onFormSubmit trigger is installed.\n\nAdmin password: ' + generatedAdminPassword;
+  const message = 'Boulder Scout Group JOTA-JOTI setup complete.\n\nSetup validated.\nUsers remain the single source of truth.\nThe onFormSubmit trigger is installed.' + (warnings.length ? '\n\nNotes:\n' + warnings.join('\n') : '') + '\n\nAdmin password: ' + generatedAdminPassword;
   Logger.log(message);
   try { SpreadsheetApp.getUi().alert(message); } catch (uiError) {}
   return message;

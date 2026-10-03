@@ -89,6 +89,41 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             } catch (_) {}
         })();
 
+        // Google Apps Script ContentService responses are redirected and do not
+        // reliably expose CORS headers to GitHub Pages fetch(). Use the backend's
+        // supported JSONP transport for read-only API calls instead.
+        let jsonpSequence = 0;
+        function apiGetJsonp(url, options = {}, timeoutMs = 7500) {
+            return new Promise((resolve, reject) => {
+                if (options.signal && options.signal.aborted) {
+                    reject(new DOMException('Request aborted', 'AbortError'));
+                    return;
+                }
+                const callback = '__jotaJsonp' + Date.now() + '_' + (++jsonpSequence);
+                const script = document.createElement('script');
+                let settled = false;
+                const cleanup = () => {
+                    if (settled) return;
+                    settled = true;
+                    window.clearTimeout(timer);
+                    script.remove();
+                    try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+                    if (options.signal) options.signal.removeEventListener('abort', onAbort);
+                };
+                const onAbort = () => { cleanup(); reject(new DOMException('Request aborted', 'AbortError')); };
+                const timer = window.setTimeout(() => {
+                    cleanup();
+                    reject(new Error('The sign-in service did not respond in time.'));
+                }, timeoutMs);
+                window[callback] = data => { cleanup(); resolve(data); };
+                script.onerror = () => { cleanup(); reject(new Error('Could not load the sign-in service.')); };
+                if (options.signal) options.signal.addEventListener('abort', onAbort, { once: true });
+                script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + encodeURIComponent(callback);
+                script.async = true;
+                document.head.appendChild(script);
+            });
+        }
+
         function fetchWithTimeout(url, options = {}, timeoutMs = 7500) {
             const controller = new AbortController();
             const externalSignal = options.signal;
@@ -126,13 +161,11 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             loginPrefetchPin = pin;
             loginPrefetchController = new AbortController();
             const seq = ++loginRequestSequence;
-            loginPrefetch = fetchWithTimeout(
+            loginPrefetch = apiGetJsonp(
                 `${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&r=${seq}`,
-                { cache: 'no-store', signal: loginPrefetchController.signal },
+                { signal: loginPrefetchController.signal },
                 6500
-            )
-                .then(response => response.ok ? response.json() : null)
-                .catch(() => null);
+            ).catch(() => null);
         }
 
         async function loginRequest(pin) {
@@ -146,36 +179,27 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
                 if (early) return early;
             }
 
-            const response = await fetchWithTimeout(
+            return await apiGetJsonp(
                 `${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&r=${Date.now()}`,
-                { cache: 'no-store' },
-                7500
+                {}, 7500
             );
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
         }
 
         async function sessionRequest(token, fastMode = false) {
             if (!token) throw new Error('Missing saved session');
             const fast = fastMode ? '&fast=1' : '';
-            const response = await fetchWithTimeout(
+            return await apiGetJsonp(
                 `${API_URL}?action=session${fast}&token=${encodeURIComponent(token)}&r=${Date.now()}`,
-                { cache: 'no-store' },
-                fastMode ? 4500 : 7500
+                {}, fastMode ? 4500 : 7500
             );
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
         }
 
         async function credentialsRequest(token) {
             if (!token) throw new Error('Missing saved session');
-            const response = await fetchWithTimeout(
+            return await apiGetJsonp(
                 `${API_URL}?action=credentials&token=${encodeURIComponent(token)}&r=${Date.now()}`,
-                { cache: 'no-store' },
-                4500
+                {}, 4500
             );
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
         }
 
         function credentialsAreComplete_(value) {
@@ -929,11 +953,10 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             const dot=document.getElementById('portal-network-dot');
             const text=document.getElementById('portal-network-text');
             if (!dot || !text) return;
-            fetchWithTimeout(
+            apiGetJsonp(
                 `${API_URL}?action=health&_=${Date.now()}`,
-                {cache:'no-store'},
-                3500
-            ).then(r=>r.json()).then(data=>{
+                {}, 3500
+            ).then(data=>{
                 if(data&&data.success){
                     dot.className='portal-network-dot ok';
                     text.innerText=silent?'Ready':'Dashboard service connected';
@@ -1137,8 +1160,7 @@ const EVENT_START_ISO = window.JOTA_CONFIG.EVENT_START_ISO;
             const dot = document.getElementById('status-dot');
             const text = document.getElementById('status-text');
             try {
-                const response = await fetch(`${API_URL}?action=health&_=${Date.now()}`, { cache: 'no-store' });
-                const data = await response.json();
+                const data = await apiGetJsonp(`${API_URL}?action=health&_=${Date.now()}`, {}, 4500);
                 if (data && data.success) {
                     dot.className = 'status-dot status-ok';
                     text.innerText = 'Connected';

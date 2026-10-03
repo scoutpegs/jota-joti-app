@@ -12,7 +12,7 @@ The setup creates exactly one application Form submit trigger for `onFormSubmit`
 Deploy the Apps Script as a web app and copy its `/exec` URL into `config.js` if the packaged value is different.
 
 ## GitHub Pages
-Upload the package root to the existing Boulder Scout repository. Keep `Code.gs` out of the public root if you do not want the backend source public. Keep any private workbook and credentials out of GitHub.
+Upload the package root to the existing Boulder Scout repository. `Code.gs` may remain in the public root because this package is open source by design. Never publish the private workbook, participant credentials, or Apps Script deployment secrets.
 
 ## Email test before sending to families
 Run `testParentEmail()` from Apps Script and confirm the message goes to the Google account that is running the script. For a Leader, submit a test EOI marked Leader and confirm the Leader receives SFH 3 instructions instead of the Y3 workflow.
