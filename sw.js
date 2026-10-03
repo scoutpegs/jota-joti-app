@@ -1,5 +1,5 @@
 // JOTA-JOTI Dashboard PWA service worker
-const CACHE_NAME = 'jota-joti-shell-v10';
+const CACHE_NAME = 'jota-joti-shell-v11';
 
 const APP_SHELL = [
   './index.html',

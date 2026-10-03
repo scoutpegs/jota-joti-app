@@ -1,4 +1,4 @@
-        const API_URL = "https://script.google.com/macros/s/AKfycbxVuaODBuBIpa49j1Se_l9bNEC9RGHFK_H_4QSQ6Uo73ezriIDn4h_anjJCicYBXfJX/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbwYi0tF7kjXnZr2EM8eyMe1evYAvt2-m_SLk3OCjUQzbbnlxJsgXs0TcGjXVClbbWyc/exec";
 
         /* ==========================================================
            COMBINED PORTAL CONFIGURATION
@@ -85,7 +85,7 @@
                 const pin = localStorage.getItem(SAVED_PIN_KEY);
                 if (!pin || !/^\d{4}$/.test(pin)) return;
                 loginPrefetchPin = pin;
-                loginPrefetch = fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
+                loginPrefetch = fetch(`${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
                     .then(r => r.json())
                     .catch(() => null);
             } catch (_) {}
@@ -99,7 +99,12 @@
                 const early = await pending;
                 if (early) return early;
             }
-            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
+            const response = await fetch(`${API_URL}?action=login&fast=1&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
+            return await response.json();
+        }
+
+        async function dashboardRequest(pin) {
+            const response = await fetch(`${API_URL}?action=dashboard&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
             return await response.json();
         }
 
@@ -166,7 +171,7 @@
                 }
             }
 
-            window.setTimeout(() => checkPortalConnection(true), 4200);
+            window.setTimeout(() => checkPortalConnection(true), 9000);
         }
 
         function setDashboardView(view) { dashboardView = view; }
@@ -402,7 +407,7 @@
             if (!pin || !/^\d{4}$/.test(pin)) return;
             backgroundRefreshInFlight=true;
             try {
-                const data=await loginRequest(pin);
+                const data=await dashboardRequest(pin);
                 if (!data || !data.success || !data.user) {
                     clearRememberedSession(); localStorage.removeItem(SAVED_PIN_KEY);
                     sessionUser=null; dashboardData=null; setDashboardView('login'); updateTopNavigation();
@@ -769,56 +774,122 @@
             hideLoginError();
             document.getElementById('retry-btn').style.display = 'none';
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('welcome-name').innerText = pin === 'guest' ? `${getGreeting()}, Guest!` : 'Checking your details...';
-            const loadingText=document.getElementById('welcome-loading-text');
-            if (loadingText) loadingText.innerText=pin==='guest'?'Loading guest dashboard…':'Checking your account and loading dashboard…';
-            const loader=document.getElementById('welcome-screen');
-            loader.classList.remove('is-closing');
-            loader.style.display='flex';
+
+            const welcome = document.getElementById('welcome-screen');
+            const welcomeName = document.getElementById('welcome-name');
+            const loadingText = document.getElementById('welcome-loading-text');
+            const cachedDashboard = pin === 'guest' ? null : loadDashboardCache(pin);
+
+            welcomeName.innerText = pin === 'guest' ? `${getGreeting()}, Guest!` : 'Checking your PIN...';
+            if (loadingText) loadingText.innerText = pin === 'guest'
+                ? 'Loading guest dashboard…'
+                : 'Checking your account…';
+
+            welcome.classList.remove('is-closing');
+            welcome.style.display = 'flex';
+
+            // Start both requests immediately. The small identity response can
+            // update the welcome message while the larger dashboard response
+            // is still arriving. Returning users can use their local dashboard
+            // cache instantly while the fresh copy updates in the background.
+            const identityPromise = loginRequest(pin);
+            const dashboardPromise = pin === 'guest' ? dashboardRequest(pin) : dashboardRequest(pin);
 
             try {
-                const data = await loginRequest(pin);
+                const identity = await identityPromise;
 
-                if (!data.success || !data.user) {
+                if (!identity || !identity.success || !identity.user) {
                     clearRememberedSession();
                     localStorage.removeItem(SAVED_PIN_KEY);
                     sessionUser = null;
                     dashboardData = null;
                     resetLoginForm();
-                    loader.classList.add('is-closing');
-                    window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },300);
+                    welcome.classList.add('is-closing');
+                    window.setTimeout(() => {
+                        welcome.style.display = 'none';
+                        welcome.classList.remove('is-closing');
+                    }, 220);
                     document.getElementById('login-screen').style.display = 'block';
                     document.getElementById('dashboard-screen').style.display = 'none';
                     document.getElementById('submenu-screen').style.display = 'none';
                     document.getElementById('prelogin-note').style.display = isFinalDayOrLater() ? 'none' : 'block';
                     document.getElementById('back-to-timer-button').style.display = isFinalDayOrLater() ? 'none' : 'block';
                     document.getElementById('signup-button').style.display = 'block';
-                    showLoginError(data.error || 'Invalid PIN.');
+                    showLoginError(identity.error || 'Invalid PIN.');
                     updateTopNavigation();
                     return;
                 }
 
-                sessionUser = data.user;
-                dashboardData = {
-                    categories: Array.isArray(data.categories) ? data.categories : [],
-                    links: Array.isArray(data.links) ? data.links : [],
-                    logos: Array.isArray(data.logos) ? data.logos : []
-                };
+                sessionUser = identity.user;
+                welcomeName.innerText = pin === 'guest'
+                    ? `${getGreeting()}, Guest!`
+                    : `Logging you in as ${sessionUser.Name || 'Scout'}…`;
+                if (loadingText) loadingText.innerText = 'Loading your dashboard…';
 
                 if (pin !== 'guest') {
                     localStorage.setItem(SAVED_PIN_KEY, pin);
                     saveRememberedSession(pin, sessionUser);
-                    saveDashboardCache(pin, dashboardData);
+                    document.getElementById('forget-btn').style.display = 'block';
+                }
+
+                // Paint the cached dashboard immediately when available.
+                if (cachedDashboard) {
+                    dashboardData = cachedDashboard;
+                    saveDashboardCache(pin, cachedDashboard);
+
+                    // The fresh dashboard continues in the background.
+                    dashboardPromise.then(fresh => {
+                        if (!fresh || !fresh.success || !fresh.user) return;
+                        dashboardData = {
+                            categories: Array.isArray(fresh.categories) ? fresh.categories : [],
+                            links: Array.isArray(fresh.links) ? fresh.links : [],
+                            logos: Array.isArray(fresh.logos) ? fresh.logos : []
+                        };
+                        sessionUser = fresh.user;
+                        saveRememberedSession(pin, sessionUser);
+                        saveDashboardCache(pin, dashboardData);
+                        if (isFinalDayOrLater()) {
+                            buildDashboard({force:true, reason:'background-dashboard-refresh'});
+                        }
+                    }).catch(() => {});
+                } else {
+                    const full = await dashboardPromise;
+                    if (!full || !full.success || !full.user) {
+                        throw new Error(full && full.error ? full.error : 'Could not load the dashboard.');
+                    }
+                    sessionUser = full.user;
+                    dashboardData = {
+                        categories: Array.isArray(full.categories) ? full.categories : [],
+                        links: Array.isArray(full.links) ? full.links : [],
+                        logos: Array.isArray(full.logos) ? full.logos : []
+                    };
+
+                    if (pin !== 'guest') {
+                        saveRememberedSession(pin, sessionUser);
+                        saveDashboardCache(pin, dashboardData);
+                    }
                 }
             } catch (error) {
                 resetLoginForm();
-                const rememberedLoader=document.getElementById('welcome-screen');
-                rememberedLoader.classList.add('is-closing');
-                window.setTimeout(()=>{ rememberedLoader.style.display='none'; rememberedLoader.classList.remove('is-closing'); },360);
-                if (rememberedSessionLoaded && sessionUser) {
-                    updateTopNavigation(); updatePortalGreeting();
+                welcome.classList.add('is-closing');
+                window.setTimeout(() => {
+                    welcome.style.display = 'none';
+                    welcome.classList.remove('is-closing');
+                }, 220);
+
+                if (cachedDashboard && sessionUser) {
+                    updateTopNavigation();
+                    updatePortalGreeting();
+                    if (isFinalDayOrLater()) {
+                        dashboardView = 'categories';
+                        buildDashboard({force:true, reason:'cached-after-error'});
+                        ensureDashboardScreenOnly();
+                    }
                     return;
                 }
+
+                sessionUser = null;
+                dashboardData = null;
                 document.getElementById('login-screen').style.display = 'block';
                 document.getElementById('dashboard-screen').style.display = 'none';
                 showLoginError('Could not reach the sign-in system. Check your connection and try again.');
@@ -827,25 +898,27 @@
                 return;
             }
 
-            document.getElementById('welcome-name').innerText = `${getGreeting()}, ${sessionUser.Name || 'Scout'}!`;
+            welcomeName.innerText = `${getGreeting()}, ${sessionUser.Name || 'Scout'}!`;
 
-            setTimeout(() => {
-                const loader=document.getElementById('welcome-screen');
-                loader.classList.add('is-closing');
-                window.setTimeout(()=>{ loader.style.display='none'; loader.classList.remove('is-closing'); },300);
+            window.setTimeout(() => {
+                welcome.classList.add('is-closing');
+                window.setTimeout(() => {
+                    welcome.style.display = 'none';
+                    welcome.classList.remove('is-closing');
+                }, 220);
 
                 updatePortalGreeting();
                 updateTopNavigation();
 
                 if (isFinalDayOrLater()) {
-                    dashboardView='categories';
-                    openDashboardMode({source:'login-success',preserveView:true,animate:true});
+                    dashboardView = 'categories';
+                    openDashboardMode({source:'login-success', preserveView:true, animate:true});
                     return;
                 }
 
                 showTimerMode();
                 updatePortalGreeting();
-            }, 500);
+            }, 120);
         }
 
         function logout() {
