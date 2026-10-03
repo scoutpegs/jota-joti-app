@@ -6,51 +6,61 @@ const CONFIG = {
   BLOCKED_URLS_SHEET: 'BlockedURLs',
   BLOCKED_CATEGORIES_SHEET: 'BlockedCategories',
   SETTINGS_SHEET: 'Settings',
-  EMAIL_LOG_SHEET: 'EmailLog',
-  EMAIL_GROUPS_SHEET: 'EmailGroups',
-  EMAIL_TEMPLATES_SHEET: 'EmailTemplates',
+
+  BACKUP_FOLDER_NAME: 'JOTA-JOTI Backups',
+  BACKUPS_TO_KEEP: 14,
 
   WEBSITE_URL: 'https://scoutpegs.github.io/jota-joti-app/',
-  APP_VERSION: '2026.10.03-login-transport-2',
   SCOUT_GROUP: 'Boulder Scout Group',
-  SFH3_URL: 'https://learn.scout.org/resource/sfh-3-being-safe-online',
 
+  // Admin security. The first setup creates a random admin password and
+  // stores it in Script Properties. The GitHub /admin page exchanges that
+  // password for a short-lived session token before any private action.
   ADMIN_PASSWORD_PROPERTY: 'JOTA_JOTI_ADMIN_PASSWORD',
   ADMIN_SESSION_PREFIX: 'JOTA_JOTI_ADMIN_SESSION_',
   ADMIN_SESSION_TTL_SECONDS: 21600,
+  EMAIL_LOG_SHEET: 'EmailLog',
+  EMAIL_GROUPS_SHEET: 'EmailGroups',
 
-  // Leave blank when this project is opened from the exact Google Sheet.
-  // setupEOISystem() saves the bound spreadsheet ID to Script Properties.
-  SPREADSHEET_ID: ''
+  // Live Google Sheet used by the JOTA-JOTI system. Keeping the ID here
+  // prevents a web-app execution from accidentally binding to another sheet.
+  SPREADSHEET_ID: '1l6ZXb8ah7HrnE5D75nNtpu3IdQ-mpg1-M6RvsbBxJGk',
+
+  // Current deployed Apps Script web-app URL. This is documentation only;
+  // the GitHub admin page has its own copy in admin.js.
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbxVuaODBuBIpa49j1Se_l9bNEC9RGHFK_H_4QSQ6Uo73ezriIDn4h_anjJCicYBXfJX/exec'
 };
 
-const USER_SESSION_SECRET_PROPERTY = 'JOTA_JOTI_USER_SESSION_SECRET';
-const USER_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
-const CACHE_TTL_PUBLIC = 21600;
+/* ------------------------------------------------------------
+   CACHING
+   ------------------------------------------------------------
+   The old value here was 45 seconds, which meant nearly every
+   visitor triggered a fresh read of the whole spreadsheet. The
+   cache is now cleared the instant anything is edited (see onEdit
+   at the bottom of this file), so it is safe to hold data far
+   longer.
+   ------------------------------------------------------------ */
+
+const CACHE_TTL_SECONDS = 21600;   // kept so older code paths still work
+const CACHE_TTL_PUBLIC  = 21600;   // 6 hours: Categories, Links, Logos, Blocked*
+const CACHE_TTL_USERS   = 600;     // 10 minutes: Users
+const USER_INDEX_KEY    = 'userindex_v2';
+
+/* One web request equals one Apps Script execution. These let a single
+   request open the spreadsheet once instead of five or six times, which
+   was the single biggest cause of slow page loads. */
+var SS_ = null;
+var SHEET_CACHE_ = {};
+var SHEET_DATA_MEMO_ = {};
+var USER_INDEX_MEMO_ = null;
 const CACHEABLE_SHEETS = [
   CONFIG.CATEGORIES_SHEET,
   CONFIG.LINKS_SHEET,
   CONFIG.LOGOS_SHEET,
   CONFIG.BLOCKED_URLS_SHEET,
-  CONFIG.BLOCKED_CATEGORIES_SHEET
+  CONFIG.BLOCKED_CATEGORIES_SHEET,
+  CONFIG.USERS_SHEET,
 ];
-
-// Per-execution spreadsheet and sheet references. Users are deliberately
-// never stored in Script Cache: every login/registration request reads the
-// live Users sheet, which is the single source of truth.
-var SS_ = null;
-var SHEET_CACHE_ = {};
-var SHEET_DATA_MEMO_ = {};
-var USERS_HEADER_INFO_ = null;
-
-function normaliseLookupValue(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9@._-]+/g, ' ')
-    .trim();
-}
 
 /* ============================================================
    API ROUTER
@@ -66,134 +76,59 @@ function doPost(e) {
 
 function handleRequest(e) {
   try {
-    const params = e && e.parameter ? e.parameter : {};
-    const action = String(params.action || '').trim();
-    const pin = String(params.pin || '').trim();
+    const action = e && e.parameter ? String(e.parameter.action || '').trim() : '';
+    const pin = e && e.parameter ? e.parameter.pin || '' : '';
+    const callback = e && e.parameter ? String(e.parameter.callback || '').trim() : '';
 
-    if (action === 'health') {
-      return apiResponse(e, {
-        success: true,
-        message: 'JOTA-JOTI API is running',
-        organiser: CONFIG.SCOUT_GROUP,
-        unofficial: true,
-        serverTime: new Date().toISOString()
-      });
-    }
-
-    if (action === 'diagnostics') {
-      return apiResponse(e, runDiagnostics());
-    }
-
-    if (action === 'version') {
-      return apiResponse(e, {
-        success: true,
-        organiser: CONFIG.SCOUT_GROUP,
-        usersSource: CONFIG.USERS_SHEET,
-        website: CONFIG.WEBSITE_URL,
-        version: CONFIG.APP_VERSION
-      });
-    }
-
-    if (action === 'login') {
-      return getUserDashboard(pin, String(params.fast || '') === '1', e);
-    }
-
-    if (action === 'user') {
-      const token = String(params.token || '').trim();
-      if (token) return getUserDashboardFromSession_(token, false, e);
-      return getUserDashboard(pin, false, e);
-    }
-
-    if (action === 'session') {
-      return getUserDashboardFromSession_(
-        String(params.token || '').trim(),
-        String(params.fast || '') === '1', e
-      );
-    }
-
-    if (action === 'credentials') {
-      return getUserCredentialsFromSession_(String(params.token || '').trim(), e);
-    }
-
-    if (action === 'logout') {
-      // User sessions are signed/stateless. Logout is completed client-side by
-      // deleting the trusted-device token; no server storage is involved.
-      return apiResponse(e, { success: true });
-    }
-
-    if (action === 'categories') {
-      return apiResponse(e, { success: true, categories: getCachedSheetData(CONFIG.CATEGORIES_SHEET) });
-    }
-
-    if (action === 'links') {
-      return apiResponse(e, { success: true, links: getCachedSheetData(CONFIG.LINKS_SHEET) });
-    }
-
-    if (action === 'logos') {
-      return apiResponse(e, { success: true, logos: getCachedSheetData(CONFIG.LOGOS_SHEET) });
-    }
-
-    if (action === 'blocks') {
-      return apiResponse(e, {
-        success: true,
-        blockedURLs: getCachedSheetData(CONFIG.BLOCKED_URLS_SHEET),
-        blockedCategories: getCachedSheetData(CONFIG.BLOCKED_CATEGORIES_SHEET)
-      });
-    }
-
-    if (action === 'all') {
-      return getAllPublicData();
-    }
-
+    // Standalone browser Email Admin API.
+    // The GitHub admin page uses ordinary CORS/fetch requests. JSONP remains
+    // supported only for backward compatibility with older clients.
     if (action === 'adminLogin') {
       return apiResponse(e, adminLogin(e));
     }
 
-    // Legacy admin action names are retained for old frontends, but they now
-    // use the same password/session protection as the current admin API.
+    // Standalone no-sign-in admin endpoints. These are deliberately separate
+    // from the password/session-protected admin endpoints so the same script
+    // can support both the public participant site and a standalone admin page.
+    // IMPORTANT: do not publish the standalone admin page publicly unless you
+    // accept that these endpoints can expose Users data and send email.
     if (action === 'openAdminUsers') {
-      requireAdminToken(e);
       return apiResponse(e, adminListUsers());
     }
+
     if (action === 'openAdminSections') {
-      requireAdminToken(e);
       return apiResponse(e, adminListAgeGroups());
     }
+
     if (action === 'openAdminCategories') {
-      requireAdminToken(e);
       return apiResponse(e, adminListCategories());
     }
+
     if (action === 'openAdminGroups') {
-      requireAdminToken(e);
       return apiResponse(e, adminListGroups());
     }
-    if (action === 'openAdminSender') {
-      requireAdminToken(e);
-      return apiResponse(e, getAdminSenderResponse_());
-    }
-    if (action === 'openAdminPreview') {
-      requireAdminToken(e);
-      const payload = decodeStandaloneEmailPayload(e);
-      return apiResponse(e, Object.assign({ success: true }, adminPreviewBulkEmail(payload)));
-    }
-    if (action === 'openAdminSend') {
-      requireAdminToken(e);
-      const payload = decodeStandaloneEmailPayload(e);
-      return apiResponse(e, Object.assign({ success: true }, adminSendBulkEmail(payload)));
-    }
 
-    if (action === 'adminPing') {
-      requireAdminToken(e);
+    if (action === 'openAdminSender') {
+      let sender = '';
+      let quota = null;
+      try { sender = String(Session.getEffectiveUser().getEmail() || '').trim(); } catch (err) {}
+      try { quota = MailApp.getRemainingDailyQuota(); } catch (err) {}
       return apiResponse(e, {
         success: true,
-        message: 'JOTA-JOTI admin API is working',
-        serverTime: new Date().toISOString()
+        sender: sender,
+        quota: quota,
+        organiser: CONFIG.SCOUT_GROUP
       });
     }
 
-    if (action === 'adminBootstrap') {
-      requireAdminToken(e);
-      return apiResponse(e, adminBootstrap());
+    if (action === 'openAdminPreview') {
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, Object.assign({ success: true }, adminPreviewBulkEmail(payload)));
+    }
+
+    if (action === 'openAdminSend') {
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, Object.assign({ success: true }, adminSendBulkEmail(payload)));
     }
 
     if (action === 'adminUsers') {
@@ -218,7 +153,12 @@ function handleRequest(e) {
 
     if (action === 'adminSender') {
       requireAdminToken(e);
-      return apiResponse(e, getAdminSenderResponse_());
+      return apiResponse(e, {
+        success: true,
+        sender: String(Session.getEffectiveUser().getEmail() || '').trim(),
+        quota: MailApp.getRemainingDailyQuota(),
+        organiser: CONFIG.SCOUT_GROUP
+      });
     }
 
     if (action === 'adminPreview') {
@@ -233,51 +173,87 @@ function handleRequest(e) {
       return apiResponse(e, Object.assign({ success: true }, adminSendBulkEmail(payload)));
     }
 
-    if (action === 'adminUserTraining') {
-      requireAdminToken(e);
-      return apiResponse(e, adminUpdateLeaderTrainingStatus(
-        params.participantId,
-        params.trainingStatus,
-        params.scoutLearnStatus
-      ));
+    if (action === 'adminPing') {
+      return apiResponse(e, {
+        success: true,
+        message: 'JOTA-JOTI admin API is working',
+        serverTime: new Date().toISOString()
+      });
     }
 
-    if (action === 'adminSearchUser') {
-      requireAdminToken(e);
-      return apiResponse(e, adminSearchUser(params.query || ''));
+    if (action === 'health') {
+      return apiResponse(e, {
+        success: true,
+        message: 'JOTA-JOTI API is running',
+        organiser: CONFIG.SCOUT_GROUP,
+        unofficial: true,
+        serverTime: new Date().toISOString()
+      });
     }
 
-    return apiResponse(e, {
+    if (action === 'diagnostics') {
+      return apiResponse(e, runDiagnostics());
+    }
+
+    if (action === 'login' || action === 'user') {
+      // getUserDashboard already checks the PIN, the Status column and guest
+      // mode, so calling loginUser first just did all the work twice.
+      return getUserDashboard(pin);
+    }
+
+    if (action === 'categories') {
+      return jsonResponse({ success: true, categories: getCachedSheetData(CONFIG.CATEGORIES_SHEET) });
+    }
+
+    if (action === 'links') {
+      return jsonResponse({ success: true, links: getCachedSheetData(CONFIG.LINKS_SHEET) });
+    }
+
+    if (action === 'logos') {
+      return jsonResponse({ success: true, logos: getCachedSheetData(CONFIG.LOGOS_SHEET) });
+    }
+
+    if (action === 'blocks') {
+      return jsonResponse({
+        success: true,
+        blockedURLs: getCachedSheetData(CONFIG.BLOCKED_URLS_SHEET),
+        blockedCategories: getCachedSheetData(CONFIG.BLOCKED_CATEGORIES_SHEET)
+      });
+    }
+
+    if (action === 'all') {
+      return getAllPublicData();
+    }
+
+    return jsonResponse({
       success: true,
       message: 'JOTA-JOTI API is running',
       organiser: CONFIG.SCOUT_GROUP,
-      appVersion: CONFIG.APP_VERSION,
       unofficial: true,
       endpoints: {
         health: '?action=health',
-        version: '?action=version',
         diagnostics: '?action=diagnostics',
         login: '?action=login&pin=1234',
-        user: '?action=user&token=...',
-        session: '?action=session&token=...',
+        user: '?action=user&pin=1234',
         categories: '?action=categories',
         links: '?action=links',
         logos: '?action=logos',
         blocks: '?action=blocks',
         all: '?action=all',
-        adminLogin: '?action=adminLogin&payload=...',
-        adminBootstrap: '?action=adminBootstrap&token=...',
-        adminUsers: '?action=adminUsers&token=...',
-        adminSections: '?action=adminSections&token=...',
-        adminCategories: '?action=adminCategories&token=...',
-        adminGroups: '?action=adminGroups&token=...',
-        adminSender: '?action=adminSender&token=...',
-        adminPreview: '?action=adminPreview&token=...',
-        adminSend: '?action=adminSend&token=...'
+        adminPing: '?action=adminPing',
+        adminLogin: '?action=adminLogin&payload=...&callback=...',
+        adminUsers: '?action=adminUsers&token=...&callback=...',
+        adminSections: '?action=adminSections&callback=...',
+        adminCategories: '?action=adminCategories&token=...&callback=...',
+        adminGroups: '?action=adminGroups&token=...&callback=...',
+        adminSender: '?action=adminSender&callback=...',
+        adminPreview: '?action=adminPreview&payload=...&callback=...',
+        adminSend: '?action=adminSend&payload=...&callback=...'
       }
     });
+
   } catch (error) {
-    return apiResponse(e, { success: false, error: error && error.message ? error.message : String(error) });
+    return apiResponse(e, { success: false, error: error.message || String(error) });
   }
 }
 
@@ -290,7 +266,7 @@ function runDiagnostics() {
   const sheetNames = [
     CONFIG.USERS_SHEET, CONFIG.CATEGORIES_SHEET, CONFIG.LINKS_SHEET,
     CONFIG.LOGOS_SHEET, CONFIG.BLOCKED_URLS_SHEET, CONFIG.BLOCKED_CATEGORIES_SHEET,
-    CONFIG.SETTINGS_SHEET, CONFIG.EMAIL_LOG_SHEET, CONFIG.EMAIL_GROUPS_SHEET, CONFIG.EMAIL_TEMPLATES_SHEET
+    CONFIG.SETTINGS_SHEET, CONFIG.EMAIL_LOG_SHEET, CONFIG.EMAIL_GROUPS_SHEET
   ];
 
   const sheetReport = sheetNames.map(function(name) {
@@ -298,14 +274,26 @@ function runDiagnostics() {
     return { sheet: name, exists: !!sheet, rowCount: sheet ? Math.max(0, sheet.getLastRow() - 1) : 0 };
   });
 
+  const triggers = ScriptApp.getProjectTriggers().map(function(trigger) {
+    return { function: trigger.getHandlerFunction(), type: String(trigger.getEventType()) };
+  });
+
+  let samplePins = [];
+  try {
+    samplePins = getSheetData(CONFIG.USERS_SHEET).slice(0, 5).map(function(u) { return String(u.PIN || ''); });
+  } catch (err) {
+    samplePins = ['(could not read Users sheet: ' + err.message + ')'];
+  }
+
   return {
     success: true,
-    appVersion: CONFIG.APP_VERSION,
     spreadsheetName: spreadsheet.getName(),
+    spreadsheetId: spreadsheet.getId(),
     scriptTimeZone: Session.getScriptTimeZone(),
     serverTime: new Date().toISOString(),
     sheets: sheetReport,
-    userStore: CONFIG.USERS_SHEET
+    triggersInstalled: triggers,
+    samplePinsInUsersSheet: samplePins
   };
 }
 
@@ -316,12 +304,13 @@ function runDiagnostics() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('JOTA-JOTI Admin')
-    .addItem('Run full setup / validate spreadsheet', 'setupEOISystem')
-    .addItem('Show installed system version', 'showSystemVersion')
+    .addItem('Run full setup (first time / after big changes)', 'setupEOISystem')
     .addSeparator()
     .addItem('Manage a scout\'s account', 'showAdminPanel')
+    .addSeparator()
+    .addItem('Create backup now', 'runManualBackup')
     .addItem('Check installed triggers', 'runManualTriggerCheck')
-    .addItem('Clear cached dashboard data', 'runManualClearCache')
+    .addItem('Clear cached data (force refresh)', 'runManualClearCache')
     .addSeparator()
     .addItem('Send me a test welcome email', 'testParentEmail')
     .addItem('Show admin password', 'showAdminPassword')
@@ -329,13 +318,9 @@ function onOpen() {
     .addToUi();
 }
 
-function showSystemVersion() {
-  SpreadsheetApp.getUi().alert('Boulder Scout Group JOTA-JOTI', 'Backend version: ' + CONFIG.APP_VERSION + '\nUsers sheet: ' + CONFIG.USERS_SHEET + '\nAccount storage: Users sheet', SpreadsheetApp.getUi().ButtonSet.OK);
-}
-
 function showAdminPassword() {
   const password = ensureAdminPassword_();
-  SpreadsheetApp.getUi().alert('JOTA-JOTI Admin password', password + '\n\nKeep this password private.', SpreadsheetApp.getUi().ButtonSet.OK);
+  SpreadsheetApp.getUi().alert('JOTA-JOTI Admin password', password + '\n\nKeep this private.', SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 function resetAdminPassword() {
@@ -344,13 +329,18 @@ function resetAdminPassword() {
   if (response !== ui.Button.YES) return;
   const password = Utilities.getUuid().replace(/-/g, '').slice(0, 10) + 'Jj!';
   PropertiesService.getScriptProperties().setProperty(CONFIG.ADMIN_PASSWORD_PROPERTY, password);
-  ui.alert('New admin password', password + '\n\nKeep this password private.', ui.ButtonSet.OK);
+  ui.alert('New admin password', password + '\n\nKeep this private.', ui.ButtonSet.OK);
+}
+
+function runManualBackup() {
+  const name = backupSpreadsheetToDrive();
+  SpreadsheetApp.getUi().alert('Backup created: ' + name + '\n\nFind it in your Drive, in a folder called "' + CONFIG.BACKUP_FOLDER_NAME + '".');
 }
 
 function runManualTriggerCheck() {
   const triggers = checkEOITrigger();
-  if (!triggers.length) {
-    SpreadsheetApp.getUi().alert('No triggers are installed. Run "Run full setup / validate spreadsheet" first.');
+  if (triggers.length === 0) {
+    SpreadsheetApp.getUi().alert('No triggers are installed. Run "Run full setup" from this menu first.');
     return;
   }
   const lines = triggers.map(function(t) { return '• ' + t.function + ' (' + t.type + ')'; });
@@ -359,7 +349,7 @@ function runManualTriggerCheck() {
 
 function runManualClearCache() {
   clearSheetCache();
-  SpreadsheetApp.getUi().alert('Public dashboard cache cleared. Users are always read live.');
+  SpreadsheetApp.getUi().alert('Cache cleared. The dashboard and API will read fresh data on the next request.');
 }
 
 function showAdminPanel() {
@@ -375,20 +365,44 @@ function showAdminPanel() {
 
 
 function getCachedSheetData(sheetName) {
-  if (CACHEABLE_SHEETS.indexOf(sheetName) === -1) {
-    return getSheetData(sheetName);
-  }
   return getCachedSheets_([sheetName])[sheetName] || [];
 }
 
+
+function cacheSheetData(sheetName, data) {
+  try {
+    const payload = {};
+    putChunked_(payload, 'sheet_' + sheetName, JSON.stringify(data));
+    CacheService.getScriptCache().putAll(
+      payload,
+      sheetName === CONFIG.USERS_SHEET ? CACHE_TTL_USERS : CACHE_TTL_PUBLIC
+    );
+  } catch (err) {
+    // Caching is best-effort. A failure here should never break the response.
+  }
+}
+
+
 function clearSheetCache() {
   SHEET_DATA_MEMO_ = {};
-  try {
-    const cache = CacheService.getScriptCache();
-    cache.removeAll(CACHEABLE_SHEETS.map(function(name) { return 'sheet_' + name; }));
-  } catch (err) {
-    // Optional cache cleanup must never affect the main application.
-  }
+  USER_INDEX_MEMO_ = null;
+
+  // Was six lookups plus six deletes. Now one of each.
+  const cache = CacheService.getScriptCache();
+  const bases = CACHEABLE_SHEETS.map(function(name) { return 'sheet_' + name; });
+  bases.push(USER_INDEX_KEY);
+
+  const metas = cache.getAll(bases.map(function(b) { return b + '_meta'; })) || {};
+  const keys = [];
+
+  bases.forEach(function(base) {
+    keys.push(base + '_meta');
+    const meta = metas[base + '_meta'];
+    const count = (meta === undefined || meta === null) ? 0 : (parseInt(meta, 10) || 0);
+    for (let i = 0; i < count; i++) keys.push(base + '_' + i);
+  });
+
+  if (keys.length) cache.removeAll(keys);
 }
 
 /* ============================================================
@@ -396,100 +410,60 @@ function clearSheetCache() {
    ============================================================ */
 
 
-function getUserDashboard(pin, fastMode, e) {
+function getUserDashboard(pin) {
   const rawPin = String(pin || '').trim();
-  if (!rawPin) return apiResponse(e, { success: false, error: 'PIN required' });
+  if (!rawPin) return jsonResponse({ success: false, error: 'PIN required' });
 
-  if (rawPin.toLowerCase() === 'guest') {
-    const guest = {
+  // Check the PIN before touching any sheet, so a wrong PIN comes back
+  // immediately instead of loading the whole dashboard first.
+  const isGuest = rawPin.toLowerCase() === 'guest';
+  let user;
+
+  if (isGuest) {
+    user = {
       ParticipantID: '', PIN: 'guest', Name: 'Guest Scout', Username: 'GuestScout',
       Email: '', Password: '', AllowedCategories: '*', Status: 'Active',
       PaperworkStatus: 'Not Required'
     };
-    return buildDashboardResponse_(guest, '', e)
+  } else {
+    user = getUserIndex_()[rawPin.toLowerCase()];
+
+    if (!user) return jsonResponse({ success: false, error: 'PIN not found' });
+
+    if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
+      return jsonResponse({ success: false, error: 'This account has been disabled.' });
+    }
   }
 
-  const user = findUserByPin_(rawPin);
-  if (!user) return apiResponse(e, { success: false, error: 'PIN not found' });
-  if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
-    return apiResponse(e, { success: false, error: 'This account has been disabled.' });
-  }
-
-  const sessionToken = createUserSession_(user.ParticipantID);
-  if (fastMode) return apiResponse(e, {
-    success: true,
-    fast: true,
-    sessionToken: sessionToken,
-    sessionExpiresAt: Date.now() + USER_SESSION_TTL_MS,
-    user: sanitisedUserForLogin_(user),
-    credentials: credentialsForClient_(user),
-    organiser: CONFIG.SCOUT_GROUP,
-    appVersion: CONFIG.APP_VERSION
-  });
-
-  return buildDashboardResponse_(user, sessionToken, e);
-}
-
-function getUserDashboardFromSession_(token, fastMode, e) {
-  const participantID = verifyUserSession_(token);
-  if (!participantID) return apiResponse(e, { success: false, error: 'Your saved sign-in has expired. Please enter your PIN again.' });
-
-  const user = findUserByParticipantId_(participantID);
-  if (!user) return apiResponse(e, { success: false, error: 'This saved account no longer exists.' });
-  if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
-    return apiResponse(e, { success: false, error: 'This account has been disabled.' });
-  }
-
-  const refreshedToken = createUserSession_(user.ParticipantID);
-  if (fastMode) return apiResponse(e, {
-    success: true,
-    fast: true,
-    sessionToken: refreshedToken,
-    sessionExpiresAt: Date.now() + USER_SESSION_TTL_MS,
-    user: sanitisedUserForLogin_(user),
-    credentials: credentialsForClient_(user),
-    organiser: CONFIG.SCOUT_GROUP,
-    appVersion: CONFIG.APP_VERSION
-  });
-
-  return buildDashboardResponse_(user, refreshedToken, e);
-}
-
-
-function buildDashboardResponse_(user, sessionToken, e) {
+  // All four sheets in one cache round trip instead of eight.
   const sheets = getCachedSheets_([
     CONFIG.CATEGORIES_SHEET,
     CONFIG.LINKS_SHEET,
     CONFIG.LOGOS_SHEET,
-    CONFIG.BLOCKED_URLS_SHEET,
     CONFIG.BLOCKED_CATEGORIES_SHEET
   ]);
 
   const categories = sheets[CONFIG.CATEGORIES_SHEET] || [];
   const links = sheets[CONFIG.LINKS_SHEET] || [];
   const logos = sheets[CONFIG.LOGOS_SHEET] || [];
-  const blockedURLs = sheets[CONFIG.BLOCKED_URLS_SHEET] || [];
   const blockedCategories = sheets[CONFIG.BLOCKED_CATEGORIES_SHEET] || [];
 
   let allowedCategories = [];
   const rawCategories = String(user.AllowedCategories || '');
+
   if (rawCategories.trim() === '*' || !rawCategories.trim()) {
-    allowedCategories = categories.map(function(category) {
-      return String(category.CategoryKey || '').trim().toLowerCase();
-    }).filter(Boolean);
+    allowedCategories = categories
+      .map(function(category) { return String(category.CategoryKey || '').trim().toLowerCase(); })
+      .filter(function(key) { return key !== ''; });
   } else {
     allowedCategories = rawCategories.split(',').map(function(item) {
       return String(item).trim().toLowerCase();
-    }).filter(Boolean);
+    }).filter(function(item) { return item !== ''; });
   }
 
   const blocked = {};
   blockedCategories.forEach(function(row) {
     if (!parseBoolean(row.Active)) return;
-    const appliesTo = String(row.AppliesTo || 'all').trim().toLowerCase();
-    // 'participants' rules (e.g. the Leaders / Staff category) do not hide
-    // content from Leader accounts.
-    if (appliesTo.indexOf('participant') !== -1 && isLeaderSection_(user.AgeYear, user.AgeGroup)) return;
     const key = String(row.CategoryKey || '').trim().toLowerCase();
     if (key) blocked[key] = true;
   });
@@ -505,34 +479,26 @@ function buildDashboardResponse_(user, sessionToken, e) {
     if (key) logoMap[key] = String(logo.LogoURL || '').trim();
   });
 
-  const filteredCategories = categories.filter(function(category) {
+  const filteredCategories = [];
+  categories.forEach(function(category) {
     const key = String(category.CategoryKey || '').trim().toLowerCase();
-    return !!allowed[key];
-  }).map(function(category) {
+    if (!allowed[key]) return;
     const logoKey = String(category.LogoKey || '').trim();
-    return {
+    filteredCategories.push({
       CategoryKey: category.CategoryKey || '',
       Title: category.Title || '',
       LogoKey: logoKey,
       LogoURL: (logoKey && logoMap[logoKey]) ? logoMap[logoKey] : String(category.LogoURL || '').trim(),
       Description: category.Description || ''
-    };
+    });
   });
 
-  const filteredLinks = links.filter(function(link) {
+  const filteredLinks = [];
+  links.forEach(function(link) {
     const categoryKey = String(link.CategoryKey || '').trim().toLowerCase();
-    if (!allowed[categoryKey]) return false;
-
-    // Never surface inactive links to the client.
-    if (!isActiveValue_(link.Active)) return false;
-
-    // Apply the existing block lists server-side so blocked content never
-    // reaches a user's dashboard.
-    if (isURLBlocked_(String(link.URL || '').trim(), blockedURLs)) return false;
-    return true;
-  }).map(function(link) {
+    if (!allowed[categoryKey]) return;
     const logoKey = String(link.LogoKey || '').trim();
-    return {
+    filteredLinks.push({
       LinkID: link.LinkID || '', CategoryKey: link.CategoryKey || '', Title: link.Title || '',
       URL: link.URL || '', CanEmbed: parseBoolean(link.CanEmbed),
       RequiresLogin: parseAccessLevel(link.RequiresLogin),
@@ -543,27 +509,17 @@ function buildDashboardResponse_(user, sessionToken, e) {
       LogoKey: logoKey,
       LogoURL: (logoKey && logoMap[logoKey]) ? logoMap[logoKey] : String(link.LogoURL || '').trim(),
       BlockStatus: link.BlockStatus || '', Notes: link.Notes || ''
-    };
+    });
   });
 
-  return apiResponse(e, {
+  return jsonResponse({
     success: true,
-    sessionToken: sessionToken || '',
-    sessionExpiresAt: sessionToken ? Date.now() + USER_SESSION_TTL_MS : null,
     user: {
-      ParticipantID: user.ParticipantID || '',
-      Name: user.Name || '',
-      Username: user.Username || '',
-      Email: String(user.Email || '').trim(),
-      AllowedCategories: user.AllowedCategories || '',
-      Status: user.Status || '',
-      PaperworkStatus: user.PaperworkStatus || '',
-      AgeYear: user.AgeYear || '',
-      AgeGroup: user.AgeGroup || '',
-      IsLeader: isLeaderSection_(user.AgeYear, user.AgeGroup),
-      LeaderTrainingStatus: isLeaderSection_(user.AgeYear, user.AgeGroup) ? getLeaderTrainingStatus_(user) : ''
+      ParticipantID: user.ParticipantID || '', PIN: user.PIN || '', Name: user.Name || '',
+      Username: user.Username || '', Email: String(user.Email || '').trim(),
+      Password: String(user.Password || ''), AllowedCategories: user.AllowedCategories || '',
+      Status: user.Status || '', PaperworkStatus: user.PaperworkStatus || ''
     },
-    credentials: credentialsForClient_(user),
     categories: filteredCategories,
     links: filteredLinks,
     logos: logos,
@@ -572,275 +528,30 @@ function buildDashboardResponse_(user, sessionToken, e) {
   });
 }
 
-function getUsersHeaderMap_() {
-  if (USERS_HEADER_INFO_) return USERS_HEADER_INFO_;
+/* ============================================================
+   LOGIN VERIFICATION
+   ============================================================ */
 
-  const sheet = getSheet_(CONFIG.USERS_SHEET);
-  const lastColumn = Math.max(1, sheet.getLastColumn());
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
-  const map = {};
-  headers.forEach(function(header, index) {
-    const key = normaliseHeader(header);
-    if (key) map[key] = index + 1;
-  });
-
-  USERS_HEADER_INFO_ = {sheet: sheet, lastColumn: lastColumn, map: map};
-  return USERS_HEADER_INFO_;
-}
-
-function getUserByColumnValue_(columnName, value) {
-  const wanted = normaliseLookupValue(value);
-  if (!wanted) return null;
-
-  const info = getUsersHeaderMap_();
-  const column = info.map[normaliseHeader(columnName)];
-  const lastRow = info.sheet.getLastRow();
-  if (!column || lastRow < 2) return null;
-
-  // Fast path: let Sheets locate the exact displayed cell on the specific
-  // column instead of transferring the whole column to Apps Script.
-  try {
-    const targetRange = info.sheet.getRange(2, column, lastRow - 1, 1);
-    const hit = targetRange.createTextFinder(String(value).trim())
-      .matchCase(false)
-      .matchEntireCell(true)
-      .useRegularExpression(false)
-      .findNext();
-    if (hit) return rowToMappedUser_(info, hit.getRow());
-  } catch (err) {
-    // Fall through to a small, deterministic read if TextFinder is unavailable.
-  }
-
-  // Compatibility fallback for number-vs-text PIN cells and unusual Sheets
-  // formatting. This is still limited to the one lookup column.
-  const values = info.sheet.getRange(2, column, lastRow - 1, 1).getDisplayValues();
-  for (let i = 0; i < values.length; i++) {
-    if (normaliseLookupValue(values[i][0]) !== wanted) continue;
-    return rowToMappedUser_(info, i + 2);
-  }
-  return null;
-}
-
-
-function normaliseBlockDomain_(domain) {
-  return String(domain || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^\*:\/\/(?:\*\.)?/i, '')
-    .replace(/^www\./i, '')
-    .replace(/\/+$/, '');
-}
-
-function isURLBlocked_(url, rows) {
-  const value = String(url || '').trim();
-  if (!value || !Array.isArray(rows) || !rows.length) return false;
-
-  const hostMatch = value.match(/^(?:[a-z][a-z0-9+.-]*:)?\/\/(?:[^@\/]+@)?([^\/:]+)(?::\d+)?(?:[\/]|$)/i);
-  const hostname = hostMatch ? String(hostMatch[1] || '').toLowerCase().replace(/^www\./, '') : '';
-  const fullUrl = value.toLowerCase();
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i] || {};
-    if (!parseBoolean(row.Active)) continue;
-
-    const domain = normaliseBlockDomain_(row.Domain);
-    const pattern = String(row.URLPattern || '').trim();
-
-    let domainMatch = false;
-    if (domain && hostname) {
-      domainMatch = hostname === domain || hostname.endsWith('.' + domain);
-    }
-
-    let patternMatch = false;
-    if (pattern) {
-      const blockType = String(row.BlockType || '').trim().toLowerCase();
-      if (blockType.indexOf('regex') !== -1) {
-        try {
-          patternMatch = new RegExp(pattern, 'i').test(value);
-        } catch (_) {
-          patternMatch = fullUrl.indexOf(pattern.toLowerCase()) !== -1;
-        }
-      } else {
-        patternMatch = fullUrl.indexOf(pattern.toLowerCase()) !== -1;
-      }
-    }
-
-    if ((domain && pattern && domainMatch && patternMatch) ||
-        (domain && !pattern && domainMatch) ||
-        (!domain && pattern && patternMatch)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-const USER_PROPERTY_NAMES_ = {
-  participantid: 'ParticipantID', pin: 'PIN', name: 'Name', username: 'Username',
-  email: 'Email', allowedcategories: 'AllowedCategories', password: 'Password',
-  parentemail: 'ParentEmail', parentname: 'ParentName', scoutgroup: 'ScoutGroup',
-  ageyear: 'AgeYear', agegroup: 'AgeGroup', status: 'Status', eoireceived: 'EOIReceived',
-  accountcreated: 'AccountCreated', paperworkstatus: 'PaperworkStatus',
-  emailstatus: 'EmailStatus', notes: 'Notes'
-};
-
-function rowToMappedUser_(info, rowNumber) {
-  const row = info.sheet.getRange(rowNumber, 1, 1, info.lastColumn).getValues()[0];
-  const user = {};
-  Object.keys(info.map).forEach(function(key) {
-    user[USER_PROPERTY_NAMES_[key] || key] = row[info.map[key] - 1];
-  });
-  return user;
-}
-
-function findUserByPin_(pin) {
-  const wanted = normaliseLookupValue(pin);
-  if (!wanted) return null;
-
-  // Login is the hottest endpoint. Read the Users table once and find the
-  // matching PIN in memory; this avoids the slower TextFinder + second row
-  // fetch used by the generic lookup helper. The Users sheet remains the
-  // live source of truth and is not written to or cached between executions.
-  const sheet = getSheet_(CONFIG.USERS_SHEET);
-  const values = sheet.getDataRange().getValues();
-  if (!values || values.length < 2) return null;
-
-  const headers = values[0].map(function(header) { return String(header || '').trim(); });
-  const pinIndex = headers.findIndex(function(header) {
-    return normaliseHeader(header) === 'pin';
-  });
-  if (pinIndex < 0) return null;
-
-  const propertyKeys = headers.map(function(header) {
-    const key = normaliseHeader(header);
-    return USER_PROPERTY_NAMES_[key] || key;
-  });
-
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    if (normaliseLookupValue(values[rowIndex][pinIndex]) !== wanted) continue;
-    const user = {};
-    for (let columnIndex = 0; columnIndex < propertyKeys.length; columnIndex++) {
-      const key = propertyKeys[columnIndex];
-      if (!key) continue;
-      user[key] = values[rowIndex][columnIndex];
-    }
-    return user;
-  }
-
-  return null;
-}
-
-function findUserByParticipantId_(participantID) {
-  return getUserByColumnValue_('ParticipantID', participantID);
-}
-
-var USER_SECRET_MEMO_ = '';
-function ensureUserSessionSecret_() {
-  if (USER_SECRET_MEMO_) return USER_SECRET_MEMO_;
-  const props = PropertiesService.getScriptProperties();
-  let secret = String(props.getProperty(USER_SESSION_SECRET_PROPERTY) || '').trim();
-  if (!secret) {
-    secret = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-    props.setProperty(USER_SESSION_SECRET_PROPERTY, secret);
-  }
-  USER_SECRET_MEMO_ = secret;
-  return secret;
-}
-
-function base64UrlEncodeText_(text) {
-  return Utilities.base64Encode(Utilities.newBlob(String(text || '')).getBytes())
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function base64UrlDecodeText_(text) {
-  const normalized = String(text || '').replace(/-/g, '+').replace(/_/g, '/');
-  const padded = normalized + '==='.slice((normalized.length + 3) % 4);
-  return Utilities.newBlob(Utilities.base64Decode(padded)).getDataAsString('UTF-8');
-}
-
-function createUserSession_(participantID) {
-  const payload = {
-    pid: String(participantID || ''),
-    iat: Date.now(),
-    exp: Date.now() + USER_SESSION_TTL_MS
-  };
-  const body = base64UrlEncodeText_(JSON.stringify(payload));
-  const signature = hashText_(body + '.' + ensureUserSessionSecret_());
-  return body + '.' + signature;
-}
-
-function verifyUserSession_(token) {
-  const text = String(token || '').trim();
-  const parts = text.split('.');
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return '';
-  const expected = hashText_(parts[0] + '.' + ensureUserSessionSecret_());
-  if (parts[1] !== expected) return '';
-
-  try {
-    const payload = JSON.parse(base64UrlDecodeText_(parts[0]));
-    if (!payload || !payload.pid || !payload.exp) return '';
-    if (Number(payload.exp) <= Date.now()) return '';
-    return String(payload.pid).trim();
-  } catch (err) {
-    return '';
-  }
-}
 
 function loginUser(pin) {
   const rawPin = String(pin || '').trim();
   if (!rawPin) return { success: false, error: 'PIN required' };
-  const user = findUserByPin_(rawPin);
+
+  const user = getUserIndex_()[rawPin.toLowerCase()];
   if (!user) return { success: false, error: 'PIN not found' };
+
   if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
     return { success: false, error: 'This account has been disabled.' };
   }
+
   return {
     success: true,
-    sessionToken: createUserSession_(user.ParticipantID),
-    user: sanitisedUserForLogin_(user),
-    credentials: credentialsForClient_(user)
-  };
-}
-
-function credentialsForClient_(user) {
-  return {
-    ParticipantID: String(user && user.ParticipantID || '').trim(),
-    Username: String(user && user.Username || '').trim(),
-    PIN: String(user && user.PIN || '').trim(),
-    Password: String(user && user.Password || '').trim(),
-    Email: String(user && user.Email || '').trim(),
-    ParentEmail: String(user && user.ParentEmail || '').trim(),
-    ParentName: String(user && user.ParentName || '').trim(),
-    Name: String(user && user.Name || '').trim()
-  };
-}
-
-function getUserCredentialsFromSession_(token, e) {
-  const participantID = verifyUserSession_(token);
-  if (!participantID) return apiResponse(e, { success: false, error: 'Your saved sign-in has expired. Please sign in again.' });
-  const user = findUserByParticipantId_(participantID);
-  if (!user) return apiResponse(e, { success: false, error: 'This saved account no longer exists.' });
-  if (String(user.Status || '').trim().toLowerCase() === 'disabled') {
-    return apiResponse(e, { success: false, error: 'This account has been disabled.' });
-  }
-  return apiResponse(e, {
-    success: true,
-    credentials: credentialsForClient_(user),
-    sessionExpiresAt: Date.now() + USER_SESSION_TTL_MS
-  });
-}
-
-function sanitisedUserForLogin_(user) {
-  return {
-    ParticipantID: user.ParticipantID || '',
-    Name: user.Name || '',
-    Username: user.Username || '',
-    Email: String(user.Email || '').trim(),
-    Status: user.Status || '',
-    PaperworkStatus: user.PaperworkStatus || '',
-    AgeYear: user.AgeYear || '',
-    AgeGroup: user.AgeGroup || '',
-    IsLeader: isLeaderSection_(user.AgeYear, user.AgeGroup),
-    LeaderTrainingStatus: isLeaderSection_(user.AgeYear, user.AgeGroup) ? getLeaderTrainingStatus_(user) : ''
+    user: {
+      ParticipantID: user.ParticipantID || '', PIN: user.PIN || '', Name: user.Name || '',
+      Username: user.Username || '', Email: String(user.Email || '').trim(),
+      AllowedCategories: user.AllowedCategories || '', Status: user.Status || '',
+      PaperworkStatus: user.PaperworkStatus || ''
+    }
   };
 }
 
@@ -872,65 +583,75 @@ function getAllPublicData() {
 function getSpreadsheet_() {
   if (SS_) return SS_;
 
+  // The old version ran a Script Properties read AND a write on every call,
+  // and every getSheetData call triggered it. That was roughly ten extra
+  // service round trips per page load for no benefit.
   const configuredId = String(CONFIG.SPREADSHEET_ID || '').trim();
   if (configuredId) {
     try {
       SS_ = SpreadsheetApp.openById(configuredId);
       return SS_;
-    } catch (err) {}
+    } catch (err) {
+      // fall through to the slower lookups below
+    }
   }
 
   const props = PropertiesService.getScriptProperties();
   const savedId = String(props.getProperty('JOTA_JOTI_SPREADSHEET_ID') || '').trim();
-  if (savedId) {
+
+  if (savedId && savedId !== configuredId) {
     try {
       SS_ = SpreadsheetApp.openById(savedId);
       return SS_;
-    } catch (err) {}
+    } catch (err) {
+      // fall through
+    }
   }
 
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) {
     SS_ = active;
-    props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
+    if (savedId !== active.getId()) {
+      props.setProperty('JOTA_JOTI_SPREADSHEET_ID', active.getId());
+    }
     return SS_;
   }
 
-  throw new Error('JOTA-JOTI cannot open the Boulder Scout Group spreadsheet. Run setupEOISystem() from the attached Google Sheet first.');
+  throw new Error(
+    'JOTA-JOTI cannot open the configured Google Sheet. Confirm that the Apps Script account has access to spreadsheet ' +
+    CONFIG.SPREADSHEET_ID + '.'
+  );
 }
 
+
 function getSheetData(sheetName) {
-  // Users is authoritative account data. Never memoise it, even inside a
-  // reused V8 execution, so registration/login/admin reads always see the
-  // current sheet contents. Public reference sheets may use the per-execution
-  // memo safely.
-  const canMemoise = CACHEABLE_SHEETS.indexOf(sheetName) !== -1;
-  if (canMemoise && Object.prototype.hasOwnProperty.call(SHEET_DATA_MEMO_, sheetName)) {
+  if (Object.prototype.hasOwnProperty.call(SHEET_DATA_MEMO_, sheetName)) {
     return SHEET_DATA_MEMO_[sheetName];
   }
 
   const sheet = getSheet_(sheetName);
   const values = sheet.getDataRange().getValues();
+
   if (!values || values.length < 2) {
-    if (canMemoise) SHEET_DATA_MEMO_[sheetName] = [];
-    return [];
+    SHEET_DATA_MEMO_[sheetName] = [];
+    return SHEET_DATA_MEMO_[sheetName];
   }
 
-  const headers = values[0].map(function(header) { return String(header || '').trim(); });
+  const headers = values[0].map(function(header) { return String(header).trim(); });
   const rows = [];
+
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
     const item = {};
     let hasData = false;
     for (let j = 0; j < headers.length; j++) {
-      if (!headers[j]) continue;
       item[headers[j]] = row[j];
-      if (!hasData && String(row[j] == null ? '' : row[j]).trim() !== '') hasData = true;
+      if (!hasData && String(row[j]).trim() !== '') hasData = true;
     }
     if (hasData) rows.push(item);
   }
 
-  if (canMemoise) SHEET_DATA_MEMO_[sheetName] = rows;
+  SHEET_DATA_MEMO_[sheetName] = rows;
   return rows;
 }
 
@@ -938,13 +659,6 @@ function parseBoolean(value) {
   if (value === true || value === 1) return true;
   const text = String(value || '').trim().toLowerCase();
   return text === 'true' || text === 'yes' || text === '1' || text === 'active';
-}
-
-// Blank means "on"; only an explicit false/no/0/inactive hides a row.
-function isActiveValue_(value) {
-  const text = String(value == null ? '' : value).trim().toLowerCase();
-  if (!text) return true;
-  return !(text === 'false' || text === 'no' || text === '0' || text === 'inactive' || text === 'off');
 }
 
 function parseAccessLevel(value) {
@@ -1122,13 +836,6 @@ function onFormSubmit(e) {
     const usersSheet = spreadsheet.getSheetByName(CONFIG.USERS_SHEET);
     if (!usersSheet) throw new Error('The Users sheet does not exist.');
 
-    const formEventKey = buildFormEventKey_(e);
-    const previouslyProcessed = readProcessedFormEvent_(formEventKey);
-    if (previouslyProcessed) {
-      console.info('Ignoring duplicate form event: ' + formEventKey + ' → ' + previouslyProcessed);
-      return true;
-    }
-
     const data = {};
     if (e.namedValues) {
       Object.keys(e.namedValues).forEach(function(key) {
@@ -1154,71 +861,42 @@ function onFormSubmit(e) {
     const childFirstName = getFlexibleFormValue(data, ['Child First Name', 'Child first name', 'First Name', 'Child Name']);
     const childLastName = getFlexibleFormValue(data, ['Child Last Name', 'Child last name', 'Last Name']);
     const ageGroup = getFlexibleFormValue(data, ['AgeGroup', 'Age Group', 'Scout Section', 'Section', 'Youth Section']);
-    const ageYear = getFlexibleFormValue(data, ["Child's age/year group", 'Child Age', 'Age', 'Year Group', 'Age/Year Group']);
+    const ageYear = getFlexibleFormValue(data, ["Child's age/year group", "Child's age/year group", 'Child Age', 'Age', 'Year Group', 'Age/Year Group']);
     const selectedActivities = getFlexibleFormValue(data, ['Which activities would your child like access to?', 'Activities', 'Activity']);
     const childEmail = getFlexibleFormValue(data, ["Child's Email", 'Child Email', 'Scout Email']);
 
     if (!parentEmail) throw new Error('Parent email address is missing.');
-    if (!validEmailAddress(parentEmail)) throw new Error('Parent email address is not valid.');
     if (!childFirstName) throw new Error('Child first name is missing.');
 
-    const isLeader = isLeaderSection_(ageYear, ageGroup);
-    const paperworkStatus = isLeader ? 'Course required' : 'Required';
-    const initialNotes = isLeader
-      ? 'Created automatically from Google Form Expression of Interest. Leader training: Course required. Scout Learn: Not required.'
-      : 'Created automatically from Google Form Expression of Interest.';
+    const participantID = generateParticipantID();
+    const pin = generateUniquePIN(usersSheet);
+    const username = generateUniqueUsername(usersSheet, childFirstName);
+    const password = generatePassword();
+    const allowedCategories = convertActivitiesToCategories(selectedActivities);
+    const now = new Date();
 
-    let account = null;
-    const lock = LockService.getScriptLock();
-    lock.waitLock(15000);
-    try {
-      // Load the live Users sheet once while the script lock is held, then
-      // generate the new identifiers from that one authoritative snapshot.
-      const existingUsers = getSheetData(CONFIG.USERS_SHEET);
-      const participantID = generateParticipantID(existingUsers);
-      const pin = generateUniquePIN(usersSheet, existingUsers);
-      const username = generateUniqueUsername(usersSheet, childFirstName, existingUsers);
-      const password = generatePassword();
-      const allowedCategories = convertActivitiesToCategories(selectedActivities);
-      const now = new Date();
+    addUserToSheet(usersSheet, {
+      ParticipantID: participantID, PIN: pin, Name: (childFirstName + ' ' + childLastName).trim(),
+      Username: username, Email: childEmail || '', AllowedCategories: allowedCategories,
+      Password: password, ParentEmail: parentEmail, ParentName: parentName,
+      ScoutGroup: CONFIG.SCOUT_GROUP, AgeGroup: ageGroup, AgeYear: ageYear, Status: 'Pending',
+      EOIReceived: now, AccountCreated: now, PaperworkStatus: 'Required',
+      EmailStatus: 'Pending', Notes: 'Created automatically from Google Form Expression of Interest.'
+    });
 
-      account = {
-        ParticipantID: participantID, PIN: pin, Name: (childFirstName + ' ' + childLastName).trim(),
-        Username: username, Email: childEmail || '', AllowedCategories: allowedCategories,
-        Password: password, ParentEmail: parentEmail, ParentName: parentName,
-        ScoutGroup: CONFIG.SCOUT_GROUP, AgeGroup: ageGroup, AgeYear: ageYear, Status: 'Pending',
-        EOIReceived: now, AccountCreated: now, PaperworkStatus: paperworkStatus,
-        EmailStatus: 'Pending', Notes: initialNotes
-      };
-
-      addUserToSheet(usersSheet, account);
-      SpreadsheetApp.flush();
-      rememberProcessedFormEvent_(formEventKey, account.ParticipantID);
-    } finally {
-      lock.releaseLock();
-    }
-
-    // The account write is the registration. Email delivery is secondary and
-    // must never cause the form trigger to create a duplicate account on retry.
+    SpreadsheetApp.flush();
     clearSheetCache();
+
     try {
-      if (isLeader) {
-        sendLeaderWelcomeEmail({
-          parentName: parentName, parentEmail: parentEmail, childFirstName: childFirstName,
-          childLastName: childLastName, ageYear: ageYear, participantID: account.ParticipantID,
-          username: account.Username, pin: account.PIN, password: account.Password
-        });
-      } else {
-        sendParentWelcomeEmail({
-          parentName: parentName, parentEmail: parentEmail, childFirstName: childFirstName,
-          childLastName: childLastName, ageYear: ageYear, participantID: account.ParticipantID,
-          username: account.Username, pin: account.PIN, password: account.Password, allowedCategories: account.AllowedCategories
-        });
-      }
-      updateUserEmailStatus(usersSheet, account.ParticipantID, 'Sent');
+      sendParentWelcomeEmail({
+        parentName: parentName, parentEmail: parentEmail, childFirstName: childFirstName,
+        childLastName: childLastName, ageYear: ageYear, participantID: participantID,
+        username: username, pin: pin, password: password, allowedCategories: allowedCategories
+      });
+      updateUserEmailStatus(usersSheet, participantID, 'Sent');
     } catch (emailError) {
-      updateUserEmailStatus(usersSheet, account.ParticipantID, 'Failed: ' + emailError.message);
-      console.error('Account created but onboarding email failed: ' + emailError.message);
+      updateUserEmailStatus(usersSheet, participantID, 'Failed: ' + emailError.message);
+      throw emailError;
     }
 
     return true;
@@ -1229,41 +907,20 @@ function onFormSubmit(e) {
   }
 }
 
-function buildFormEventKey_(event) {
-  try {
-    const spreadsheetId = String(getSpreadsheet_().getId() || 'sheet');
-    const sourceSheet = event && event.range && event.range.getSheet ? event.range.getSheet().getName() : 'form';
-    const row = event && event.range && event.range.getRow ? event.range.getRow() : '';
-    const named = event && event.namedValues ? JSON.stringify(event.namedValues) : '';
-    const raw = spreadsheetId + '|' + sourceSheet + '|' + row + '|' + named;
-    return 'EOI_EVENT_' + hashText_(raw).slice(0, 48);
-  } catch (err) {
-    return 'EOI_EVENT_FALLBACK_' + Utilities.getUuid().replace(/-/g, '');
-  }
-}
-
-function readProcessedFormEvent_(key) {
-  try {
-    if (!key) return '';
-    return String(PropertiesService.getScriptProperties().getProperty(key) || '').trim();
-  } catch (err) {
-    return '';
-  }
-}
-
-function rememberProcessedFormEvent_(key, participantID) {
-  try {
-    if (!key || !participantID) return;
-    PropertiesService.getScriptProperties().setProperty(String(key), String(participantID));
-  } catch (err) {
-    // Idempotency metadata is helpful but never part of the registration store.
-  }
-}
-
 function notifyAdminOfError(where, error) {
   try {
-    console.error('JOTA-JOTI error in ' + where + ': ' + (error && error.message ? error.message : String(error)));
-  } catch (notifyError) {}
+    const owner = Session.getEffectiveUser().getEmail();
+    if (!owner) return;
+    MailApp.sendEmail({
+      to: owner,
+      subject: 'JOTA-JOTI system error in ' + where,
+      body: 'The JOTA-JOTI Apps Script hit an error in ' + where + ':\n\n' +
+            (error && error.message ? error.message : String(error)) + '\n\n' +
+            'Check the Apps Script execution log for the full details (Extensions > Apps Script > Executions).'
+    });
+  } catch (notifyError) {
+    // Nothing more we can do here.
+  }
 }
 
 /* ============================================================
@@ -1299,8 +956,8 @@ function getFlexibleFormValue(data, possibleNames) {
   return '';
 }
 
-function generateParticipantID(existingUsers) {
-  const existing = Array.isArray(existingUsers) ? existingUsers : getSheetData(CONFIG.USERS_SHEET);
+function generateParticipantID() {
+  const existing = getSheetData(CONFIG.USERS_SHEET);
   const year = new Date().getFullYear();
   let number = existing.length + 1;
   let id = 'JOTI-' + year + '-' + String(number).padStart(6, '0');
@@ -1311,8 +968,8 @@ function generateParticipantID(existingUsers) {
   return id;
 }
 
-function generateUniquePIN(usersSheet, existingUsers) {
-  const users = Array.isArray(existingUsers) ? existingUsers : getSheetData(CONFIG.USERS_SHEET);
+function generateUniquePIN(usersSheet) {
+  const users = getSheetData(CONFIG.USERS_SHEET);
   let attempts = 0;
   while (attempts < 1000) {
     const pin = String(Math.floor(1000 + Math.random() * 9000));
@@ -1323,8 +980,8 @@ function generateUniquePIN(usersSheet, existingUsers) {
   throw new Error('Could not generate a unique PIN.');
 }
 
-function generateUniqueUsername(usersSheet, firstName, existingUsers) {
-  const users = Array.isArray(existingUsers) ? existingUsers : getSheetData(CONFIG.USERS_SHEET);
+function generateUniqueUsername(usersSheet, firstName) {
+  const users = getSheetData(CONFIG.USERS_SHEET);
   let cleanName = String(firstName || 'Scout').replace(/[^a-zA-Z0-9]/g, '');
   if (!cleanName) cleanName = 'Scout';
 
@@ -1365,10 +1022,6 @@ function convertActivitiesToCategories(activities) {
   if (text.includes('world') || text.includes('international')) categories.push('international');
   if (text.includes('resource') || text.includes('help')) categories.push('resources');
 
-  // Official event pages are open to everyone who registers.
-  categories.push('event', 'website');
-  if (text.includes('minecraft') || text.includes('game')) categories.push('terraria');
-
   return [...new Set(categories)].join(',');
 }
 
@@ -1376,13 +1029,14 @@ function addUserToSheet(sheet, user) {
   const lastColumn = sheet.getLastColumn();
   if (lastColumn < 1) throw new Error('Users sheet has no columns.');
   const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
-  const row = headers.map(function(header) {
+  const row = [];
+
+  headers.forEach(function(header) {
     const key = String(header || '').trim();
-    return Object.prototype.hasOwnProperty.call(user, key) ? user[key] : '';
+    row.push(Object.prototype.hasOwnProperty.call(user, key) ? user[key] : '');
   });
-  const targetRow = Math.max(2, sheet.getLastRow() + 1);
-  sheet.getRange(targetRow, 1, 1, lastColumn).setValues([row]);
-  return targetRow;
+
+  sheet.appendRow(row);
 }
 
 function updateUserEmailStatus(sheet, participantID, status) {
@@ -1905,6 +1559,15 @@ loadEverything();onScopeChange();renderRecipientChips();
 </script></body></html>`;
 }
 
+function normaliseLookupValue(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9@._-]+/g, ' ')
+    .trim();
+}
+
 function findUserRowIndex(sheet, query) {
   const values = sheet.getDataRange().getValues();
   if (!values.length) return null;
@@ -1954,97 +1617,11 @@ function rowToUserObject(sheet, rowIndex, headers) {
   return obj;
 }
 
-function getAdminSenderResponse_() {
-  let sender = '';
-  let quota = null;
-  try { sender = String(Session.getEffectiveUser().getEmail() || '').trim(); } catch (err) {}
-  try { quota = MailApp.getRemainingDailyQuota(); } catch (err) {}
-  return { success: true, sender: sender, quota: quota, organiser: CONFIG.SCOUT_GROUP };
-}
-
-function adminBootstrap() {
-  const sender = getAdminSenderResponse_();
-  return {
-    success: true,
-    users: adminListUsers(),
-    ageGroups: adminListAgeGroups(),
-    categories: adminListCategories(),
-    groups: adminListGroups(),
-    sender: sender
-  };
-}
-
-function isLeaderSection_(ageYear, ageGroup) {
-  const values = [ageYear, ageGroup].map(function(v) { return normaliseLookupValue(v); }).filter(Boolean);
-  return values.some(function(key) { return /^(leader|leaders|leader staff)$/.test(key); });
-}
-
-const LEADER_TRAINING_STATUSES = [
-  'Course required',
-  'Account details requested',
-  'Login details sent',
-  'Course in progress',
-  'Course completed',
-  'Completion received',
-  'Approved'
-];
-const SCOUT_LEARN_STATUSES = ['Not required', 'Account needed', 'Account details sent', 'Has account'];
-
-function getLeaderTrainingStatus_(user) {
-  const paper = String(user && user.PaperworkStatus || '').trim();
-  if (LEADER_TRAINING_STATUSES.indexOf(paper) !== -1) return paper;
-  if (isLeaderSection_(user && user.AgeYear, user && user.AgeGroup)) return paper || 'Course required';
-  return '';
-}
-
-function getScoutLearnStatus_(user) {
-  const note = String(user && user.Notes || '');
-  if (/Scout Learn account details sent/i.test(note)) return 'Account details sent';
-  if (/Scout Learn account needed/i.test(note)) return 'Account needed';
-  if (/Scout Learn account present/i.test(note)) return 'Has account';
-  return isLeaderSection_(user && user.AgeYear, user && user.AgeGroup) ? 'Not required' : '';
-}
-
-function setLeaderNotes_(existingNotes, trainingStatus, scoutLearnStatus) {
-  let note = String(existingNotes || '')
-    .replace(/\s*Leader training:.*$/i, '')
-    .trim();
-  const trainingLine = 'Leader training: ' + trainingStatus + '. Scout Learn: ' + scoutLearnStatus + '.';
-  return (note ? note + ' ' : '') + trainingLine;
-}
-
-function adminUpdateLeaderTrainingStatus(participantId, trainingStatus, scoutLearnStatus) {
-  const sheet = getSpreadsheet_().getSheetByName(CONFIG.USERS_SHEET);
-  if (!sheet) throw new Error('Users sheet not found.');
-  const match = findUserRowIndex(sheet, participantId);
-  if (!match) throw new Error('Could not find that scout anymore.');
-  const user = rowToUserObject(sheet, match.rowIndex, match.headers);
-  if (!isLeaderSection_(user.AgeYear, user.AgeGroup)) throw new Error('Training status can only be changed for a Leader.');
-
-  trainingStatus = String(trainingStatus || '').trim();
-  scoutLearnStatus = String(scoutLearnStatus || '').trim();
-  if (LEADER_TRAINING_STATUSES.indexOf(trainingStatus) === -1) throw new Error('Invalid Leader training status.');
-  if (SCOUT_LEARN_STATUSES.indexOf(scoutLearnStatus) === -1) throw new Error('Invalid Scout Learn status.');
-
-  const paperCol = match.headers.indexOf('PaperworkStatus');
-  const notesCol = match.headers.indexOf('Notes');
-  if (paperCol === -1 || notesCol === -1) throw new Error('The attached Users sheet does not contain the existing PaperworkStatus and Notes columns.');
-  sheet.getRange(match.rowIndex, paperCol + 1).setValue(trainingStatus);
-  sheet.getRange(match.rowIndex, notesCol + 1).setValue(setLeaderNotes_(user.Notes, trainingStatus, scoutLearnStatus));
-  SpreadsheetApp.flush();
-  clearSheetCache();
-  return {
-    success: true,
-    ParticipantID: user.ParticipantID,
-    trainingStatus: trainingStatus,
-    scoutLearnStatus: scoutLearnStatus
-  };
-}
-
 function adminListUsers() {
+  // Always read the current Users sheet. Do not rely on the dashboard cache here:
+  // this list is the source for the admin email composer and must reflect updates.
   return getSheetData(CONFIG.USERS_SHEET).map(function(user) {
     var names = splitName(user.Name || '');
-    var isLeader = isLeaderSection_(user.AgeYear, user.AgeGroup);
     return {
       ParticipantID: user.ParticipantID || '',
       PIN: user.PIN || '',
@@ -2058,12 +1635,11 @@ function adminListUsers() {
       ParentEmail: user.ParentEmail || '',
       Status: user.Status || '',
       AgeYear: user.AgeYear || '',
+      // The email admin uses the live Users.AgeYear field as the user's section.
+      // Keep YouthSection for compatibility, but make it reflect AgeYear when present.
       YouthSection: user.AgeYear || getCanonicalYouthSection(user.AgeGroup || ''),
       AgeGroup: user.AgeGroup || '',
-      AllowedCategories: user.AllowedCategories || '',
-      IsLeader: isLeader,
-      LeaderTrainingStatus: isLeader ? getLeaderTrainingStatus_(user) : '',
-      ScoutLearnStatus: isLeader ? getScoutLearnStatus_(user) : ''
+      AllowedCategories: user.AllowedCategories || ''
     };
   });
 }
@@ -2119,13 +1695,7 @@ function adminSearchUser(query) {
   if (!sheet) throw new Error('Users sheet not found.');
   const match = findUserRowIndex(sheet, query);
   if (!match) return null;
-  const user = rowToUserObject(sheet, match.rowIndex, match.headers);
-  const isLeader = isLeaderSection_(user.AgeYear, user.AgeGroup);
-  user.IsLeader = isLeader;
-  user.LeaderTrainingStatus = isLeader ? getLeaderTrainingStatus_(user) : '';
-  user.ScoutLearnStatus = isLeader ? getScoutLearnStatus_(user) : '';
-  delete user.Password;
-  return user;
+  return rowToUserObject(sheet, match.rowIndex, match.headers);
 }
 
 function adminUpdateUser(participantId, newName, newEmail, newParentName, newParentEmail) {
@@ -2167,32 +1737,18 @@ function adminResendWelcomeEmail(participantId) {
   if (!user.ParentEmail) throw new Error('This scout has no parent email on file.');
 
   const [childFirstName, ...rest] = String(user.Name || '').split(' ');
-  if (isLeaderSection_(user.AgeYear, user.AgeGroup)) {
-    sendLeaderWelcomeEmail({
-      parentName: user.ParentName || 'Leader',
-      parentEmail: user.ParentEmail,
-      childFirstName: splitName(user.Name || '').first,
-      childLastName: splitName(user.Name || '').last,
-      ageYear: user.AgeYear || '',
-      participantID: user.ParticipantID || '',
-      username: user.Username || '',
-      pin: user.PIN || '',
-      password: user.Password || ''
-    });
-  } else {
-    sendParentWelcomeEmail({
-      parentName: user.ParentName || 'Parent/Guardian',
-      parentEmail: user.ParentEmail,
-      childFirstName: childFirstName || user.Name || 'Scout',
-      childLastName: rest.join(' '),
-      ageYear: user.AgeYear || '',
-      participantID: user.ParticipantID || '',
-      username: user.Username || '',
-      pin: user.PIN || '',
-      password: user.Password || '',
-      allowedCategories: user.AllowedCategories || ''
-    });
-  }
+  sendParentWelcomeEmail({
+    parentName: user.ParentName || 'Parent/Guardian',
+    parentEmail: user.ParentEmail,
+    childFirstName: childFirstName || user.Name || 'Scout',
+    childLastName: rest.join(' '),
+    ageYear: user.AgeYear || '',
+    participantID: user.ParticipantID || '',
+    username: user.Username || '',
+    pin: user.PIN || '',
+    password: user.Password || '',
+    allowedCategories: user.AllowedCategories || ''
+  });
 
   updateUserEmailStatus(sheet, participantId, 'Resent ' + new Date().toISOString());
   return true;
@@ -2321,13 +1877,7 @@ function fillEmailTemplate(template, user) {
     '{{youthSection}}': String(user.YouthSection || getCanonicalYouthSection(user.AgeYear || user.AgeGroup || '')),
     '{{email}}': String(user.Email || ''),
     '{{youthEmail}}': String(user.Email || ''),
-    '{{parentEmail}}': String(user.ParentEmail || ''),
-    '{{websiteURL}}': String(CONFIG.WEBSITE_URL || ''),
-    '{{setupURL}}': String((CONFIG.WEBSITE_URL || '').replace(/\/$/, '') + '/setup'),
-    '{{formsURL}}': String((CONFIG.WEBSITE_URL || '').replace(/\/$/, '') + '/setup#section-forms'),
-    '{{termsURL}}': String((CONFIG.WEBSITE_URL || '').replace(/\/$/, '') + '/setup#terms-conditions'),
-    '{{sfh3URL}}': String(CONFIG.SFH3_URL || ''),
-    '{{scoutGroup}}': String(CONFIG.SCOUT_GROUP || '')
+    '{{parentEmail}}': String(user.ParentEmail || '')
   };
 
   var result = String(template || '');
@@ -2584,23 +2134,21 @@ function pauseBetweenBulkSends() {
 }
 
 function ensureEmailLogHeaders(sheet) {
-  if (!sheet) throw new Error('EmailLog sheet is missing.');
   const required = ['Timestamp','AdminEmail','RecipientEmail','ParticipantID','RecipientType','Subject','Status','Error'];
-  const columnCount = sheet.getLastColumn();
-  const actual = columnCount ? sheet.getRange(1, 1, 1, columnCount).getValues()[0].map(function(v) { return String(v || '').trim(); }) : [];
-  const missing = required.filter(function(header) { return actual.indexOf(header) === -1; });
-  if (missing.length) throw new Error('EmailLog sheet does not match the attached spreadsheet structure. Missing: ' + missing.join(', '));
-  return true;
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, required.length).setValues([required]).setFontWeight('bold');
+    return;
+  }
+  ensureUsersHeaders(sheet, required);
 }
 
 function ensureEmailGroupsHeaders(sheet) {
-  if (!sheet) throw new Error('EmailGroups sheet is missing.');
   const required = ['GroupKey','GroupName','ParticipantIDs','Active','Notes'];
-  const columnCount = sheet.getLastColumn();
-  const actual = columnCount ? sheet.getRange(1, 1, 1, columnCount).getValues()[0].map(function(v) { return String(v || '').trim(); }) : [];
-  const missing = required.filter(function(header) { return actual.indexOf(header) === -1; });
-  if (missing.length) throw new Error('EmailGroups sheet does not match the attached spreadsheet structure. Missing: ' + missing.join(', '));
-  return true;
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, required.length).setValues([required]).setFontWeight('bold');
+    return;
+  }
+  ensureUsersHeaders(sheet, required);
 }
 
 function logBulkEmail_(adminEmail, recipientEmail, user, targetType, subject, status, errorText) {
@@ -2794,138 +2342,112 @@ function sendCertificateEmail(user, pdfBlob) {
     'Their certificate of completion is attached.\n\n' +
     'Thank you for taking part.\n\n' + CONFIG.SCOUT_GROUP;
 
-  MailApp.sendEmail({ to: user.ParentEmail, subject: subject, body: body, attachments: [pdfBlob], name: CONFIG.SCOUT_GROUP, replyTo: String(Session.getEffectiveUser().getEmail() || '').trim() });
+  MailApp.sendEmail({ to: user.ParentEmail, subject: subject, body: body, attachments: [pdfBlob] });
 }
 
 /* ============================================================
    EMAIL NOTIFICATIONS
    ============================================================ */
 
-function getEmailLogoUrl_() {
-  // Existing Boulder framework resource used in the supplied project.
-  return 'https://media.ffycdn.net/eu/world-organization-of-the-scout-movement/oZCw81N2JF9orwf3ff2M.png?mod=v1/resize=2400';
-}
-
-function buttonHtml_(url, label) {
-  return '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 10px"><tr><td bgcolor="#126a91" style="border-radius:7px"><a href="' + escapeAttribute_(url) + '" target="_blank" style="display:inline-block;padding:13px 24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:7px">' + escapeHtml(label) + '</a></td></tr></table>';
-}
-
-function escapeAttribute_(value) {
-  return String(value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function emailShellHtml_(contentHtml, titleText) {
-  const logoURL = getEmailLogoUrl_();
-  return '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>' + escapeHtml(titleText || 'JOTA-JOTI') + '</title>' +
-    '<style>body{margin:0;padding:0;background:#eef2f5;color:#24313a;font-family:Arial,Helvetica,sans-serif}.wrap{width:100%;padding:28px 10px;box-sizing:border-box}.card{width:100%;max-width:680px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dde4e8}.header{padding:24px 20px 18px;text-align:center;border-bottom:1px solid #e5eaee}.logo{display:block;width:230px;max-width:82%;height:auto;margin:0 auto}.brand{margin-top:10px;font-size:13px;line-height:1.4;font-weight:700;letter-spacing:.5px;color:#3d2c78}.accent{height:4px;width:64px;background:#f2c438;border-radius:4px;margin:14px auto 0}.content{padding:30px 34px}.content h2{margin:0 0 16px;color:#3d2c78;font-size:22px;line-height:1.3}.content h3{margin:24px 0 12px;color:#3d2c78;font-size:17px}.content p,.content li{font-size:15px;line-height:1.65}.notice{padding:16px 18px;margin:20px 0;background:#fff8e5;border:1px solid #efd689;border-radius:9px}.account{padding:14px 18px;margin:18px 0;background:#edf8ed;border:1px solid #cbe3cb;border-radius:9px}.account td{padding:8px 0;border-bottom:1px solid #d8e5d8;font-size:15px;line-height:1.45}.account tr:last-child td{border-bottom:0}.label{font-weight:700;color:#2d3740}.value{font-family:Consolas,Menlo,monospace;font-size:16px}.small{font-size:12px;color:#6a747b}.footer{padding:20px;background:#f4f6f8;text-align:center;border-top:1px solid #e2e7ea;color:#69747a;font-size:12px;line-height:1.65}.footer strong{color:#3d2c78}@media screen and (max-width:600px){.wrap{padding:8px 4px}.card{border-radius:10px}.content{padding:24px 20px}.content h2{font-size:21px}.logo{width:205px}}</style>' +
-    '</head><body><div class="wrap"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td><div class="card"><div class="header"><img class="logo" src="' + escapeAttribute_(logoURL) + '" alt="JOTA-JOTI"><div class="brand">Boulder Scout Group &middot; JOTA-JOTI 2026</div><div class="accent"></div></div><div class="content">' + contentHtml + '</div><div class="footer"><strong>Boulder Scout Group</strong><br>JOTA-JOTI 2026<br><span class="small">Unofficial JOTA-JOTI account service operated by Boulder Scout Group.</span><br><br>Made by Hunter Miller from Boulder Scout Hall</div></div></td></tr></table></div></body></html>';
-}
-
-function buildParentWelcomeEmailHtml_(account) {
-  const websiteURL = CONFIG.WEBSITE_URL;
-  const setupURL = websiteURL.replace(/\/$/, '') + '/setup';
-  const formsURL = setupURL + '#section-forms';
-  const termsURL = setupURL + '#terms-conditions';
-  const childFullName = (account.childFirstName + ' ' + account.childLastName).trim();
-  const content =
-    '<h2>Hello ' + escapeHtml(account.parentName || 'Parent/Guardian') + ',</h2>' +
-    '<p>Thank you for submitting an Expression of Interest for <strong>' + escapeHtml(childFullName) + '</strong> for JOTA-JOTI 2026 with Boulder Scout Group.</p>' +
-    '<div class="notice"><strong>Important:</strong> This is only an <strong>Expression of Interest</strong>. It is not official registration or confirmation of participation. Further paperwork, permissions, consent and other requirements may still be required.</div>' +
-    '<h3>Your child\'s account</h3>' +
-    '<table class="account" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">' +
-      '<tr><td><span class="label">Child</span><br>' + escapeHtml(childFullName) + '</td></tr>' +
-      '<tr><td><span class="label">Username</span><br><span class="value">' + escapeHtml(account.username) + '</span></td></tr>' +
-      '<tr><td><span class="label">PIN</span><br><span class="value">' + escapeHtml(account.pin) + '</span></td></tr>' +
-      '<tr><td><span class="label">Password</span><br><span class="value">' + escapeHtml(account.password) + '</span></td></tr>' +
-      '<tr><td><span class="label">Participant ID</span><br>' + escapeHtml(account.participantID) + '</td></tr>' +
-    '</table>' +
-    buttonHtml_(websiteURL, 'Open JOTA-JOTI Website') +
-    buttonHtml_(setupURL, 'Open Setup Guide') +
-    '<h3>Forms and information</h3>' +
-    buttonHtml_(formsURL, 'Open Required Forms') +
-    buttonHtml_(termsURL, 'Review Terms & Conditions') +
-    '<h3>Set up the website on your child\'s device</h3>' +
-    '<ol style="padding-left:20px;margin:10px 0 0"><li>Open the JOTA-JOTI website on the device your child will use.</li><li>Sign in with the username, PIN and password above.</li><li>Add the website to the home screen so it is easy to open again.</li></ol>' +
-    '<p><strong>iPhone or iPad:</strong> Open the website in Safari, tap Share, choose Add to Home Screen, then tap Add.</p>' +
-    '<p><strong>Android:</strong> Open the website in Chrome, open the browser menu, choose Add to Home screen, then confirm.</p>' +
-    '<h3>What happens next?</h3>' +
-    '<ol style="padding-left:20px;margin:10px 0 0"><li>Keep the username, PIN and password somewhere safe.</li><li>Complete any required section forms and information.</li><li>Review the Terms &amp; Conditions.</li><li>Reply to this email with any requested completed paperwork.</li></ol>' +
-    '<p class="small">Please reply directly to this email so we can keep your paperwork together with the account.</p>';
-  return emailShellHtml_(content, 'JOTA-JOTI Expression of Interest');
-}
-
 function sendParentWelcomeEmail(account) {
-  const subject = 'JOTA-JOTI Expression of Interest — ' + (account.childFirstName || 'Scout') + '\'s account details';
-  const htmlBody = buildParentWelcomeEmailHtml_(account);
-  const setupURL = CONFIG.WEBSITE_URL.replace(/\/$/, '') + '/setup';
-  const formsURL = setupURL + '#section-forms';
-  const termsURL = setupURL + '#terms-conditions';
-  const childFullName = (account.childFirstName + ' ' + account.childLastName).trim();
+  const subject = "JOTA-JOTI – " + account.childFirstName + "'s account details";
+  const websiteURL = CONFIG.WEBSITE_URL;
+  const logoURL = 'https://media.ffycdn.net/eu/world-organization-of-the-scout-movement/oZCw81N2JF9orwf3ff2M.png?mod=v1/resize=2400';
+
+  const htmlBody = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { margin: 0; padding: 0; background: #eef2f5; font-family: Arial, Helvetica, sans-serif; color: #263238; }
+.email { width: 100%; padding: 35px 12px; box-sizing: border-box; }
+.container { max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.10); }
+.brand { background: linear-gradient(135deg, #073b5c, #126a91); padding: 32px 25px 28px; text-align: center; }
+.brand:after { content: ""; display: block; width: 70px; height: 4px; background: #f5c542; border-radius: 5px; margin: 22px auto 0; }
+.logo { display: block; width: 310px; max-width: 90%; height: auto; margin: 0 auto; }
+.brand-title { color: #ffffff; font-size: 14px; letter-spacing: 1.5px; margin-top: 18px; font-weight: bold; text-transform: uppercase; }
+.content { padding: 35px 42px; }
+h2 { margin: 0 0 20px; font-size: 22px; color: #123b5d; }
+h3 { margin-top: 28px; margin-bottom: 15px; font-size: 18px; color: #123b5d; }
+p { font-size: 15px; line-height: 1.7; }
+.warning { margin: 24px 0; padding: 18px 20px; background: #fff8e5; border: 1px solid #f1d58a; border-radius: 9px; font-size: 15px; line-height: 1.7; }
+.warning strong:first-child { color: #795900; }
+.login-box { margin: 20px 0 25px; padding: 18px 20px; background: #eef7ee; border: 1px solid #c7e3c7; border-radius: 9px; box-sizing: border-box; }
+.login-row { padding: 10px 0 13px; border-bottom: 1px solid #d6dfd6; font-size: 15px; line-height: 1.5; }
+.login-row:last-child { border-bottom: none; padding-bottom: 2px; }
+.label { color: #263238; font-size: 13px; font-weight: bold; }
+.value { font-family: monospace; font-size: 17px; }
+.button { display: inline-block; padding: 13px 25px; background: #126a91; color: #ffffff !important; text-decoration: none; border-radius: 7px; font-size: 15px; font-weight: bold; }
+ol { margin-top: 10px; margin-bottom: 25px; padding-left: 25px; }
+ol li { margin-bottom: 9px; padding-left: 3px; font-size: 15px; line-height: 1.55; }
+.footer { background: #f0f3f5; padding: 24px; text-align: center; color: #6b757b; font-size: 12px; line-height: 1.7; }
+.footer-line { width: 45px; height: 3px; background: #f5c542; margin: 0 auto 15px; border-radius: 5px; }
+@media screen and (max-width: 600px) {
+  .email { padding: 10px 5px; }
+  .container { border-radius: 10px; }
+  .content { padding: 28px 22px; }
+  .logo { width: 260px; }
+  h2 { font-size: 21px; }
+}
+</style>
+</head>
+<body>
+<div class="email">
+<div class="container">
+<div class="brand">
+<img class="logo" src="${logoURL}" alt="JOTA-JOTI">
+<div class="brand-title">Boulder Scout Group</div>
+</div>
+<div class="content">
+<h2>Hello ${escapeHtml(account.parentName)},</h2>
+<p>Thank you for submitting an Expression of Interest for <strong>${escapeHtml(account.childFirstName)} ${escapeHtml(account.childLastName)}</strong>.</p>
+<div class="warning">
+<strong>Important:</strong> This is only an <strong>Expression of Interest</strong>. It is not official registration or confirmation of participation. Further paperwork, permissions and consent may still be required.
+</div>
+<h3>Your child's account</h3>
+<div class="login-box">
+<div class="login-row"><span class="label">Child:</span><br>${escapeHtml(account.childFirstName)} ${escapeHtml(account.childLastName)}</div>
+<div class="login-row"><span class="label">Username:</span><br><span class="value">${escapeHtml(account.username)}</span></div>
+<div class="login-row"><span class="label">PIN:</span><br><span class="value">${escapeHtml(account.pin)}</span></div>
+<div class="login-row"><span class="label">Password:</span><br><span class="value">${escapeHtml(account.password)}</span></div>
+<div class="login-row"><span class="label">Participant ID:</span><br>${escapeHtml(account.participantID)}</div>
+</div>
+<p style="text-align:center">
+<a class="button" href="${websiteURL}" target="_blank">Open JOTA-JOTI Website</a>
+</p>
+<h3>What happens next?</h3>
+<ol>
+<li>Your Expression of Interest has been received.</li>
+<li>An account has been created for your child.</li>
+<li>Further information will be provided later.</li>
+<li>Any required paperwork and permissions must be completed.</li>
+<li>Participation is subject to the required approvals and requirements.</li>
+</ol>
+<p>Please keep the username, PIN and password somewhere safe.</p>
+</div>
+<div class="footer">
+<div class="footer-line"></div>
+<strong>Boulder Scout Group</strong><br>JOTA-JOTI 2026<br><br>Unofficial JOTA-JOTI account system
+</div>
+</div>
+</div>
+</body>
+</html>`;
+
   const plainTextBody =
-    'Boulder Scout Group – JOTA-JOTI 2026\n\n' +
-    'Hello ' + (account.parentName || 'Parent/Guardian') + ',\n\n' +
-    'Thank you for submitting an Expression of Interest for ' + childFullName + '.\n\n' +
-    'ACCOUNT DETAILS\n' +
+    'JOTA-JOTI - Boulder Scout Group\n\n' +
+    'Hello ' + account.parentName + ',\n\n' +
+    'Thank you for submitting an Expression of Interest for ' + account.childFirstName + ' ' + account.childLastName + '.\n\n' +
+    'YOUR CHILD ACCOUNT\n\n' +
     'Username: ' + account.username + '\n' +
     'PIN: ' + account.pin + '\n' +
     'Password: ' + account.password + '\n' +
     'Participant ID: ' + account.participantID + '\n\n' +
     'This is only an Expression of Interest. Further paperwork, permissions and consent may still be required.\n\n' +
-    'Website: ' + CONFIG.WEBSITE_URL + '\n' +
-    'Setup Guide: ' + setupURL + '\n' +
-    'Required Forms: ' + formsURL + '\n' +
-    'Terms & Conditions: ' + termsURL + '\n\n' +
-    'Made by Hunter Miller from Boulder Scout Hall';
-  const options = {to: account.parentEmail, subject: subject, body: plainTextBody, htmlBody: htmlBody, name: CONFIG.SCOUT_GROUP};
-  const replyTo = String(Session.getEffectiveUser().getEmail() || '').trim();
-  if (validEmailAddress(replyTo)) options.replyTo = replyTo;
-  MailApp.sendEmail(options);
-}
+    'Website: ' + websiteURL;
 
-function buildLeaderWelcomeEmailHtml_(account) {
-  const courseURL = CONFIG.SFH3_URL;
-  const setupURL = CONFIG.WEBSITE_URL.replace(/\/$/, '') + '/setup';
-  const content =
-    '<h2>Hello ' + escapeHtml(account.parentName || 'Leader') + ',</h2>' +
-    '<p>This message is for a <strong>Leader</strong> who has submitted an Expression of Interest for JOTA-JOTI 2026 with Boulder Scout Group.</p>' +
-    '<div class="notice"><strong>Leader training:</strong> You do <strong>not</strong> need to complete the Y3 form/process for this Leader workflow. Instead, please complete <strong>SFH 3 – Being Safe Online</strong>.</div>' +
-    buttonHtml_(courseURL, 'Open SFH 3 – Being Safe Online') +
-    buttonHtml_(CONFIG.WEBSITE_URL, 'Open JOTA-JOTI Website') +
-    buttonHtml_(setupURL, 'Open Setup Guide') +
-    '<h3>Your JOTA-JOTI account</h3>' +
-    '<table class="account" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">' +
-      '<tr><td><span class="label">Name</span><br>' + escapeHtml((account.childFirstName || '') + ' ' + (account.childLastName || '')) + '</td></tr>' +
-      '<tr><td><span class="label">Username</span><br><span class="value">' + escapeHtml(account.username || '') + '</span></td></tr>' +
-      '<tr><td><span class="label">PIN</span><br><span class="value">' + escapeHtml(account.pin || '') + '</span></td></tr>' +
-      '<tr><td><span class="label">Password</span><br><span class="value">' + escapeHtml(account.password || '') + '</span></td></tr>' +
-      '<tr><td><span class="label">Participant ID</span><br>' + escapeHtml(account.participantID || '') + '</td></tr>' +
-    '</table>' +
-    '<h3>What to do next</h3>' +
-    '<ol style="padding-left:20px;margin:10px 0 0"><li>Open the Scout Learn course using the button above.</li><li>Complete <strong>SFH 3 – Being Safe Online</strong>.</li><li>When it is complete, send the required completion confirmation back to Boulder Scout Group so it can be processed.</li></ol>' +
-    '<h3>Don\'t have a Scout Learn account?</h3>' +
-    '<p>Don\'t have a Scout Learn account? Don\'t worry. Just reply to this email and let us know that you don\'t have an account. We will send you your login details so you can access the course and continue with your training.</p>' +
-    '<p class="small">Your JOTA-JOTI website account is separate from Scout Learn and is used for the event website and organiser tracking.</p>';
-  return emailShellHtml_(content, 'JOTA-JOTI Leader Training');
-}
-
-function sendLeaderWelcomeEmail(account) {
-  const subject = 'JOTA-JOTI 2026 — Leader training information';
-  const htmlBody = buildLeaderWelcomeEmailHtml_(account);
-  const setupURL = CONFIG.WEBSITE_URL.replace(/\/$/, '') + '/setup';
-  const plainTextBody =
-    'Boulder Scout Group – JOTA-JOTI 2026\n\n' +
-    'Hello ' + (account.parentName || 'Leader') + ',\n\n' +
-    'You have been identified as a Leader. You do not need to complete the Y3 form/process for this Leader workflow.\n\n' +
-    'Please complete SFH 3 – Being Safe Online:\n' + CONFIG.SFH3_URL + '\n\n' +
-    'JOTA-JOTI Website: ' + CONFIG.WEBSITE_URL + '\n' +
-    'Setup Guide: ' + setupURL + '\n\n' +
-    'Once complete, send the required completion confirmation back to Boulder Scout Group.\n\n' +
-    "Don't have a Scout Learn account? Don't worry. Just reply to this email and let us know that you don't have an account. We will send you your login details so you can access the course and continue with your training.\n\n" +
-    'Made by Hunter Miller from Boulder Scout Hall';
-  const options = {to: account.parentEmail, subject: subject, body: plainTextBody, htmlBody: htmlBody, name: CONFIG.SCOUT_GROUP};
-  const replyTo = String(Session.getEffectiveUser().getEmail() || '').trim();
-  if (validEmailAddress(replyTo)) options.replyTo = replyTo;
-  MailApp.sendEmail(options);
+  MailApp.sendEmail({ to: account.parentEmail, subject: subject, body: plainTextBody, htmlBody: htmlBody });
 }
 
 function escapeHtml(value) {
@@ -2951,84 +2473,77 @@ function testParentEmail() {
 
 function setupEOISystem() {
   const spreadsheet = getSpreadsheet_();
-  PropertiesService.getScriptProperties().setProperty('JOTA_JOTI_SPREADSHEET_ID', spreadsheet.getId());
 
-  const requiredSchema = {
-    'Form responses 1': [
-      'Timestamp',
-      'Parent/Guardian Full Name',
-      'Parent/Guardian Email',
-      'Child First Name',
-      'Child Last Name',
-      "Child's age/year group",
-      'Which activities would your child like access to?',
-      'I understand this is only an Expression of Interest',
-      'I understand further paperwork/permissions may be required before participation',
-      'I agree the the terms and conditions (link below)'
-    ],
-    'EmailLog': ['Timestamp','AdminEmail','RecipientEmail','ParticipantID','RecipientType','Subject','Status','Error'],
-    'EmailGroups': ['GroupKey','GroupName','ParticipantIDs','Active','Notes'],
-    'Users': ['ParticipantID','PIN','Name','Username','Email','AllowedCategories','Password','ParentEmail','ParentName','ScoutGroup','AgeYear','Status','EOIReceived','AccountCreated','PaperworkStatus','EmailStatus','Notes','AgeGroup'],
-    'Categories': ['CategoryKey','Title','LogoKey','LogoURL','Description'],
-    'Links': ['LinkID','CategoryKey','Title','URL','CanEmbed','RequiresLogin','RequiresEmail','ParentApproval','LeaderApproved','Moderated','Active','LogoKey','LogoURL','BlockStatus','Notes'],
-    'Logos': ['LogoKey','CategoryKey','ItemKey','Title','LogoURL'],
-    'BlockedURLs': ['BlockID','Domain','URLPattern','BlockType','Reason','Active'],
-    'BlockedCategories': ['CategoryKey','Reason','Active','AppliesTo','Notes'],
-    'Settings': ['SettingKey','SettingValue','Description'],
-    'EmailTemplates': ['TemplateKey','Subject','Body/HTML Notes']
-  };
+  let usersSheet = spreadsheet.getSheetByName(CONFIG.USERS_SHEET);
+  if (!usersSheet) usersSheet = spreadsheet.insertSheet(CONFIG.USERS_SHEET);
 
-  // Hard requirements: the sheets the website cannot run without. Header
-  // comparison ignores case, spacing and curly quotes so harmless formatting
-  // differences (e.g. padded Form headers) never block setup.
-  const hardSheets = ['Users', 'Categories', 'Links', 'Logos'];
-  const problems = [];
-  const warnings = [];
-  Object.keys(requiredSchema).forEach(function(sheetName) {
-    let sheet = spreadsheet.getSheetByName(sheetName);
-    if (!sheet && (sheetName === 'EmailLog' || sheetName === 'EmailGroups')) {
-      sheet = spreadsheet.insertSheet(sheetName);
-      sheet.getRange(1, 1, 1, requiredSchema[sheetName].length).setValues([requiredSchema[sheetName]]);
-      warnings.push('Created missing sheet: ' + sheetName);
-      return;
-    }
-    if (!sheet) {
-      (hardSheets.indexOf(sheetName) !== -1 ? problems : warnings).push('Missing sheet: ' + sheetName);
-      return;
-    }
-    const headerCount = sheet.getLastColumn();
-    const headers = headerCount ? sheet.getRange(1,1,1,headerCount).getValues()[0].map(normaliseHeader) : [];
-    const strict = hardSheets.indexOf(sheetName) !== -1 || sheetName === 'EmailLog' || sheetName === 'EmailGroups';
-    requiredSchema[sheetName].forEach(function(header) {
-      if (headers.indexOf(normaliseHeader(header)) === -1) {
-        (strict ? problems : warnings).push('Missing header in ' + sheetName + ': ' + header);
-      }
-    });
+  if (usersSheet.getLastRow() === 0) {
+    usersSheet.getRange(1, 1, 1, 18).setValues([[
+      'ParticipantID', 'PIN', 'Name', 'Username', 'Email',
+      'AllowedCategories', 'Password', 'ParentEmail', 'ParentName',
+      'ScoutGroup', 'AgeGroup', 'AgeYear', 'Status', 'EOIReceived',
+      'AccountCreated', 'PaperworkStatus', 'EmailStatus', 'Notes'
+    ]]);
+    usersSheet.getRange(1, 1, 1, 18).setFontWeight('bold');
+  } else {
+    ensureUsersHeaders(usersSheet, [
+      'ParticipantID', 'PIN', 'Name', 'Username', 'Email',
+      'AllowedCategories', 'Password', 'ParentEmail', 'ParentName',
+      'ScoutGroup', 'AgeGroup', 'AgeYear', 'Status', 'EOIReceived',
+      'AccountCreated', 'PaperworkStatus', 'EmailStatus', 'Notes'
+    ]);
+  }
+
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === 'onFormSubmit') ScriptApp.deleteTrigger(trigger);
   });
-  if (problems.length) throw new Error('Please fix these in the spreadsheet, then run setup again:\n\n' + problems.join('\n'));
 
-  // Remove only this application's Form submit trigger and any old trigger
-  // whose handler is clearly part of the retired backup/restore system.
-  // Unrelated project triggers are left alone.
-  ScriptApp.getProjectTriggers().forEach(function(trigger) {
-    const handler = String(trigger.getHandlerFunction() || '').toLowerCase();
-    const isOurFormTrigger = handler === 'onformsubmit';
-    const isRetiredTrigger = /(backup|restore|mirror|sync)/i.test(handler);
-    if (isOurFormTrigger || isRetiredTrigger) {
-      try { ScriptApp.deleteTrigger(trigger); } catch (err) {}
-    }
-  });
   ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(spreadsheet).onFormSubmit().create();
 
+  ensureSheetExists(spreadsheet, CONFIG.CATEGORIES_SHEET);
+  ensureSheetExists(spreadsheet, CONFIG.LINKS_SHEET);
+  ensureSheetExists(spreadsheet, CONFIG.LOGOS_SHEET);
+  ensureSheetExists(spreadsheet, CONFIG.BLOCKED_URLS_SHEET);
+  ensureSheetExists(spreadsheet, CONFIG.BLOCKED_CATEGORIES_SHEET);
+  ensureSheetExists(spreadsheet, CONFIG.SETTINGS_SHEET);
+  const emailLogSheet = ensureSheetExists(spreadsheet, CONFIG.EMAIL_LOG_SHEET);
+  ensureEmailLogHeaders(emailLogSheet);
+  const emailGroupsSheet = ensureSheetExists(spreadsheet, CONFIG.EMAIL_GROUPS_SHEET);
+  ensureEmailGroupsHeaders(emailGroupsSheet);
   const generatedAdminPassword = ensureAdminPassword_();
-  ensureUserSessionSecret_();
-  clearSheetCache();
-  SpreadsheetApp.flush();
 
-  const message = 'Boulder Scout Group JOTA-JOTI setup complete.\n\nSetup validated.\nUsers remain the single source of truth.\nThe onFormSubmit trigger is installed.' + (warnings.length ? '\n\nNotes:\n' + warnings.join('\n') : '') + '\n\nAdmin password: ' + generatedAdminPassword;
-  Logger.log(message);
-  try { SpreadsheetApp.getUi().alert(message); } catch (uiError) {}
-  return message;
+  createBackupTrigger();
+
+  SpreadsheetApp.flush();
+  Logger.log('EOI system setup completed successfully.');
+  try { SpreadsheetApp.getUi().alert('Setup complete.\n\nAdmin password: ' + generatedAdminPassword + '\n\nKeep this password private. Use your GitHub Pages /admin/ page to sign in.'); } catch (uiError) {}
+  return 'EOI system setup completed successfully. Admin password: ' + generatedAdminPassword;
+}
+
+function ensureSheetExists(spreadsheet, sheetName) {
+  let sheet = spreadsheet.getSheetByName(sheetName);
+  if (!sheet) sheet = spreadsheet.insertSheet(sheetName);
+  return sheet;
+}
+
+function ensureUsersHeaders(sheet, requiredHeaders) {
+  const lastColumn = Math.max(1, sheet.getLastColumn());
+  const current = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function(v) {
+    return String(v || '').trim();
+  });
+  const existing = {};
+  current.forEach(function(h) {
+    if (h) existing[normaliseLookupValue(h)] = true;
+  });
+  const missing = requiredHeaders.filter(function(h) {
+    return !existing[normaliseLookupValue(h)];
+  });
+  if (missing.length) {
+    const startColumn = sheet.getLastColumn() + 1;
+    sheet.getRange(1, startColumn, 1, missing.length).setValues([missing]);
+    sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight('bold');
+  }
 }
 
 function checkEOITrigger() {
@@ -3039,6 +2554,63 @@ function checkEOITrigger() {
   Logger.log(JSON.stringify(result, null, 2));
   return result;
 }
+
+/* ============================================================
+   SYSTEM BACKUP
+   ============================================================ */
+
+function backupSpreadsheetToDrive() {
+  const spreadsheet = getSpreadsheet_();
+  const file = DriveApp.getFileById(spreadsheet.getId());
+  const folder = getOrCreateBackupFolder();
+
+  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Etc/UTC', 'yyyy-MM-dd_HH-mm');
+  const backupName = spreadsheet.getName() + ' — backup ' + timestamp;
+
+  file.makeCopy(backupName, folder);
+  pruneOldBackups(folder);
+
+  Logger.log('Backup created: ' + backupName);
+  return backupName;
+}
+
+function scheduledBackup() {
+  try {
+    backupSpreadsheetToDrive();
+  } catch (error) {
+    notifyAdminOfError('scheduledBackup', error);
+  }
+}
+
+function getOrCreateBackupFolder() {
+  const folders = DriveApp.getFoldersByName(CONFIG.BACKUP_FOLDER_NAME);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(CONFIG.BACKUP_FOLDER_NAME);
+}
+
+function pruneOldBackups(folder) {
+  const files = folder.getFiles();
+  const list = [];
+  while (files.hasNext()) {
+    const f = files.next();
+    list.push({ file: f, created: f.getDateCreated().getTime() });
+  }
+  list.sort(function(a, b) { return b.created - a.created; });
+  for (let i = CONFIG.BACKUPS_TO_KEEP; i < list.length; i++) list[i].file.setTrashed(true);
+}
+
+function createBackupTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function(trigger) {
+    const fn = trigger.getHandlerFunction();
+    if (fn === 'backupSpreadsheetToDrive' || fn === 'scheduledBackup') ScriptApp.deleteTrigger(trigger);
+  });
+
+  ScriptApp.newTrigger('scheduledBackup').timeBased().everyDays(1).atHour(3).create();
+  Logger.log('Daily backup trigger created (runs around 3am).');
+  return 'Daily backup trigger created (runs around 3am).';
+}
+
 
 /* ============================================================
    SPEED HELPERS
@@ -3065,65 +2637,173 @@ function getSheet_(sheetName) {
   return sheet;
 }
 
+function putChunked_(payload, key, text) {
+  const chunkSize = 90000;
+  const chunks = [];
+  for (let i = 0; i < text.length; i += chunkSize) {
+    chunks.push(text.slice(i, i + chunkSize));
+  }
+  payload[key + '_meta'] = String(chunks.length);
+  chunks.forEach(function(chunk, i) { payload[key + '_' + i] = chunk; });
+}
 
+function getChunkedMany_(keys) {
+  const out = {};
+  if (!keys || !keys.length) return out;
 
+  const cache = CacheService.getScriptCache();
+  const metas = cache.getAll(keys.map(function(k) { return k + '_meta'; })) || {};
 
+  const counts = {};
+  const chunkKeys = [];
+  keys.forEach(function(k) {
+    const meta = metas[k + '_meta'];
+    const count = (meta === undefined || meta === null) ? 0 : (parseInt(meta, 10) || 0);
+    counts[k] = count;
+    for (let i = 0; i < count; i++) chunkKeys.push(k + '_' + i);
+  });
+
+  const chunks = chunkKeys.length ? (cache.getAll(chunkKeys) || {}) : {};
+
+  keys.forEach(function(k) {
+    const count = counts[k];
+    if (!count) { out[k] = null; return; }
+    let text = '';
+    for (let i = 0; i < count; i++) {
+      const part = chunks[k + '_' + i];
+      if (part === undefined || part === null) { text = null; break; }
+      text += part;
+    }
+    out[k] = text;
+  });
+
+  return out;
+}
 
 function getCachedSheets_(sheetNames) {
   const names = [];
-  (sheetNames || []).forEach(function(name) {
-    if (CACHEABLE_SHEETS.indexOf(name) !== -1 && names.indexOf(name) === -1) names.push(name);
-  });
+  (sheetNames || []).forEach(function(n) { if (names.indexOf(n) === -1) names.push(n); });
+
   const out = {};
-  const misses = [];
-
-  names.forEach(function(name) {
-    if (Object.prototype.hasOwnProperty.call(SHEET_DATA_MEMO_, name)) out[name] = SHEET_DATA_MEMO_[name];
-    else misses.push(name);
+  const wanted = [];
+  names.forEach(function(n) {
+    if (Object.prototype.hasOwnProperty.call(SHEET_DATA_MEMO_, n)) out[n] = SHEET_DATA_MEMO_[n];
+    else wanted.push(n);
   });
-  if (!misses.length) return out;
+  if (!wanted.length) return out;
 
+  let texts = {};
   try {
-    const cache = CacheService.getScriptCache();
-    const keys = misses.map(function(name) { return 'sheet_' + name; });
-    const cached = cache.getAll(keys) || {};
-    const freshPayload = {};
-
-    misses.forEach(function(name) {
-      const key = 'sheet_' + name;
-      if (cached[key]) {
-        try {
-          out[name] = JSON.parse(cached[key]);
-          SHEET_DATA_MEMO_[name] = out[name];
-          return;
-        } catch (err) {}
-      }
-      const data = getSheetData(name);
-      out[name] = data;
-      try { freshPayload[key] = JSON.stringify(data); } catch (err) {}
-    });
-
-    if (Object.keys(freshPayload).length) {
-      try { cache.putAll(freshPayload, CACHE_TTL_PUBLIC); } catch (err) {}
-    }
+    texts = getChunkedMany_(wanted.map(function(n) { return 'sheet_' + n; }));
   } catch (err) {
-    // Cache is an optimisation only. Fall back to live sheet reads.
-    misses.forEach(function(name) {
-      if (!Object.prototype.hasOwnProperty.call(out, name)) out[name] = getSheetData(name);
+    texts = {};
+  }
+
+  const misses = [];
+  wanted.forEach(function(n) {
+    const text = texts['sheet_' + n];
+    if (!text) { misses.push(n); return; }
+    try {
+      const data = JSON.parse(text);
+      out[n] = data;
+      SHEET_DATA_MEMO_[n] = data;
+    } catch (err) {
+      misses.push(n);
+    }
+  });
+
+  if (misses.length) {
+    const publicPayload = {};
+    const usersPayload = {};
+
+    misses.forEach(function(n) {
+      const data = getSheetData(n);
+      out[n] = data;
+      try {
+        putChunked_(
+          n === CONFIG.USERS_SHEET ? usersPayload : publicPayload,
+          'sheet_' + n,
+          JSON.stringify(data)
+        );
+      } catch (err) {
+        // caching is best effort
+      }
     });
+
+    try {
+      const cache = CacheService.getScriptCache();
+      if (Object.keys(publicPayload).length) cache.putAll(publicPayload, CACHE_TTL_PUBLIC);
+      if (Object.keys(usersPayload).length) cache.putAll(usersPayload, CACHE_TTL_USERS);
+    } catch (err) {
+      // ignore
+    }
   }
 
   return out;
 }
 
+function getUserIndex_() {
+  // A login only needs one row out of Users, but the old code cached and
+  // parsed every column of every row. This is a small PIN keyed lookup.
+  if (USER_INDEX_MEMO_) return USER_INDEX_MEMO_;
 
-
-
-
-function onEdit(e) {
   try {
-    const name = e && e.range ? e.range.getSheet().getName() : '';
-    if (CACHEABLE_SHEETS.indexOf(name) !== -1) clearSheetCache();
-  } catch (err) {}
+    const text = getChunkedMany_([USER_INDEX_KEY])[USER_INDEX_KEY];
+    if (text) {
+      USER_INDEX_MEMO_ = JSON.parse(text);
+      return USER_INDEX_MEMO_;
+    }
+  } catch (err) {
+    // rebuild below
+  }
+
+  const index = {};
+  getSheetData(CONFIG.USERS_SHEET).forEach(function(user) {
+    const key = String(user.PIN || '').trim().toLowerCase();
+    if (!key) return;
+    index[key] = {
+      ParticipantID: user.ParticipantID || '',
+      PIN: user.PIN || '',
+      Name: user.Name || '',
+      Username: user.Username || '',
+      Email: String(user.Email || '').trim(),
+      Password: String(user.Password || ''),
+      AllowedCategories: user.AllowedCategories || '',
+      Status: user.Status || '',
+      PaperworkStatus: user.PaperworkStatus || ''
+    };
+  });
+
+  try {
+    const payload = {};
+    putChunked_(payload, USER_INDEX_KEY, JSON.stringify(index));
+    CacheService.getScriptCache().putAll(payload, CACHE_TTL_USERS);
+  } catch (err) {
+    // ignore
+  }
+
+  USER_INDEX_MEMO_ = index;
+  return index;
 }
 
+function adminBootstrap() {
+  // Opening the admin panel used to fire three separate server calls, each
+  // opening the spreadsheet again and two of them reading all of Users.
+  return {
+    users: adminListUsers(),
+    ageGroups: adminListAgeGroups(),
+    categories: adminListCategories()
+  };
+}
+
+function onEdit(e) {
+  // This is what makes the long cache times safe. Edit any of the cached
+  // sheets by hand and the cache clears straight away, so the next page
+  // load sees the change immediately.
+  try {
+    const name = e && e.range ? e.range.getSheet().getName() : '';
+    if (name && CACHEABLE_SHEETS.indexOf(name) !== -1) clearSheetCache();
+  } catch (err) {
+    // never let this block an edit
+  }
+}

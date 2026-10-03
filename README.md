@@ -1,118 +1,93 @@
-# Boulder Scout Group – JOTA-JOTI 2026
+# JOTA-JOTI Dashboard — Boulder Scout Group
 
-## This package
+Unofficial JOTA-JOTI 2026 website for Boulder Scout Group.
 
-This package is the cleaned Boulder Scout Group JOTA-JOTI deployment built from the supplied site framework.
+## Public GitHub Pages files
 
-It keeps the existing frontend structure and uses the exact existing Google Sheet schema. The live workbook is intentionally **not** included in this public deployment package because the supplied workbook contains real account credentials and participant information. Continue using that workbook as the bound Google Sheet for the Apps Script.
+Upload the files in this package to the root of the GitHub Pages repository:
 
-## Important data rule
+- `index.html` — main countdown/dashboard
+- `setup.html` — cleaned parent setup guide, available through `/setup`
+- `skip.html` — testing page that skips the countdown
+- `track.html` — JID World Tracker, available through `/track`
+- `admin.html` — admin interface shell; protected by the Apps Script admin session
+- `admin.js` — admin interface logic
+- `admin.css` — admin styling
+- `script.js` — main dashboard logic
+- `style.css` — main dashboard styling
+- `sw.js` — PWA service worker and clean-route handling
+- `404.html` — clean-route fallback for GitHub Pages
+- `manifest.json` — PWA metadata
+- `photo1.png` — PWA icon/logo
 
-The original `Users` sheet is the single source of truth for accounts.
+## Clean routes
 
-Registration:
-`Google Form → Users sheet → account ready`
+- `/` → main countdown/dashboard
+- `/setup` → parent setup guide
+- `/skip` → dashboard test route
+- `/track` → JID World Tracker (world map, JID collection, certificates)
 
-Login:
-`PIN → Users sheet → signed session → dashboard`
+The admin route is deliberately not documented in the public repository. Use the private deployment notes supplied with the project.
 
-There is no backup account store, backup spreadsheet, backup Drive folder, backup trigger, backup restore path, or backup authentication dependency.
+## JID World Tracker
 
-## Apps Script
+`track.html` is a self-contained page (its own map, its own local storage, no backend calls) that scouts use to log the JIDs they collect during JOTA-JOTI and see them plotted on a world map. It can be reached two ways, and both stay in sync because they share the same browser storage on the same site:
 
-1. Open the exact supplied Boulder JOTA-JOTI Google Sheet.
-2. Open **Extensions → Apps Script**.
-3. Replace the existing backend with `Code.gs` from this package.
-4. Save.
-5. Run `setupEOISystem()` once and authorise the required permissions.
-6. Deploy as **Web app**.
-7. Use the deployed `/exec` URL in `config.js` if it differs from the packaged value.
+1. Directly at `/track`.
+2. As a normal dashboard link. Add a row to the **Links** sheet, for example:
 
-`repairSystem` can be used as a lightweight recovery/validation helper if the installable Form trigger needs to be reinstalled.
+   | LinkID | CategoryKey | Title | URL | CanEmbed |
+   |---|---|---|---|---|
+   | chat_004 | chat | JID Map Collector | `https://scoutpegs.github.io/jota-joti-app/track` | TRUE |
 
-## Frontend
+   (fill in the other columns — RequiresLogin, RequiresEmail, ParentApproval, LeaderApproved, Moderated, Active, LogoKey, LogoURL, BlockStatus, Notes — the same way as the existing rows). With `CanEmbed` set to `TRUE`, clicking it opens the tracker inside the dashboard's existing embed screen, which already has its own Back button.
 
-Upload the files in the package root to the Boulder Scout GitHub Pages repository.
+If a scout is logged in to the dashboard, the certificate button on the tracker already knows their name (it reads the same login session the dashboard keeps) and pre-fills it, so they don't have to type it in each time — they can still edit it before creating the certificate.
 
-The frontend configuration is in `config.js`.
+## Important security rule
 
-The frontend uses JSONP for read-only Apps Script requests because Apps Script `ContentService` redirects may fail browser CORS checks from GitHub Pages. The login, session, credential, and health routes now use the backend callback response consistently. Styling, spreadsheet schema, and account flow are otherwise unchanged.
+Do **not** upload the Google Apps Script backend, spreadsheet ID, private admin notes, or old ZIP backups to a public GitHub repository.
 
-Change only these values when needed:
+The public admin page does not contain the admin password. It asks Apps Script for a short-lived admin session after the password is entered.
 
-* `API_URL`
-* `SITE_URL`
-* `SIGNUP_FORM_URL`
-* `EVENT_START_ISO`
+## Backend
 
-The site is configured for the Boulder Scout URL:
-`https://scoutpegs.github.io/jota-joti-app/`
+The Apps Script backend is supplied separately as a private deployment package. It must be deployed as a Google Apps Script Web App running as the owner with access configured as required by the project.
 
-## `/skip` and `.skip`
+The protected admin endpoints are:
 
-`/skip` is the timer test route. It bypasses the countdown/waiting stage only. It does not bypass account authentication or admin permissions.
+- `adminLogin`
+- `adminUsers`
+- `adminSections`
+- `adminCategories`
+- `adminGroups`
+- `adminSender`
+- `adminPreview`
+- `adminSend`
 
-`.skip` is the returning-device/session shortcut. A signed session token and a small non-sensitive account snapshot are kept on the trusted device so reloads can restore the dashboard immediately. The encrypted credential vault is persistent browser storage; the plain-text PIN and password are not written directly to localStorage.
+The old unauthenticated `openAdmin*` endpoints must not be used.
 
-## Leader workflow
+## Updating
 
-Leaders do not receive the participant Y3 workflow.
-
-They are directed to:
-`https://learn.scout.org/resource/sfh-3-being-safe-online`
-
-A Leader without a Scout Learn account is told to reply to the email and request their access details.
-
-## GitHub images
-
-Image paths may be stored as `/image.png`, `images/image.png`, `./images/image.png`, or full external URLs. The frontend resolves these without proxying them through the backend.
-
-## Email previews
-
-Open:
-
-* `email-parent-welcome-preview.html`
-* `email-leader-welcome-preview.html`
-
-The live Apps Script generates the same layouts with escaped account-specific values and a plain-text fallback.
-
-## Tests performed
-
-Static syntax checks, duplicate-function checks, backup-code scans, branding scans, spreadsheet-schema validation, login/registration mock flows, session tests, leader workflow tests, email template checks, frontend route checks, service-worker checks, and package integrity checks are included in the final QA process.
-
-Live Google authorization, live Form submission, real MailApp delivery and the final GitHub Pages deployment still require your Google account and deployed services.
-
-## Security
-
-Do not upload the attached live workbook or a copy containing participant passwords to a public GitHub repository. Keep the workbook private in Google Sheets and keep `Code.gs` and deployment secrets out of public repositories where practical.
-
-## Account details and trusted devices
-
-After a successful sign in, the browser keeps an encrypted copy of the login details needed to restore the account on that device. The site never stores the PIN or password as plain text in localStorage. The dashboard has a **My Login** button where the saved username, PIN, password and participant ID can be viewed and copied. Sensitive values start masked and are revealed only when the user taps Reveal.
-
-The signed session is refreshed in the background. If the server session expires, the encrypted device vault can silently authenticate the account again. Browser storage can still be cleared by the user, browser privacy settings, or device cleanup tools, so no browser storage system can literally guarantee permanent storage. **Forget This Device** removes the saved account from that browser.
-
-## URL routes
-
-`/skip` bypasses only the event timer and continues through the normal site flow. It never bypasses account or admin permissions. `.skip` remains the trusted-device/user shortcut.
-
-## Forms
-
-The setup page loads the three section forms from the root directory so they work as normal GitHub Pages files instead of carrying large base64 PDF strings inside the HTML.
+The public site can be uploaded to GitHub Pages without exposing the private Apps Script source. When the Apps Script deployment URL changes, update the API URL in the public client files and redeploy the private backend separately.
 
 
-## What changed in the run-ready build
+## Setup and testing
 
-* Clicking any link that needs a login or email now shows **all** account details (username, PIN, password, email, parent/guardian email, participant ID) with tap-to-copy, for both "saved account" and "external site" links. The popup opens instantly and fills from memory, then the encrypted vault, then the server.
-* Setup no longer fails on harmless header differences. The Form header now matches your real sheet, and missing `EmailLog` / `EmailGroups` sheets are created automatically.
-* Links whose `Active` cell is blank are now shown (only an explicit FALSE/0/No hides a link). This brings back games_002–006 and chat_004.
-* `BlockedCategories` rows with `AppliesTo = participants` no longer hide content from Leader accounts.
-* New accounts always receive the `event` and `website` categories.
-* Faster logins: cached session secret and simpler row mapping.
-* Service worker cache bumped to v15 so phones pick up the new code.
+### Run locally
 
-`Code.gs` is kept at the root so the whole package has no folders, and it can remain public because you requested the source to be open. Deploy it separately in the bound Apps Script project.
+1. Install Python 3.
+2. Open a terminal in this folder.
+3. Run `python -m http.server 8080`.
+4. Open `http://localhost:8080/` in your browser.
+5. Test the setup guide at `http://localhost:8080/setup`.
 
+A local web server is recommended because service workers and some PWA features do not work reliably when opening files directly with `file://`.
 
-## Login transport
-The GitHub Pages frontend uses the Apps Script iframe response transport first, with JSONP fallback. The deployed Apps Script web app must be the current `Code.gs` version and remain deployed as **Execute as me** with **Anyone** access.
+### Deploy to GitHub Pages
+
+Upload the public files to the repository root. The `/setup` route is handled by `sw.js` after the service worker has been installed. If GitHub Pages does not yet have the service worker cached, open `/setup.html` directly once.
+
+### Important
+
+The setup guide contains event details and links supplied by the project owner. Verify registration deadlines, domains, moderation arrangements and backend URLs before publishing publicly.

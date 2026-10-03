@@ -1,10 +1,9 @@
 // JOTA-JOTI Dashboard PWA service worker
-const CACHE_NAME = 'jota-joti-shell-v16';
+const CACHE_NAME = 'jota-joti-shell-v10';
 
 const APP_SHELL = [
   './index.html',
   './setup.html',
-  './config.js',
   './admin.html',
   './skip.html',
   './track.html',
@@ -13,10 +12,7 @@ const APP_SHELL = [
   './style.css',
   './script.js',
   './admin.css',
-  './admin.js',
-  './Boulder-Scouts-Cub-Section-Form.pdf',
-  './Boulder-Scouts-Joey-Section-Form.pdf',
-  './Boulder-Scouts-Venturer-Section-Form.pdf'
+  './admin.js'
 ];
 
 self.addEventListener('install', event => {
@@ -71,10 +67,15 @@ self.addEventListener('fetch', event => {
       return;
     }
 
-    // Admin routes still require normal admin authentication inside admin.html.
-    // Both the public route and the legacy route remain available.
-    if (path.endsWith('/admin@5-6-4-3') || path.endsWith('/admin') || path.endsWith('/admin.html')) {
+    // Secret admin route
+    if (path.endsWith('/admin@5-6-4-3')) {
       event.respondWith(loadPage('./admin.html'));
+      return;
+    }
+
+    // Never expose the old /admin route.
+    if (path.endsWith('/admin') || path.endsWith('/admin.html')) {
+      event.respondWith(Response.redirect(new URL('./', self.location.origin).href, 302));
       return;
     }
 
@@ -86,6 +87,7 @@ self.addEventListener('fetch', event => {
   const pathname = url.pathname.toLowerCase();
   const isAppFile =
     pathname.endsWith('/index.html') ||
+    pathname.endsWith('/index(1).html') ||
     pathname.endsWith('/admin.html') ||
     pathname.endsWith('/skip.html') ||
     pathname.endsWith('/track.html') ||
@@ -93,12 +95,8 @@ self.addEventListener('fetch', event => {
     pathname.endsWith('/photo1.png') ||
     pathname.endsWith('/style.css') ||
     pathname.endsWith('/script.js') ||
-    pathname.endsWith('/config.js') ||
     pathname.endsWith('/admin.css') ||
-    pathname.endsWith('/admin.js') ||
-    pathname.endsWith('/Boulder-Scouts-Cub-Section-Form.pdf') ||
-    pathname.endsWith('/Boulder-Scouts-Joey-Section-Form.pdf') ||
-    pathname.endsWith('/Boulder-Scouts-Venturer-Section-Form.pdf');
+    pathname.endsWith('/admin.js');
 
   if (!isAppFile) return;
 
