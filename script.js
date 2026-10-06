@@ -1,4 +1,4 @@
-        const API_URL = "https://script.google.com/macros/s/AKfycbxVuaODBuBIpa49j1Se_l9bNEC9RGHFK_H_4QSQ6Uo73ezriIDn4h_anjJCicYBXfJX/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbyIHdl2mm2LzxCIndnlN3AAaxaB0sC1XxTjub487xZuYUF3ad9vU0eG1KFIeFMdlpuY/exec";
 
         /* ==========================================================
            COMBINED PORTAL CONFIGURATION
@@ -80,14 +80,30 @@
             } catch (_) {}
         })();
 
+        async function fetchLoginResponse(pin) {
+            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
+            const body = await response.text();
+
+            let data;
+            try {
+                data = JSON.parse(body);
+            } catch (_) {
+                throw new Error(`Sign-in service returned HTTP ${response.status} instead of JSON.`);
+            }
+
+            if (!response.ok) {
+                throw new Error(data && data.error ? data.error : `Sign-in service returned HTTP ${response.status}.`);
+            }
+
+            return data;
+        }
+
         (function startLoginPrefetch() {
             try {
                 const pin = localStorage.getItem(SAVED_PIN_KEY);
                 if (!pin || !/^\d{4}$/.test(pin)) return;
                 loginPrefetchPin = pin;
-                loginPrefetch = fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' })
-                    .then(r => r.json())
-                    .catch(() => null);
+                loginPrefetch = fetchLoginResponse(pin).catch(() => null);
             } catch (_) {}
         })();
 
@@ -99,8 +115,7 @@
                 const early = await pending;
                 if (early) return early;
             }
-            const response = await fetch(`${API_URL}?action=login&pin=${encodeURIComponent(pin)}&_=${Date.now()}`, { cache: 'no-store' });
-            return await response.json();
+            return await fetchLoginResponse(pin);
         }
 
         function saveDashboardCache(pin, data) {
@@ -166,7 +181,6 @@
                 }
             }
 
-            window.setTimeout(() => checkPortalConnection(true), 4200);
         }
 
         function setDashboardView(view) { dashboardView = view; }

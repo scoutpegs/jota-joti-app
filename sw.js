@@ -1,4 +1,3 @@
-```javascript
 // JOTA-JOTI Dashboard PWA service worker
 //
 // IMPORTANT:
@@ -7,7 +6,7 @@
 //
 // A new version creates a new cache and automatically removes the old one.
 
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 const CACHE_NAME = `jota-joti-shell-${APP_VERSION}`;
 
 const APP_SHELL = [
@@ -313,4 +312,3 @@ async function networkFirst(request) {
     throw error;
   }
 }
-```
