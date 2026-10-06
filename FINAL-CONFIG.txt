@@ -1,0 +1,19 @@
+FINAL JOTA-JOTI CONFIGURATION
+
+SCOUT GROUP
+Boulder Scout Group
+
+LIVE WEBSITE
+https://scoutpegs.github.io/jota-joti-app/
+
+LIVE SPREADSHEET ID
+1l6ZXb8ah7HrnE5D75nNtpu3IdQ-mpg1-M6RvsbBxJGk
+
+LIVE APPS SCRIPT WEB APP
+https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec
+
+LOGIN SOURCE OF TRUTH
+Users sheet in the live spreadsheet.
+
+PWA CACHE
+v13

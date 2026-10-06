@@ -1,0 +1,54 @@
+JOTA-JOTI 2026 — BOULDER SCOUT GROUP
+FINAL READY-TO-UPLOAD PACKAGE
+
+This package is already wired together. Do NOT edit the API URL or spreadsheet ID.
+
+WHAT IS INSIDE
+- index.html / setup.html / admin.html / skip.html / track.html / 404.html
+- config.js / script.js / admin.js
+- style.css / admin.css / sw.js / manifest.json / photo1.png
+- Code.gs = the Google Apps Script backend
+- Boulder Scouts section forms and email templates
+- spreadsheet-schema.json
+
+IMPORTANT
+The live Google Sheet and Apps Script deployment are configured in Code.gs/config.js.
+The website uses one consistent Apps Script deployment URL.
+The Users sheet remains the source of truth for login accounts.
+
+STEP 1 — WEBSITE
+Upload the CONTENTS of this folder to the root of your GitHub Pages repository.
+Do not upload the outer ZIP folder itself.
+
+STEP 2 — APPS SCRIPT
+Open the Apps Script project connected to the JOTA-JOTI system.
+Replace its Code.gs with the Code.gs included here.
+Save.
+Then go to Deploy > Manage deployments > Edit the existing Web app deployment.
+Choose the latest version and deploy it.
+Keep Execute as: Me.
+Keep access set so the public website can call the web app.
+
+STEP 3 — SHEET SETUP
+Open the live Boulder Scout Group JOTA-JOTI spreadsheet.
+Use the JOTA-JOTI menu and run Full Setup once if it is available.
+Then run Warm Cache once.
+
+STEP 4 — FIRST TEST
+Open:
+https://scoutpegs.github.io/jota-joti-app/
+
+Hard refresh once with Ctrl+Shift+R.
+Test an existing PIN.
+Then submit a test EOI and test the newly-created PIN immediately.
+
+ADMIN CENTRE
+The admin page is already included.
+Use the private admin route configured by the current service worker/admin system.
+Do not edit admin.js or the API URL.
+
+CACHING
+The service worker in this package is v13 so browsers should install a fresh site cache.
+New Users are invalidated from the backend cache when the Users sheet changes.
+
+DO NOT MIX FILES FROM OLDER JOTA-JOTI ZIPs INTO THIS PACKAGE.

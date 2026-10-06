@@ -6,7 +6,7 @@
 //
 // A new version creates a new cache and automatically removes the old one.
 
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v13';
 const CACHE_NAME = `jota-joti-shell-${APP_VERSION}`;
 
 const APP_SHELL = [
