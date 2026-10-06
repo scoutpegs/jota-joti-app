@@ -1,0 +1,34 @@
+JOTA-JOTI LOGIN FIX — DEPLOY THIS VERSION
+
+ROOT CAUSE
+The project had multiple Apps Script Web App URLs. The participant login page was calling a different deployment from the live V5 deployment tied to the Boulder Scout Group spreadsheet. That is why a PIN that exists in Users could still return "PIN not found".
+
+CANONICAL CURRENT V5 WEB APP
+https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec
+
+WHAT WAS FIXED
+- config.js uses the canonical V5 Web App URL.
+- script.js uses config.js when available and the canonical V5 URL as a fallback.
+- admin.js already used the canonical V5 URL and is kept aligned.
+- Code.gs uses the canonical V5 URL in its documentation/config.
+- Code (1).gs is now identical to Code.gs so there is no stale duplicate backend.
+- index.html loads config.js before script.js.
+- Login still uses Users as the source of truth and has a live-sheet fallback if the cache misses.
+- Public diagnostics no longer return sample participant PINs.
+
+DEPLOYMENT
+1. In Apps Script, replace Code.gs with the Code.gs from this bundle.
+2. Save.
+3. Run setupEOISystem once if this is the first setup.
+4. Deploy -> Manage deployments -> Edit the existing Web App deployment.
+5. Select the newest version and deploy. Keep Execute as: Me and Who has access: Anyone.
+6. Do not create a second unrelated Web App deployment unless you also update API_URL everywhere.
+7. Replace the GitHub files with the fixed website files from this bundle.
+8. Hard refresh the website with Ctrl+Shift+R.
+9. Test an existing Users PIN first, then submit a new EOI and test the generated PIN immediately.
+
+SPREADSHEET
+The backend remains hard-wired to the supplied live spreadsheet ID:
+1l6ZXb8ah7HrnE5D75nNtpu3IdQ-mpg1-M6RvsbBxJGk
+
+Do not upload the supplied spreadsheet to GitHub.

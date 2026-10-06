@@ -1,0 +1,8 @@
+# Private JOTA-JOTI backend / deployment material
+Code.gs
+jota-joti-private-*
+JOTA-JOTI-PRIVATE-*
+*.private.zip
+
+# Old build/archive ZIPs should not be committed
+*.zip

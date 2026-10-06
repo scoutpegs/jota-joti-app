@@ -1,0 +1,152 @@
+{
+  "project": "Boulder Scout Group JOTA-JOTI 2026",
+  "version": "2026.10.03-ship-final",
+  "generated_at_utc": "2026-10-02T15:54:56.583376+00:00",
+  "files": [
+    {
+      "path": ".gitignore",
+      "bytes": 48,
+      "sha256": "22ca779905a519c3abd12f03aa410a963c0f244af657c1f6a65d26ce862a7c82"
+    },
+    {
+      "path": "404.html",
+      "bytes": 2051,
+      "sha256": "e08271633ac59dc350ae3916c7f63df25a8a1fd6c40601153245fb5ff9e42fb3"
+    },
+    {
+      "path": "Code.gs",
+      "bytes": 135845,
+      "sha256": "6c318f92378565f11d4a3317b10dd7306fa92e341644b1224d6709fa3893d1a5"
+    },
+    {
+      "path": "EXACT-SPREADSHEET-REFERENCE.txt",
+      "bytes": 696,
+      "sha256": "6931d77c3de5850e309748f371161ceea63da3efc15352754298604b6d0df085"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4888,
+      "sha256": "bdbcb61f42615ce82ac14f3bfd091927e7878316d3561b922c1786ff359dbacf"
+    },
+    {
+      "path": "SHIP-CHECKLIST.md",
+      "bytes": 1502,
+      "sha256": "d492bfbcda41d18f002b966ab92bdb5eb64ffa93d1dd16143fbcdf95fa4f0867"
+    },
+    {
+      "path": "admin.css",
+      "bytes": 4750,
+      "sha256": "8e5eb0d4dfe6ab0a7d929fac9aa81f2c499ca54e1fb94e4abc3edc5cbe5ee601"
+    },
+    {
+      "path": "admin.html",
+      "bytes": 9322,
+      "sha256": "c7bc9e04e004767e679be17058e534596c52d25ffd88345e115d93539ffc54f8"
+    },
+    {
+      "path": "admin.js",
+      "bytes": 24379,
+      "sha256": "da5fc3cc45863383a83321e5ef0c341691582ee60b53d967cc43522d1a6e7a21"
+    },
+    {
+      "path": "config.js",
+      "bytes": 516,
+      "sha256": "de8a94c7c8af55ea6c80d8b85a69567349ce8659fc7fef18bb0067e7612373df"
+    },
+    {
+      "path": "emails/README.md",
+      "bytes": 761,
+      "sha256": "1e90b43bedffb06e9408349d9523465805a594c6a251d9c26f1d079390a79a20"
+    },
+    {
+      "path": "emails/index.html",
+      "bytes": 1864,
+      "sha256": "b8b6869c5f780def59747c531e77937817a468731827d0a1f870108d813b0270"
+    },
+    {
+      "path": "emails/leader-welcome-template.html",
+      "bytes": 4394,
+      "sha256": "f766fe862d31d4f0b20d4f3970d97aab7d511d9e832d74efe0362e1d6f7048eb"
+    },
+    {
+      "path": "emails/leader-welcome.html",
+      "bytes": 3704,
+      "sha256": "0a784f35eb8e67f0cff83a2c229f6e91c81d2be3e1204947ce8cfd33329beeea"
+    },
+    {
+      "path": "emails/parent-welcome-template.html",
+      "bytes": 5070,
+      "sha256": "8224df80f3836fd7b6e11f67b144e350880f8a0677c20444d7d217bb0d702360"
+    },
+    {
+      "path": "emails/parent-welcome.html",
+      "bytes": 4477,
+      "sha256": "d159615dd43fc1cb85e5d7ab09747a4976f23bb5e823367052ae71088ba419e8"
+    },
+    {
+      "path": "forms/Boulder-Scouts-Cub-Section-Form.pdf",
+      "bytes": 254642,
+      "sha256": "c2d49b11ea605fd2a838b54c6899aa4f2aa96606f9f75daf2643aef957500fc3"
+    },
+    {
+      "path": "forms/Boulder-Scouts-Joey-Section-Form.pdf",
+      "bytes": 254636,
+      "sha256": "f834a9a7c95a84e158e5aab774b4dbdcd8751a107534407e5f8f0ba2181d037c"
+    },
+    {
+      "path": "forms/Boulder-Scouts-Venturer-Section-Form.pdf",
+      "bytes": 254666,
+      "sha256": "144f2ca96a8e4d050de350c2a9e17b3ca5a2846349998542342601d29e0731fb"
+    },
+    {
+      "path": "index.html",
+      "bytes": 13964,
+      "sha256": "8ca739484f41e845108901b2b6e4dca523fd21e8140a286977c828feacf83a36"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 712,
+      "sha256": "0cc1e140170f7e5bb938de44d7dfbf1e9ba812d3a09b0a25d6b0b8a0b23fd4d7"
+    },
+    {
+      "path": "photo1.png",
+      "bytes": 107678,
+      "sha256": "9f659434f8f901f827f7d273f6c8ca97fd26c591a01c611e8c67ba1553854ae3"
+    },
+    {
+      "path": "script.js",
+      "bytes": 93358,
+      "sha256": "7e325ef5bd3aec6cc52484768f95ae7bb62982d03c2ff6a138cf98a1dacac3d7"
+    },
+    {
+      "path": "setup.html",
+      "bytes": 84936,
+      "sha256": "9de46ce0128a129b3113bb73b0a1da0180aff9f5ff5819704434b9ee406a6da7"
+    },
+    {
+      "path": "skip.html",
+      "bytes": 13860,
+      "sha256": "000672bcb08bd2fd3f30085e63b4c3cdd1183b4a0b92d9bbf366bcfe3daaf5db"
+    },
+    {
+      "path": "spreadsheet-schema.json",
+      "bytes": 1886,
+      "sha256": "bdfde10b4edf5820f3ed48a2b4b6b03d7c71ee9c1067507ce6b0ced1f16d9289"
+    },
+    {
+      "path": "style.css",
+      "bytes": 83803,
+      "sha256": "f8926aefb185ff24356142dbf2c99b1ecdf4f56c4064f4176bcd4f4959c44b8d"
+    },
+    {
+      "path": "sw.js",
+      "bytes": 4205,
+      "sha256": "bd3810bda961f78d132a3f8586c8efad5d123cc41f0cd2f069796d2971ad131e"
+    },
+    {
+      "path": "track.html",
+      "bytes": 55439,
+      "sha256": "5b045ec9bd2a8d7d4b671f172618c55f58d458f39905b6ca16043950f46b5dc8"
+    }
+  ]
+}

@@ -65,9 +65,9 @@ const CONFIG = {
   // prevents a web-app execution from accidentally binding to another sheet.
   SPREADSHEET_ID: '1l6ZXb8ah7HrnE5D75nNtpu3IdQ-mpg1-M6RvsbBxJGk',
 
-  // Current deployed Apps Script web-app URL. This is documentation only;
-  // the GitHub admin page has its own copy in admin.js.
-  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbyIHdl2mm2LzxCIndnlN3AAaxaB0sC1XxTjub487xZuYUF3ad9vU0eG1KFIeFMdlpuY/exec',
+  // Current deployed Apps Script web-app URL. Keep this identical to config.js,
+  // script.js and admin.js so every client talks to the same live deployment.
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec',
   EMAIL_LOGO_URL: 'cid:jotaLogoBlack',
   EMAIL_HEADER_BG: '#174A6A',
   EMAIL_PAGE_BG: '#F5F7F8'
@@ -327,11 +327,15 @@ function runDiagnostics() {
     return { function: trigger.getHandlerFunction(), type: String(trigger.getEventType()) };
   });
 
-  let samplePins = [];
+  let userCount = 0;
+  let pinCount = 0;
   try {
-    samplePins = getSheetData(CONFIG.USERS_SHEET).slice(0, 5).map(function(u) { return String(u.PIN || ''); });
+    const users = getSheetData(CONFIG.USERS_SHEET);
+    userCount = users.length;
+    pinCount = users.filter(function(u) { return !!normalisePinForLogin_(u.PIN); }).length;
   } catch (err) {
-    samplePins = ['(could not read Users sheet: ' + err.message + ')'];
+    userCount = -1;
+    pinCount = -1;
   }
 
   return {
@@ -342,7 +346,8 @@ function runDiagnostics() {
     serverTime: new Date().toISOString(),
     sheets: sheetReport,
     triggersInstalled: triggers,
-    samplePinsInUsersSheet: samplePins
+    usersWithPins: pinCount,
+    usersTotal: userCount
   };
 }
 

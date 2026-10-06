@@ -1,4 +1,4 @@
-        const API_URL = "https://script.google.com/macros/s/AKfycbyIHdl2mm2LzxCIndnlN3AAaxaB0sC1XxTjub487xZuYUF3ad9vU0eG1KFIeFMdlpuY/exec";
+        const API_URL = (window.JOTA_CONFIG && window.JOTA_CONFIG.API_URL) || "https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec";
 
         /* ==========================================================
            COMBINED PORTAL CONFIGURATION
