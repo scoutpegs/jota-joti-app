@@ -136,7 +136,8 @@
                 return {
                     categories: Array.isArray(d.categories) ? d.categories : [],
                     links: Array.isArray(d.links) ? d.links : [],
-                    logos: Array.isArray(d.logos) ? d.logos : []
+                    logos: Array.isArray(d.logos) ? d.logos : [],
+                    activities: Array.isArray(d.activities) ? d.activities : []
                 };
             } catch (_) { return null; }
         }
@@ -424,7 +425,7 @@
                     return;
                 }
                 sessionUser=data.user;
-                dashboardData={categories:Array.isArray(data.categories)?data.categories:[],links:Array.isArray(data.links)?data.links:[],logos:Array.isArray(data.logos)?data.logos:[]};
+                dashboardData={categories:Array.isArray(data.categories)?data.categories:[],links:Array.isArray(data.links)?data.links:[],logos:Array.isArray(data.logos)?data.logos:[],activities:Array.isArray(data.activities)?data.activities:[]};
                 saveRememberedSession(pin,sessionUser);
                 saveDashboardCache(pin,dashboardData);
                 updatePortalGreeting(); updateTopNavigation();
@@ -816,7 +817,8 @@
                 dashboardData = {
                     categories: Array.isArray(data.categories) ? data.categories : [],
                     links: Array.isArray(data.links) ? data.links : [],
-                    logos: Array.isArray(data.logos) ? data.logos : []
+                    logos: Array.isArray(data.logos) ? data.logos : [],
+                    activities: Array.isArray(data.activities) ? data.activities : []
                 };
 
                 if (pin !== 'guest') {
@@ -964,21 +966,26 @@
             if (!dashboardData) return;
             updateDashboardGreeting();
             const grid=document.getElementById('category-grid'); if(!grid) return;
-            const categories=dashboardData.categories||[]; const links=dashboardData.links||[];
-            const signature=JSON.stringify({categories,links});
+            const categories=dashboardData.categories||[]; const links=dashboardData.links||[]; const activities=dashboardData.activities||[];
+            const signature=JSON.stringify({categories,links,activities});
             if(options.force!==true && signature===lastDashboardBuildSignature){ ensureDashboardScreenOnly(); return; }
             lastDashboardBuildSignature=signature; grid.innerHTML='';
             categories.forEach(cat=>{
                 const catKey=String(cat.CategoryKey||'').toLowerCase();
                 const catLinks=links.filter(link=>String(link.CategoryKey||'').toLowerCase()===catKey);
-                const total=catLinks.length;
+                const catActivities=activities.filter(activity=>String(activity.CategoryKey||'').toLowerCase()===catKey);
+                const items=[...catLinks.map(x=>({kind:'link',item:x})),...catActivities.map(x=>({kind:'activity',item:x}))];
+                const total=items.length;
                 const btn=document.createElement('button'); btn.className='card-btn'; btn.type='button'; btn.dataset.categoryKey=catKey;
                 const badgeLabel=total===0?'Available':total+(total===1?' Option':' Options');
                 btn.innerHTML=`<img class="card-icon" src="${escapeAttribute(cat.LogoURL||'https://img.icons8.com/color/96/folder.png')}" alt=""><div class="card-title">${escapeHtml(cat.Title)}</div><div class="badge">${badgeLabel}</div>`;
                 addReactivePointer(btn);
                 btn.addEventListener('click',e=>{
                     e.preventDefault();
-                    if(total===1) openSite(catLinks[0]); else openSubMenu(cat,catLinks);
+                    if(total===1) {
+                        const only=items[0];
+                        if(only.kind==='activity') openActivityDetails(only.item); else openSite(only.item);
+                    } else openSubMenu(cat,items);
                 });
                 grid.appendChild(btn);
             });
@@ -991,6 +998,7 @@
             }
         }
 
+
         function addReactivePointer(btn) {
             btn.addEventListener('pointermove',e=>{ const r=btn.getBoundingClientRect(); btn.style.setProperty('--rx',((e.clientX-r.left)/r.width*100)+'%'); btn.style.setProperty('--ry',((e.clientY-r.top)/r.height*100)+'%'); });
             btn.addEventListener('pointerdown',()=>btn.classList.add('is-pressing'));
@@ -998,20 +1006,61 @@
             btn.addEventListener('pointercancel',()=>btn.classList.remove('is-pressing'));
         }
 
-        function openSubMenu(category,links,options={}) {
+        function openSubMenu(category,items,options={}) {
             activeCategoryKey=String(category.CategoryKey||'').toLowerCase(); dashboardView='submenu';
             if (!options.skipHash) setRouteHash('#/category/' + encodeURIComponent(activeCategoryKey));
             document.getElementById('submenu-title').innerText=category.Title||'Select Option';
             const subGrid=document.getElementById('submenu-grid'); subGrid.innerHTML='';
-            (links||[]).forEach(item=>{
+            (items||[]).forEach(entry=>{
+                const isActivity=entry && entry.kind==='activity';
+                const item=entry && entry.item ? entry.item : entry;
                 const btn=document.createElement('button'); btn.className='card-btn'; btn.type='button';
-                let html=`<img class="card-icon" src="${escapeAttribute(item.LogoURL||category.LogoURL||'https://img.icons8.com/color/96/link.png')}" alt=""><div class="card-title">${escapeHtml(item.Title)}</div>`;
-                const badgeLabel=accessBadgeLabel(item); if(badgeLabel) html+=`<div class="badge">${badgeLabel}</div>`;
-                btn.innerHTML=html; addReactivePointer(btn); btn.addEventListener('click',e=>{e.preventDefault();openSite(item);}); subGrid.appendChild(btn);
+                const icon=isActivity ? (item.PhotoURL||category.LogoURL||'https://img.icons8.com/color/96/activity.png') : (item.LogoURL||category.LogoURL||'https://img.icons8.com/color/96/link.png');
+                const badge=isActivity
+                    ? [item.Duration,item.Difficulty,item.LeaderRequired?'Leader required':''].filter(Boolean).join(' · ')
+                    : accessBadgeLabel(item);
+                let html=`<img class="card-icon" src="${escapeAttribute(icon)}" alt=""><div class="card-title">${escapeHtml(item.Title||'Untitled')}</div>`;
+                if(badge) html+=`<div class="badge">${escapeHtml(badge)}</div>`;
+                btn.innerHTML=html; addReactivePointer(btn);
+                btn.addEventListener('click',e=>{e.preventDefault(); if(isActivity) openActivityDetails(item); else openSite(item);});
+                subGrid.appendChild(btn);
             });
-            if(!links||!links.length) subGrid.innerHTML='<div class="empty-state">No links in this category yet.</div>';
+            if(!items||!items.length) subGrid.innerHTML='<div class="empty-state">No links or activities in this category yet.</div>';
             document.getElementById('login-screen').style.display='none'; document.getElementById('dashboard-screen').style.display='none'; document.getElementById('submenu-screen').style.display='block';
             animateScreenIn(document.getElementById('submenu-screen'));
+        }
+
+        function openActivityDetails(activity) {
+            const sheet=document.getElementById('sheet-body');
+            const title=document.getElementById('sheet-title');
+            if(!sheet||!title) return;
+            title.innerText=activity.Title||'Activity';
+            sheet.innerHTML='';
+            if(activity.PhotoURL){
+                const img=document.createElement('img'); img.src=activity.PhotoURL; img.alt=''; img.style.width='100%'; img.style.maxHeight='230px'; img.style.objectFit='cover'; img.style.borderRadius='12px'; img.style.marginBottom='14px'; sheet.appendChild(img);
+            }
+            const desc=document.createElement('div'); desc.className='activity-desc'; desc.innerText=activity.Description||'No description has been added yet.'; sheet.appendChild(desc);
+            const meta=document.createElement('div'); meta.className='activity-meta';
+            [['Duration',activity.Duration],['Difficulty',activity.Difficulty],['Participants',activity.Participants],['Equipment',activity.Equipment],['Leader',activity.LeaderRequired?'Leader required':'No leader flag']].forEach(([label,value])=>{
+                if(!value) return;
+                const row=document.createElement('div'); row.className='activity-meta-row';
+                row.innerHTML=`<strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span>`; meta.appendChild(row);
+            });
+            if(meta.children.length) sheet.appendChild(meta);
+            if(activity.Notes){
+                const note=document.createElement('div'); note.className='access-note'; note.innerText=activity.Notes; sheet.appendChild(note);
+            }
+            if(activity.InstructionsURL){
+                const wrap=document.createElement('div'); wrap.className='btn-row';
+                const openBtn=document.createElement('button'); openBtn.className='activity-open-btn'; openBtn.type='button'; openBtn.innerText='Open instructions';
+                openBtn.onclick=()=> {
+                    const site={LinkID:'activity_'+String(activity.ActivityID||Date.now()),Title:activity.Title||'Instructions',URL:activity.InstructionsURL,CanEmbed:activity.CanEmbed===true,RequiresLogin:0,RequiresEmail:0,LogoURL:activity.PhotoURL||''};
+                    launchSite(site, canEmbed(site));
+                    closeSheet({reason:'activity'});
+                };
+                wrap.appendChild(openBtn); sheet.appendChild(wrap);
+            }
+            openSheet();
         }
 
         function showDashboard() {
@@ -1379,6 +1428,7 @@
                 dashboardDataLoaded: !!dashboardData,
                 categoriesLoaded: !!(dashboardData && dashboardData.categories),
                 linksLoaded: !!(dashboardData && dashboardData.links),
+                activitiesLoaded: !!(dashboardData && dashboardData.activities),
                 logosLoaded: !!(dashboardData && dashboardData.logos)
             };
         }

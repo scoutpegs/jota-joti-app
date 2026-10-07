@@ -41,6 +41,8 @@ const CONFIG = {
   BLOCKED_URLS_SHEET: 'BlockedURLs',
   BLOCKED_CATEGORIES_SHEET: 'BlockedCategories',
   SETTINGS_SHEET: 'Settings',
+  ACTIVITIES_SHEET: 'Activities',
+  ADMIN_AUDIT_SHEET: 'AdminAuditLog',
 
   WEBSITE_URL: 'https://scoutpegs.github.io/jota-joti-app/',
   SETUP_GUIDE_URL: 'https://scoutpegs.github.io/jota-joti-app/setup',
@@ -101,7 +103,8 @@ const CACHEABLE_SHEETS = [
   CONFIG.CATEGORIES_SHEET,
   CONFIG.LINKS_SHEET,
   CONFIG.LOGOS_SHEET,
-  CONFIG.USERS_SHEET
+  CONFIG.USERS_SHEET,
+  CONFIG.ACTIVITIES_SHEET
 ];
 
 const USERS_HEADERS = [
@@ -109,6 +112,32 @@ const USERS_HEADERS = [
   'AllowedCategories', 'Password', 'ParentEmail', 'ParentName',
   'ScoutGroup', 'AgeYear', 'Status', 'EOIReceived',
   'AccountCreated', 'PaperworkStatus', 'EmailStatus', 'Notes', 'AgeGroup'
+];
+
+const CATEGORIES_HEADERS = [
+  'CategoryKey', 'Title', 'LogoKey', 'LogoURL', 'Description', 'Active'
+];
+
+const LINKS_HEADERS = [
+  'LinkID', 'CategoryKey', 'Title', 'URL', 'CanEmbed',
+  'RequiresLogin', 'RequiresEmail', 'ParentApproval',
+  'LeaderApproved', 'Moderated', 'Active', 'LogoKey',
+  'LogoURL', 'BlockStatus', 'Notes', 'IsHTML'
+];
+
+const ACTIVITIES_HEADERS = [
+  'ActivityID', 'Title', 'Description', 'CategoryKey', 'Duration',
+  'Difficulty', 'Participants', 'Equipment', 'InstructionsURL',
+  'LeaderRequired', 'Active', 'PhotoURL', 'PhotoKey', 'CanEmbed',
+  'IsHTML', 'Notes'
+];
+
+const LOGOS_HEADERS = [
+  'LogoKey', 'CategoryKey', 'ItemKey', 'Title', 'LogoURL', 'Active'
+];
+
+const ADMIN_AUDIT_HEADERS = [
+  'Timestamp', 'AdminEmail', 'Action', 'Target', 'Details', 'Status'
 ];
 
 /* ============================================================
@@ -129,60 +158,42 @@ function handleRequest(e) {
     const pin = e && e.parameter ? e.parameter.pin || '' : '';
     const callback = e && e.parameter ? String(e.parameter.callback || '').trim() : '';
 
-    // Standalone browser Email Admin API.
-    // The GitHub admin page uses ordinary CORS/fetch requests. JSONP remains
-    // supported only for backward compatibility with older clients.
+    // Admin API. Every admin operation other than adminLogin requires the
+    // short-lived token issued by adminLogin. Older "openAdmin*" routes were
+    // deliberately removed because they exposed participant data without a
+    // password.
     if (action === 'adminLogin') {
       return apiResponse(e, adminLogin(e));
     }
 
-    // Standalone no-sign-in admin endpoints. These are deliberately separate
-    // from the password/session-protected admin endpoints so the same script
-    // can support both the public participant site and a standalone admin page.
-    // IMPORTANT: do not publish the standalone admin page publicly unless you
-    // accept that these endpoints can expose Users data and send email.
-    if (action === 'openAdminUsers') {
-      return apiResponse(e, adminListUsers());
-    }
-
-    if (action === 'openAdminSections') {
-      return apiResponse(e, adminListAgeGroups());
-    }
-
-    if (action === 'openAdminCategories') {
-      return apiResponse(e, adminListCategories());
-    }
-
-    if (action === 'openAdminGroups') {
-      return apiResponse(e, adminListGroups());
-    }
-
-    if (action === 'openAdminSender') {
-      let sender = '';
-      let quota = null;
-      try { sender = String(Session.getEffectiveUser().getEmail() || '').trim(); } catch (err) {}
-      try { quota = MailApp.getRemainingDailyQuota(); } catch (err) {}
+    if (action === 'adminPing') {
+      requireAdminToken(e);
       return apiResponse(e, {
         success: true,
-        sender: sender,
-        quota: quota,
-        organiser: CONFIG.SCOUT_GROUP
+        message: 'JOTA-JOTI admin API is working',
+        serverTime: new Date().toISOString()
       });
-    }
-
-    if (action === 'openAdminPreview') {
-      const payload = decodeStandaloneEmailPayload(e);
-      return apiResponse(e, Object.assign({ success: true }, adminPreviewBulkEmail(payload)));
-    }
-
-    if (action === 'openAdminSend') {
-      const payload = decodeStandaloneEmailPayload(e);
-      return apiResponse(e, Object.assign({ success: true }, adminSendBulkEmail(payload)));
     }
 
     if (action === 'adminUsers') {
       requireAdminToken(e);
       return apiResponse(e, adminListUsers());
+    }
+
+    if (action === 'adminUserSave') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, user: adminSaveUser_(payload) });
+    }
+
+    if (action === 'adminResendWelcome') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      const participantId = String(payload && payload.ParticipantID || '').trim();
+      if (!participantId) throw new Error('ParticipantID is required.');
+      const result = adminResendWelcomeEmail(participantId);
+      auditAdmin_('welcome-resend', participantId, 'Resent parent welcome/account email', 'OK');
+      return apiResponse(e, { success: true, sent: result });
     }
 
     if (action === 'adminSections') {
@@ -192,12 +203,86 @@ function handleRequest(e) {
 
     if (action === 'adminCategories') {
       requireAdminToken(e);
-      return apiResponse(e, adminListCategories());
+      return apiResponse(e, { success: true, categories: adminListCategories() });
+    }
+
+    if (action === 'adminCategorySave') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, category: adminSaveCategory_(payload) });
+    }
+
+    if (action === 'adminCategoryDelete') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, category: adminArchiveCategory_(payload) });
+    }
+
+    if (action === 'adminActivities') {
+      requireAdminToken(e);
+      return apiResponse(e, { success: true, activities: adminListActivities() });
+    }
+
+    if (action === 'adminActivitySave') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, activity: adminSaveActivity_(payload) });
+    }
+
+    if (action === 'adminActivityDelete') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, activity: adminArchiveActivity_(payload) });
+    }
+
+    if (action === 'adminLinks') {
+      requireAdminToken(e);
+      return apiResponse(e, { success: true, links: adminListLinks() });
+    }
+
+    if (action === 'adminLinkSave') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, link: adminSaveLink_(payload) });
+    }
+
+    if (action === 'adminLinkDelete') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, link: adminArchiveLink_(payload) });
+    }
+
+    if (action === 'adminMedia') {
+      requireAdminToken(e);
+      return apiResponse(e, { success: true, media: adminListMedia() });
+    }
+
+    if (action === 'adminUploadAsset') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, asset: adminUploadAsset_(payload) });
+    }
+
+    if (action === 'adminMediaDelete') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, asset: adminArchiveMedia_(payload) });
+    }
+
+    if (action === 'adminSettings') {
+      requireAdminToken(e);
+      return apiResponse(e, { success: true, settings: adminListSettings() });
+    }
+
+    if (action === 'adminSettingsSave') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, settings: adminSaveSettings_(payload) });
     }
 
     if (action === 'adminGroups') {
       requireAdminToken(e);
-      return apiResponse(e, adminListGroups());
+      return apiResponse(e, { success: true, groups: adminListGroups() });
     }
 
     if (action === 'adminSender') {
@@ -222,12 +307,47 @@ function handleRequest(e) {
       return apiResponse(e, Object.assign({ success: true }, adminSendBulkEmail(payload)));
     }
 
-    if (action === 'adminPing') {
-      return apiResponse(e, {
-        success: true,
-        message: 'JOTA-JOTI admin API is working',
-        serverTime: new Date().toISOString()
-      });
+    if (action === 'adminPaperworkReminderPreview') {
+      requireAdminToken(e);
+      return apiResponse(e, adminPaperworkReminderPreview_());
+    }
+
+    if (action === 'adminPaperworkReminders') {
+      requireAdminToken(e);
+      const payload = decodeStandaloneEmailPayload(e);
+      return apiResponse(e, { success: true, result: adminSendPaperworkReminders_(payload) });
+    }
+
+    if (action === 'adminAccountPdf') {
+      requireAdminToken(e);
+      const url = adminGenerateAccountListPdf();
+      auditAdmin_('account-pdf', 'all-users', 'Generated printable account/password PDF', 'OK');
+      return apiResponse(e, { success: true, url: url });
+    }
+
+    if (action === 'adminRunSetup') {
+      requireAdminToken(e);
+      const result = setupEOISystem();
+      auditAdmin_('system-setup', CONFIG.SPREADSHEET_ID, 'Ran full spreadsheet setup', 'OK');
+      return apiResponse(e, { success: true, result: result });
+    }
+
+    if (action === 'adminClearCache') {
+      requireAdminToken(e);
+      clearSheetCache([
+        CONFIG.CATEGORIES_SHEET, CONFIG.LINKS_SHEET, CONFIG.LOGOS_SHEET,
+        CONFIG.USERS_SHEET, CONFIG.ACTIVITIES_SHEET
+      ]);
+      DASHBOARD_BUNDLE_KEY && CacheService.getScriptCache().remove(DASHBOARD_BUNDLE_KEY);
+      USER_INDEX_MEMO_ = null;
+      try { CacheService.getScriptCache().remove(USER_INDEX_KEY); } catch (err) {}
+      auditAdmin_('cache-clear', 'dashboard', 'Cleared public/admin cached data', 'OK');
+      return apiResponse(e, { success: true });
+    }
+
+    if (action === 'adminAudit') {
+      requireAdminToken(e);
+      return apiResponse(e, { success: true, entries: adminListAudit_() });
     }
 
     if (action === 'health') {
@@ -260,6 +380,10 @@ function handleRequest(e) {
 
     if (action === 'logos') {
       return apiResponse(e, { success: true, logos: getCachedSheetData(CONFIG.LOGOS_SHEET) });
+    }
+
+    if (action === 'activities') {
+      return apiResponse(e, { success: true, activities: safeGetSheetData_(CONFIG.ACTIVITIES_SHEET) });
     }
 
     if (action === 'blocks') {
@@ -480,7 +604,10 @@ function clearSheetCache(sheetNames) {
   const targeted = Array.isArray(sheetNames) && sheetNames.length;
   const names = targeted ? sheetNames.slice() : CACHEABLE_SHEETS.slice();
   const publicChanged = !targeted || names.some(function(name) {
-    return name === CONFIG.CATEGORIES_SHEET || name === CONFIG.LINKS_SHEET || name === CONFIG.LOGOS_SHEET;
+    return name === CONFIG.CATEGORIES_SHEET ||
+      name === CONFIG.LINKS_SHEET ||
+      name === CONFIG.LOGOS_SHEET ||
+      name === CONFIG.ACTIVITIES_SHEET;
   });
   const usersChanged = !targeted || names.indexOf(CONFIG.USERS_SHEET) !== -1;
 
@@ -540,6 +667,7 @@ function getUserDashboard(pin, e) {
     categories: bundle.categories,
     links: bundle.links,
     logos: bundle.logos,
+    activities: bundle.activities,
     unofficial: true,
     organiser: CONFIG.SCOUT_GROUP
   });
@@ -579,6 +707,7 @@ function getAllPublicData(e) {
     categories: sheets[CONFIG.CATEGORIES_SHEET] || [],
     links: sheets[CONFIG.LINKS_SHEET] || [],
     logos: sheets[CONFIG.LOGOS_SHEET] || [],
+    activities: safeGetSheetData_(CONFIG.ACTIVITIES_SHEET),
     // Kept for front-end compatibility. Category and URL blocking is disabled.
     blockedURLs: [],
     blockedCategories: []
@@ -1789,8 +1918,9 @@ function rowToUserObject(sheet, rowIndex, headers) {
 }
 
 function adminListUsers() {
-  // Always read the current Users sheet. Do not rely on the dashboard cache here:
-  // this list is the source for the admin email composer and must reflect updates.
+  // This is protected by requireAdminToken at the router. It intentionally
+  // exposes the full Users row so the admin UI can act as the sheet's control
+  // panel, including password/PIN visibility.
   return getSheetData(CONFIG.USERS_SHEET).map(function(user) {
     var names = splitName(user.Name || '');
     return {
@@ -1801,16 +1931,21 @@ function adminListUsers() {
       ChildLastName: names.last || '',
       ChildFullName: user.Name || '',
       Username: user.Username || '',
+      Password: user.Password || '',
       Email: user.Email || '',
       ParentName: user.ParentName || '',
       ParentEmail: user.ParentEmail || '',
+      ScoutGroup: user.ScoutGroup || CONFIG.SCOUT_GROUP,
       Status: user.Status || '',
       AgeYear: user.AgeYear || '',
-      // The email admin uses the live Users.AgeYear field as the user's section.
-      // Keep YouthSection for compatibility, but make it reflect AgeYear when present.
       YouthSection: user.AgeYear || getCanonicalYouthSection(user.AgeGroup || ''),
       AgeGroup: user.AgeGroup || '',
-      AllowedCategories: user.AllowedCategories || ''
+      AllowedCategories: user.AllowedCategories || '',
+      EOIReceived: user.EOIReceived || '',
+      AccountCreated: user.AccountCreated || '',
+      PaperworkStatus: user.PaperworkStatus || '',
+      EmailStatus: user.EmailStatus || '',
+      Notes: user.Notes || ''
     };
   });
 }
@@ -2066,15 +2201,6 @@ function fillEmailTemplate(template, user) {
 function userAllowedCategoryKeys(user, allCategoryKeys) {
   // Kept for backward compatibility with older admin-page clients.
   return (allCategoryKeys || []).slice();
-}
-
-function adminListCategories() {
-  return getSheetData(CONFIG.CATEGORIES_SHEET).map(function(category) {
-    return {
-      CategoryKey: category.CategoryKey || '',
-      Title: category.Title || ''
-    };
-  });
 }
 
 function adminListGroups() {
@@ -2718,9 +2844,14 @@ function setupEOISystem() {
   ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(spreadsheet).onFormSubmit().create();
   ScriptApp.newTrigger('onEdit').forSpreadsheet(spreadsheet).onEdit().create();
 
-  ensureSheetExists(spreadsheet, CONFIG.CATEGORIES_SHEET);
-  ensureSheetExists(spreadsheet, CONFIG.LINKS_SHEET);
-  ensureSheetExists(spreadsheet, CONFIG.LOGOS_SHEET);
+  const categoriesSheet = ensureSheetExists(spreadsheet, CONFIG.CATEGORIES_SHEET);
+  ensureUsersHeaders(categoriesSheet, CATEGORIES_HEADERS);
+  const linksSheet = ensureSheetExists(spreadsheet, CONFIG.LINKS_SHEET);
+  ensureUsersHeaders(linksSheet, LINKS_HEADERS);
+  const logosSheet = ensureSheetExists(spreadsheet, CONFIG.LOGOS_SHEET);
+  ensureUsersHeaders(logosSheet, LOGOS_HEADERS);
+  const activitiesSheet = ensureSheetExists(spreadsheet, CONFIG.ACTIVITIES_SHEET);
+  ensureUsersHeaders(activitiesSheet, ACTIVITIES_HEADERS);
   ensureSheetExists(spreadsheet, CONFIG.BLOCKED_URLS_SHEET);
   ensureSheetExists(spreadsheet, CONFIG.BLOCKED_CATEGORIES_SHEET);
   ensureSheetExists(spreadsheet, CONFIG.SETTINGS_SHEET);
@@ -2729,6 +2860,10 @@ function setupEOISystem() {
   ensureEmailLogHeaders(emailLogSheet);
   const emailGroupsSheet = ensureSheetExists(spreadsheet, CONFIG.EMAIL_GROUPS_SHEET);
   ensureEmailGroupsHeaders(emailGroupsSheet);
+
+  const auditSheet = ensureSheetExists(spreadsheet, CONFIG.ADMIN_AUDIT_SHEET);
+  ensureUsersHeaders(auditSheet, ADMIN_AUDIT_HEADERS);
+
   const generatedAdminPassword = ensureAdminPassword_();
 
   createPerformanceTrigger();
@@ -3053,14 +3188,20 @@ function buildDashboardBundle_() {
   const categories = sheets[CONFIG.CATEGORIES_SHEET] || [];
   const links = sheets[CONFIG.LINKS_SHEET] || [];
   const logos = sheets[CONFIG.LOGOS_SHEET] || [];
+  const activities = safeGetSheetData_(CONFIG.ACTIVITIES_SHEET);
   const logoMap = {};
   logos.forEach(function(logo) {
+    const active = String(logo.Active || '').trim();
+    if (active && !parseBoolean(active)) return;
     const key = String(logo.LogoKey || '').trim();
     if (key) logoMap[key] = String(logo.LogoURL || '').trim();
   });
 
   return {
-    categories: categories.map(function(category) {
+    categories: categories.filter(function(category) {
+      const active = String(category.Active || '').trim();
+      return active === '' || parseBoolean(active);
+    }).map(function(category) {
       const logoKey = String(category.LogoKey || '').trim();
       return {
         CategoryKey: category.CategoryKey || '', Title: category.Title || '', LogoKey: logoKey,
@@ -3070,16 +3211,41 @@ function buildDashboardBundle_() {
     }),
     links: links.filter(function(link) {
       const active = String(link.Active || '').trim();
-      return active === '' || parseBoolean(link.Active);
+      return active === '' || parseBoolean(active);
     }).map(function(link) {
       const logoKey = String(link.LogoKey || '').trim();
       return {
         LinkID: link.LinkID || '', CategoryKey: link.CategoryKey || '', Title: link.Title || '', URL: link.URL || '',
-        CanEmbed: parseBoolean(link.CanEmbed), RequiresLogin: parseAccessLevel(link.RequiresLogin), RequiresEmail: parseAccessLevel(link.RequiresEmail),
+        CanEmbed: parseBoolean(link.CanEmbed), IsHTML: parseBoolean(link.IsHTML) || isRawHtmlServer_(link.URL),
+        RequiresLogin: parseAccessLevel(link.RequiresLogin), RequiresEmail: parseAccessLevel(link.RequiresEmail),
         ParentApproval: parseBoolean(link.ParentApproval), LeaderApproved: parseBoolean(link.LeaderApproved), Moderated: parseBoolean(link.Moderated),
         Active: parseBoolean(link.Active), LogoKey: logoKey,
         LogoURL: logoKey && logoMap[logoKey] ? logoMap[logoKey] : String(link.LogoURL || '').trim(),
         BlockStatus: link.BlockStatus || '', Notes: link.Notes || ''
+      };
+    }),
+    activities: activities.filter(function(activity) {
+      const active = String(activity.Active || '').trim();
+      return active === '' || parseBoolean(active);
+    }).map(function(activity) {
+      const photoKey = String(activity.PhotoKey || '').trim();
+      return {
+        ActivityID: activity.ActivityID || '',
+        Title: activity.Title || '',
+        Description: activity.Description || '',
+        CategoryKey: activity.CategoryKey || '',
+        Duration: activity.Duration || '',
+        Difficulty: activity.Difficulty || '',
+        Participants: activity.Participants || '',
+        Equipment: activity.Equipment || '',
+        InstructionsURL: activity.InstructionsURL || '',
+        LeaderRequired: parseBoolean(activity.LeaderRequired),
+        Active: parseBoolean(activity.Active),
+        PhotoURL: photoKey && logoMap[photoKey] ? logoMap[photoKey] : String(activity.PhotoURL || '').trim(),
+        PhotoKey: photoKey,
+        CanEmbed: parseBoolean(activity.CanEmbed),
+        IsHTML: parseBoolean(activity.IsHTML) || isRawHtmlServer_(activity.InstructionsURL),
+        Notes: activity.Notes || ''
       };
     }),
     logos: logos
@@ -3217,6 +3383,521 @@ function adminBootstrap() {
     ageGroups: ageGroups,
     categories: categories,
     groups: groups
+  };
+}
+
+
+/* ============================================================
+   WEB ADMIN CONTROL CENTRE — CRUD / MEDIA / REMINDERS
+   ============================================================ */
+
+function safeGetSheetData_(sheetName) {
+  try {
+    return getSheetData(sheetName);
+  } catch (err) {
+    return [];
+  }
+}
+
+function isRawHtmlServer_(value) {
+  const raw = String(value || '').trim();
+  return !!raw && !/^https?:\/\//i.test(raw);
+}
+
+function adminSheet_(sheetName, headers) {
+  const sheet = ensureSheetExists(getSpreadsheet_(), sheetName);
+  if (headers && headers.length) ensureUsersHeaders(sheet, headers);
+  return sheet;
+}
+
+function adminHeaderMap_(sheet) {
+  const lastColumn = Math.max(1, sheet.getLastColumn());
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0]
+    .map(function(v){ return String(v || '').trim(); });
+  const map = {};
+  headers.forEach(function(h,i){ if (h) map[h] = i; });
+  return {headers: headers, map: map};
+}
+
+function adminFindRowByKey_(sheet, keyHeader, value) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const info = adminHeaderMap_(sheet);
+  const col = info.map[keyHeader];
+  if (col === undefined) return 0;
+  const values = sheet.getRange(2, col + 1, lastRow - 1, 1).getDisplayValues();
+  const wanted = String(value || '').trim().toLowerCase();
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][0] || '').trim().toLowerCase() === wanted) return i + 2;
+  }
+  return 0;
+}
+
+function adminUpsertRow_(sheet, keyHeader, keyValue, object) {
+  const info = adminHeaderMap_(sheet);
+  const headers = info.headers;
+  const lastColumn = Math.max(headers.length, sheet.getLastColumn(), 1);
+  const existingRow = adminFindRowByKey_(sheet, keyHeader, keyValue);
+  const rowIndex = existingRow || sheet.getLastRow() + 1;
+  const row = rowIndex > 1
+    ? sheet.getRange(rowIndex, 1, 1, lastColumn).getValues()[0]
+    : new Array(lastColumn).fill('');
+
+  headers.forEach(function(header, i) {
+    if (Object.prototype.hasOwnProperty.call(object, header)) {
+      row[i] = object[header];
+    }
+  });
+
+  if (existingRow) {
+    sheet.getRange(rowIndex, 1, 1, lastColumn).setValues([row]);
+  } else {
+    sheet.getRange(rowIndex, 1, 1, lastColumn).setValues([row]);
+  }
+  return rowIndex;
+}
+
+function auditAdmin_(action, target, details, status) {
+  try {
+    const sheet = adminSheet_(CONFIG.ADMIN_AUDIT_SHEET, ADMIN_AUDIT_HEADERS);
+    sheet.appendRow([
+      new Date(),
+      String(Session.getEffectiveUser().getEmail() || '').trim(),
+      action || '',
+      target || '',
+      details || '',
+      status || 'OK'
+    ]);
+  } catch (err) {
+    console.warn('Admin audit failed: ' + err.message);
+  }
+}
+
+function adminListAudit_() {
+  return safeGetSheetData_(CONFIG.ADMIN_AUDIT_SHEET)
+    .slice(-200)
+    .reverse();
+}
+
+function adminSaveUser_(payload) {
+  if (!payload || !String(payload.ParticipantID || '').trim()) {
+    throw new Error('ParticipantID is required.');
+  }
+
+  const id = String(payload.ParticipantID).trim();
+  const sheet = adminSheet_(CONFIG.USERS_SHEET, USERS_HEADERS);
+  const rowIndex = adminFindRowByKey_(sheet, 'ParticipantID', id);
+  if (!rowIndex) throw new Error('User not found: ' + id);
+
+  const info = adminHeaderMap_(sheet);
+  const row = sheet.getRange(rowIndex, 1, 1, info.headers.length).getValues()[0];
+
+  const allowedTextFields = [
+    'Name','Username','Password','Email','ParentEmail','ParentName',
+    'ScoutGroup','AgeYear','Status','PaperworkStatus','EmailStatus',
+    'Notes','AgeGroup','AllowedCategories'
+  ];
+
+  allowedTextFields.forEach(function(field) {
+    if (payload[field] !== undefined) row[info.map[field]] = payload[field];
+  });
+
+  const newEmail = String(payload.Email === undefined ? row[info.map.Email] : payload.Email || '').trim();
+  const parentEmail = String(payload.ParentEmail === undefined ? row[info.map.ParentEmail] : payload.ParentEmail || '').trim();
+  if (newEmail && !validEmailAddress(newEmail)) throw new Error('The scout email address is not valid.');
+  if (parentEmail && !validEmailAddress(parentEmail)) throw new Error('The parent email address is not valid.');
+
+  sheet.getRange(rowIndex, 1, 1, info.headers.length).setValues([row]);
+  clearSheetCache([CONFIG.USERS_SHEET]);
+  USER_INDEX_MEMO_ = null;
+  try { CacheService.getScriptCache().remove(USER_INDEX_KEY); } catch (err) {}
+
+  auditAdmin_('user-save', id, 'Updated participant account fields', 'OK');
+  return adminListUsers().find(function(u){ return String(u.ParticipantID) === id; });
+}
+
+function adminListCategories() {
+  const sheet = adminSheet_(CONFIG.CATEGORIES_SHEET, CATEGORIES_HEADERS);
+  return getSheetData(CONFIG.CATEGORIES_SHEET).map(function(row) {
+    return {
+      CategoryKey: row.CategoryKey || '',
+      Title: row.Title || '',
+      LogoKey: row.LogoKey || '',
+      LogoURL: row.LogoURL || '',
+      Description: row.Description || '',
+      Active: String(row.Active || '').trim() === '' ? true : parseBoolean(row.Active)
+    };
+  });
+}
+
+function slugifyAdmin_(value, fallback) {
+  const s = String(value || '').trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s || fallback || Utilities.getUuid().replace(/-/g,'').slice(0,8);
+}
+
+function adminSaveCategory_(payload) {
+  if (!payload) throw new Error('No category data supplied.');
+  let key = String(payload.CategoryKey || '').trim().toLowerCase();
+  const title = String(payload.Title || '').trim();
+  if (!title) throw new Error('Category title is required.');
+  if (!key) key = slugifyAdmin_(title, 'category');
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(key)) throw new Error('Category key can only use letters, numbers, - and _.');
+
+  const sheet = adminSheet_(CONFIG.CATEGORIES_SHEET, CATEGORIES_HEADERS);
+  adminUpsertRow_(sheet, 'CategoryKey', key, {
+    CategoryKey: key,
+    Title: title,
+    LogoKey: String(payload.LogoKey || '').trim(),
+    LogoURL: String(payload.LogoURL || '').trim(),
+    Description: String(payload.Description || '').trim(),
+    Active: payload.Active === undefined ? true : !!payload.Active
+  });
+
+  clearSheetCache([CONFIG.CATEGORIES_SHEET]);
+  clearSheetCache([CONFIG.LINKS_SHEET]);
+  auditAdmin_('category-save', key, title, 'OK');
+  return adminListCategories().find(function(c){return String(c.CategoryKey) === key;});
+}
+
+function adminArchiveCategory_(payload) {
+  const key = String(payload && payload.CategoryKey || '').trim();
+  if (!key) throw new Error('Category key is required.');
+  const sheet = adminSheet_(CONFIG.CATEGORIES_SHEET, CATEGORIES_HEADERS);
+  const row = adminFindRowByKey_(sheet, 'CategoryKey', key);
+  if (!row) throw new Error('Category not found.');
+  const col = adminHeaderMap_(sheet).map.Active;
+  sheet.getRange(row, col + 1).setValue(false);
+  clearSheetCache([CONFIG.CATEGORIES_SHEET]);
+  auditAdmin_('category-archive', key, 'Set category Active=false', 'OK');
+  return {CategoryKey:key, Active:false};
+}
+
+function adminListActivities() {
+  adminSheet_(CONFIG.ACTIVITIES_SHEET, ACTIVITIES_HEADERS);
+  return getSheetData(CONFIG.ACTIVITIES_SHEET).map(function(row) {
+    return {
+      ActivityID: row.ActivityID || '',
+      Title: row.Title || '',
+      Description: row.Description || '',
+      CategoryKey: row.CategoryKey || '',
+      Duration: row.Duration || '',
+      Difficulty: row.Difficulty || '',
+      Participants: row.Participants || '',
+      Equipment: row.Equipment || '',
+      InstructionsURL: row.InstructionsURL || '',
+      LeaderRequired: parseBoolean(row.LeaderRequired),
+      Active: String(row.Active || '').trim() === '' ? true : parseBoolean(row.Active),
+      PhotoURL: row.PhotoURL || '',
+      PhotoKey: row.PhotoKey || '',
+      CanEmbed: parseBoolean(row.CanEmbed),
+      IsHTML: parseBoolean(row.IsHTML) || isRawHtmlServer_(row.InstructionsURL),
+      Notes: row.Notes || ''
+    };
+  });
+}
+
+function generateActivityId_(sheet) {
+  const rows = safeGetSheetData_(CONFIG.ACTIVITIES_SHEET);
+  let max = 0;
+  rows.forEach(function(row) {
+    const m = String(row.ActivityID || '').match(/^ACT[-_]?(\d+)$/i);
+    if (m) max = Math.max(max, parseInt(m[1],10));
+  });
+  return 'ACT-' + String(max + 1).padStart(3,'0');
+}
+
+function adminSaveActivity_(payload) {
+  if (!payload) throw new Error('No activity data supplied.');
+  const title = String(payload.Title || '').trim();
+  if (!title) throw new Error('Activity title is required.');
+
+  const sheet = adminSheet_(CONFIG.ACTIVITIES_SHEET, ACTIVITIES_HEADERS);
+  const id = String(payload.ActivityID || '').trim() || generateActivityId_(sheet);
+  const categoryKey = String(payload.CategoryKey || '').trim();
+  if (!categoryKey) throw new Error('Choose a category for the activity.');
+
+  const validCategories = adminListCategories().map(function(c){ return String(c.CategoryKey); });
+  if (validCategories.indexOf(categoryKey) === -1) throw new Error('That activity category does not exist.');
+
+  adminUpsertRow_(sheet, 'ActivityID', id, {
+    ActivityID: id,
+    Title: title,
+    Description: String(payload.Description || '').trim(),
+    CategoryKey: categoryKey,
+    Duration: String(payload.Duration || '').trim(),
+    Difficulty: String(payload.Difficulty || '').trim(),
+    Participants: String(payload.Participants || '').trim(),
+    Equipment: String(payload.Equipment || '').trim(),
+    InstructionsURL: String(payload.InstructionsURL || '').trim(),
+    LeaderRequired: !!payload.LeaderRequired,
+    Active: payload.Active === undefined ? true : !!payload.Active,
+    PhotoURL: String(payload.PhotoURL || '').trim(),
+    PhotoKey: String(payload.PhotoKey || '').trim(),
+    CanEmbed: !!payload.CanEmbed,
+    IsHTML: !!payload.IsHTML || isRawHtmlServer_(payload.InstructionsURL),
+    Notes: String(payload.Notes || '').trim()
+  });
+
+  clearSheetCache([CONFIG.ACTIVITIES_SHEET]);
+  auditAdmin_('activity-save', id, title, 'OK');
+  return adminListActivities().find(function(a){return String(a.ActivityID) === id;});
+}
+
+function adminArchiveActivity_(payload) {
+  const id = String(payload && payload.ActivityID || '').trim();
+  if (!id) throw new Error('Activity ID is required.');
+  const sheet = adminSheet_(CONFIG.ACTIVITIES_SHEET, ACTIVITIES_HEADERS);
+  const row = adminFindRowByKey_(sheet, 'ActivityID', id);
+  if (!row) throw new Error('Activity not found.');
+  const col = adminHeaderMap_(sheet).map.Active;
+  sheet.getRange(row, col + 1).setValue(false);
+  clearSheetCache([CONFIG.ACTIVITIES_SHEET]);
+  auditAdmin_('activity-archive', id, 'Set activity Active=false', 'OK');
+  return {ActivityID:id, Active:false};
+}
+
+function adminListLinks() {
+  adminSheet_(CONFIG.LINKS_SHEET, LINKS_HEADERS);
+  return getSheetData(CONFIG.LINKS_SHEET);
+}
+
+function adminSaveLink_(payload) {
+  if (!payload) throw new Error('No link data supplied.');
+  let id = String(payload.LinkID || '').trim();
+  const title = String(payload.Title || '').trim();
+  if (!title) throw new Error('Link title is required.');
+  if (!String(payload.CategoryKey || '').trim()) throw new Error('Choose a category.');
+  if (!String(payload.URL || '').trim()) throw new Error('Enter a URL or HTML.');
+
+  const sheet = adminSheet_(CONFIG.LINKS_SHEET, LINKS_HEADERS);
+  if (!id) {
+    id = slugifyAdmin_(String(payload.CategoryKey) + '-' + title, 'link') +
+      '-' + Utilities.getUuid().replace(/-/g,'').slice(0,5);
+  }
+
+  const rowData = {
+    LinkID: id,
+    CategoryKey: String(payload.CategoryKey || '').trim(),
+    Title: title,
+    URL: String(payload.URL || '').trim(),
+    CanEmbed: !!payload.CanEmbed,
+    RequiresLogin: String(payload.RequiresLogin === undefined ? '0' : payload.RequiresLogin),
+    RequiresEmail: String(payload.RequiresEmail === undefined ? '0' : payload.RequiresEmail),
+    ParentApproval: !!payload.ParentApproval,
+    LeaderApproved: !!payload.LeaderApproved,
+    Moderated: !!payload.Moderated,
+    Active: payload.Active === undefined ? true : !!payload.Active,
+    LogoKey: String(payload.LogoKey || '').trim(),
+    LogoURL: String(payload.LogoURL || '').trim(),
+    BlockStatus: String(payload.BlockStatus || 'allow').trim() || 'allow',
+    Notes: String(payload.Notes || '').trim(),
+    IsHTML: !!payload.IsHTML || isRawHtmlServer_(payload.URL)
+  };
+
+  adminUpsertRow_(sheet, 'LinkID', id, rowData);
+  clearSheetCache([CONFIG.LINKS_SHEET]);
+  auditAdmin_('link-save', id, title, 'OK');
+  return getSheetData(CONFIG.LINKS_SHEET).find(function(row){return String(row.LinkID) === id;});
+}
+
+function adminArchiveLink_(payload) {
+  const id = String(payload && payload.LinkID || '').trim();
+  if (!id) throw new Error('Link ID is required.');
+  const sheet = adminSheet_(CONFIG.LINKS_SHEET, LINKS_HEADERS);
+  const row = adminFindRowByKey_(sheet, 'LinkID', id);
+  if (!row) throw new Error('Link not found.');
+  const col = adminHeaderMap_(sheet).map.Active;
+  sheet.getRange(row, col + 1).setValue(false);
+  clearSheetCache([CONFIG.LINKS_SHEET]);
+  auditAdmin_('link-archive', id, 'Set link Active=false', 'OK');
+  return {LinkID:id, Active:false};
+}
+
+function adminListMedia() {
+  adminSheet_(CONFIG.LOGOS_SHEET, LOGOS_HEADERS);
+  return getSheetData(CONFIG.LOGOS_SHEET).filter(function(row) {
+    const active = String(row.Active || '').trim();
+    return active === '' || parseBoolean(active);
+  });
+}
+
+function getOrCreateMediaFolder_() {
+  const folders = DriveApp.getFoldersByName('JOTA-JOTI Media');
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder('JOTA-JOTI Media');
+}
+
+function adminUploadAsset_(payload) {
+  if (!payload || !payload.base64) throw new Error('Choose an image to upload.');
+  const mime = String(payload.mimeType || 'image/png').trim().toLowerCase();
+  if (!/^image\/(png|jpeg|jpg|webp|gif)$/.test(mime)) throw new Error('Only PNG, JPG, WEBP and GIF images are supported.');
+  const base64 = String(payload.base64);
+  const bytes = Utilities.base64Decode(base64);
+  if (bytes.length > 6 * 1024 * 1024) throw new Error('Keep uploaded images under 6 MB.');
+
+  const safeName = String(payload.filename || 'jota-joti-image')
+    .replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'') || 'jota-joti-image';
+  const file = getOrCreateMediaFolder_().createFile(Utilities.newBlob(bytes, mime, safeName));
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (shareErr) {
+    // Keep the upload — the admin can still copy the Drive URL and fix sharing.
+    console.warn('Could not set public sharing for ' + file.getId() + ': ' + shareErr.message);
+  }
+
+  const url = 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(file.getId());
+  const key = slugifyAdmin_(String(payload.title || safeName).replace(/\.[^.]+$/,''), 'media') +
+    '-' + file.getId().slice(0,6);
+
+  const logos = adminSheet_(CONFIG.LOGOS_SHEET, LOGOS_HEADERS);
+  adminUpsertRow_(logos, 'LogoKey', key, {
+    LogoKey: key,
+    CategoryKey: String(payload.CategoryKey || '').trim(),
+    ItemKey: String(payload.ItemKey || '').trim(),
+    Title: String(payload.title || safeName).trim(),
+    LogoURL: url,
+    Active: true
+  });
+
+  auditAdmin_('media-upload', key, safeName + ' → ' + url, 'OK');
+  return {LogoKey:key, Title:String(payload.title || safeName).trim(), LogoURL:url, FileId:file.getId()};
+}
+
+function adminArchiveMedia_(payload) {
+  const key = String(payload && payload.LogoKey || '').trim();
+  if (!key) throw new Error('Logo key is required.');
+  const sheet = adminSheet_(CONFIG.LOGOS_SHEET, LOGOS_HEADERS);
+  const row = adminFindRowByKey_(sheet, 'LogoKey', key);
+  if (!row) throw new Error('Media item not found.');
+  const info = adminHeaderMap_(sheet);
+  if (info.map.Active !== undefined) sheet.getRange(row, info.map.Active + 1).setValue(false);
+  clearSheetCache([CONFIG.LOGOS_SHEET]);
+  auditAdmin_('media-archive', key, 'Set media Active=false', 'OK');
+  return {LogoKey:key, Active:false};
+}
+
+function adminListSettings() {
+  return safeGetSheetData_(CONFIG.SETTINGS_SHEET);
+}
+
+function adminSaveSettings_(payload) {
+  if (!payload) throw new Error('No settings supplied.');
+  const key = String(payload.SettingKey || '').trim();
+  if (!key) throw new Error('Setting key is required.');
+  const sheet = adminSheet_(CONFIG.SETTINGS_SHEET, ['SettingKey','SettingValue','Description']);
+  const row = adminFindRowByKey_(sheet, 'SettingKey', key);
+  const object = {
+    SettingKey: key,
+    SettingValue: String(payload.SettingValue === undefined ? '' : payload.SettingValue),
+    Description: String(payload.Description === undefined ? '' : payload.Description)
+  };
+  adminUpsertRow_(sheet, 'SettingKey', key, object);
+  auditAdmin_('setting-save', key, object.SettingValue, 'OK');
+  return getSheetData(CONFIG.SETTINGS_SHEET).find(function(x){return String(x.SettingKey) === key;});
+}
+
+function getOutstandingPaperworkUsers_() {
+  return getSheetData(CONFIG.USERS_SHEET).filter(function(user) {
+    const status = String(user.Status || '').trim().toLowerCase();
+    if (status === 'disabled') return false;
+    const paperwork = String(user.PaperworkStatus || '').trim().toLowerCase();
+    if (['complete','completed','done','completeed'].indexOf(paperwork) !== -1) return false;
+    return validEmailAddress(user.ParentEmail || '');
+  });
+}
+
+function adminPaperworkReminderPreview_() {
+  const users = getOutstandingPaperworkUsers_();
+  return {
+    success: true,
+    eligible: users.length,
+    missingParentEmail: getSheetData(CONFIG.USERS_SHEET).filter(function(user) {
+      const status = String(user.Status || '').trim().toLowerCase();
+      const paperwork = String(user.PaperworkStatus || '').trim().toLowerCase();
+      return status !== 'disabled' && ['complete','completed','done','completeed'].indexOf(paperwork) === -1 &&
+        !validEmailAddress(user.ParentEmail || '');
+    }).length
+  };
+}
+
+function adminSendPaperworkReminders_(payload) {
+  const subject = String(payload && payload.subject || 'JOTA-JOTI paperwork reminder').trim().slice(0,180);
+  const customMessage = String(payload && payload.htmlBody || '').trim();
+  const users = getOutstandingPaperworkUsers_();
+  if (!users.length) throw new Error('There are no participants needing a paperwork reminder with a valid parent email.');
+
+  const quota = MailApp.getRemainingDailyQuota();
+  if (users.length > quota) throw new Error('There are ' + users.length + ' reminder emails to send, but only ' + quota + ' emails remain today.');
+
+  const senderSettings = getEmailSenderSettings();
+  const logos = getEmailLogoBlobs_();
+  const failures = [];
+  const sent = [];
+  const defaultMessage = [
+    '<p>Hello {{parentName}},</p>',
+    '<p>This is a friendly reminder about the JOTA-JOTI arrangements for <strong>{{childFullName}}</strong>.</p>',
+    '<p>Our records still show that the required paperwork is not marked as complete. Please check the setup information and return any outstanding forms/details to the Leader in Charge.</p>',
+    '<p>This reminder will stop automatically once the participant is marked as <strong>Complete</strong> in the admin system.</p>',
+    '<p>Thanks,<br>Boulder Scout Group · JOTA-JOTI</p>'
+  ].join('');
+
+  users.forEach(function(user) {
+    const template = customMessage || defaultMessage;
+    const htmlBody = fillEmailTemplate(template, user);
+    const finalSubject = fillEmailTemplate(subject, user);
+    const plainBody = htmlBody.replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n\n')
+      .replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/\s+\n/g,'\n').trim();
+
+    try {
+      MailApp.sendEmail({
+        to: String(user.ParentEmail).trim(),
+        subject: finalSubject,
+        htmlBody: htmlBody,
+        body: plainBody || finalSubject,
+        inlineImages: { jotaLogoBlack: logos.black, jotaLogoWhite: logos.white },
+        name: senderSettings.name,
+        replyTo: senderSettings.replyTo,
+        noReply: senderSettings.noReply
+      });
+      sent.push(user.ParticipantID || user.Name || user.ParentEmail);
+      logBulkEmail_(
+        String(Session.getEffectiveUser().getEmail() || ''),
+        String(user.ParentEmail).trim(),
+        user,
+        'parent',
+        finalSubject,
+        'Sent',
+        'Paperwork reminder'
+      );
+      pauseBetweenBulkSends();
+    } catch (err) {
+      const message = err.message || String(err);
+      failures.push((user.Name || user.ParentEmail) + ': ' + message);
+      logBulkEmail_(
+        String(Session.getEffectiveUser().getEmail() || ''),
+        String(user.ParentEmail).trim(),
+        user,
+        'parent',
+        finalSubject,
+        'Failed',
+        message
+      );
+    }
+  });
+
+  auditAdmin_(
+    'paperwork-reminders',
+    'outstanding',
+    'Sent ' + sent.length + ' reminder(s); failures ' + failures.length,
+    failures.length ? 'PARTIAL' : 'OK'
+  );
+
+  return {
+    attempted: users.length,
+    sent: sent.length,
+    failed: failures,
+    excludedComplete: true
   };
 }
 

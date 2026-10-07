@@ -53,7 +53,8 @@
     "Title",
     "LogoKey",
     "LogoURL",
-    "Description"
+    "Description",
+    "Active"
   ],
   "Links": [
     "LinkID",
@@ -70,14 +71,34 @@
     "LogoKey",
     "LogoURL",
     "BlockStatus",
-    "Notes"
+    "Notes",
+    "IsHTML"
   ],
   "Logos": [
     "LogoKey",
     "CategoryKey",
     "ItemKey",
     "Title",
-    "LogoURL"
+    "LogoURL",
+    "Active"
+  ],
+  "Activities": [
+    "ActivityID",
+    "Title",
+    "Description",
+    "CategoryKey",
+    "Duration",
+    "Difficulty",
+    "Participants",
+    "Equipment",
+    "InstructionsURL",
+    "LeaderRequired",
+    "Active",
+    "PhotoURL",
+    "PhotoKey",
+    "CanEmbed",
+    "IsHTML",
+    "Notes"
   ],
   "BlockedURLs": [
     "BlockID",
@@ -103,5 +124,13 @@
     "TemplateKey",
     "Subject",
     "Body/HTML Notes"
+  ],
+  "AdminAuditLog": [
+    "Timestamp",
+    "AdminEmail",
+    "Action",
+    "Target",
+    "Details",
+    "Status"
   ]
 }

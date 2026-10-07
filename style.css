@@ -1662,3 +1662,13 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
     100% { background-position: 0 50%; }
 }
 
+
+
+/* Activity detail panel */
+.activity-detail-photo{display:block;width:100%;max-height:280px;object-fit:cover;border-radius:16px;margin:0 0 18px;background:#eef3f5}
+.activity-detail-description{font-size:15px;line-height:1.65;color:#46565f;white-space:pre-line;margin:0 0 18px}
+.activity-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}
+.activity-meta-row{padding:11px 12px;background:#f7fafb;border:1px solid #dde7ea;border-radius:11px;font-size:13px;color:#5c6d76}
+.activity-meta-row strong{display:block;color:#183e52;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.activity-detail-note{padding:13px 14px;background:#f6f8f9;border-left:3px solid #174a6a;border-radius:9px;color:#53636c;line-height:1.55;margin:16px 0}
+@media(max-width:600px){.activity-meta{grid-template-columns:1fr}}

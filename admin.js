@@ -1,275 +1,946 @@
-/* JOTA-JOTI admin client.
-   The page is intentionally reached through the private route, but the
-   real protection is the Apps Script admin password + short-lived session.
-   No admin password is stored in this file.
-*/
-const API_URL='https://script.google.com/macros/s/AKfycbw-hxoPf6btTvwNXBXK7w_4hhCH98w6_mrZGb5ChjfhYF-x4-FAaNKGkhzDFmPavYo/exec';
-const ADMIN_TOKEN_KEY='jota_joti_admin_token_v1';
-const ADMIN_TOKEN_EXPIRY_KEY='jota_joti_admin_token_expiry_v1';
-let adminToken=sessionStorage.getItem(ADMIN_TOKEN_KEY)||'';
-let adminTokenExpiry=parseInt(sessionStorage.getItem(ADMIN_TOKEN_EXPIRY_KEY)||'0',10)||0;
-const TAGS=['{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{parentName}}','{{username}}','{{pin}}','{{participantID}}','{{youthSection}}','{{ageYear}}','{{ageGroup}}','{{email}}','{{youthEmail}}','{{parentEmail}}'];
-let users=[],sections=[],categories=[],groups=[],selected=[],allSelected=[],focusEl=null;
-const $=id=>document.getElementById(id);
-function showMsg(id,text,ok){const e=$(id);e.textContent=text;e.className='message '+(ok?'ok':'err')}
-function b64url(obj){
-  const s=JSON.stringify(obj);
-  const bytes=new TextEncoder().encode(s);
-  let bin='';
-  bytes.forEach(b=>bin+=String.fromCharCode(b));
+
+const API_URL = (window.JOTA_CONFIG && window.JOTA_CONFIG.API_URL) || '';
+const SITE_URL = (window.JOTA_CONFIG && window.JOTA_CONFIG.SITE_URL) || './';
+const AUTH_TOKEN_KEY = 'jota_joti_admin_token_v2';
+const AUTH_EXPIRY_KEY = 'jota_joti_admin_token_expiry_v2';
+const FETCH_TIMEOUT_MS = 25000;
+const TAGS = [
+  '{{childFirstName}}','{{childLastName}}','{{childFullName}}','{{parentName}}',
+  '{{username}}','{{pin}}','{{participantID}}','{{youthSection}}','{{ageYear}}',
+  '{{ageGroup}}','{{email}}','{{youthEmail}}','{{parentEmail}}'
+];
+
+let adminToken = sessionStorage.getItem(AUTH_TOKEN_KEY) || '';
+let adminTokenExpiry = Number(sessionStorage.getItem(AUTH_EXPIRY_KEY) || 0);
+let state = {
+  users: [], categories: [], activities: [], links: [], media: [], settings: [], audit: [],
+  sender: '', quota: null, lastRefresh: null
+};
+let currentPage = 'overview';
+let pendingModalSave = null;
+let inlineUploadCounter = 0;
+
+const $ = id => document.getElementById(id);
+const rootEl = document.documentElement;
+
+function esc(value) {
+  const d = document.createElement('div');
+  d.textContent = value == null ? '' : String(value);
+  return d.innerHTML;
+}
+function escAttr(value) {
+  return esc(value).replace(/"/g, '&quot;');
+}
+function norm(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9@._-]+/g,' ').trim();
+}
+function isValidEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim()); }
+function isCompletePaperwork(value) { return ['complete','completed','done'].includes(norm(value)); }
+function activeUsers() { return state.users.filter(u => norm(u.Status) !== 'disabled' && String(u.ParticipantID || '') !== 'guest'); }
+function outstandingPaperworkUsers() {
+  return activeUsers().filter(u => !isCompletePaperwork(u.PaperworkStatus) && isValidEmail(u.ParentEmail));
+}
+function categoryByKey(key) { return state.categories.find(c => norm(c.CategoryKey) === norm(key)); }
+function categoryTitle(key) { return categoryByKey(key)?.Title || key || 'Uncategorised'; }
+function mediaByKey(key) { return state.media.find(m => String(m.LogoKey) === String(key)); }
+function mediaUrl(key, fallback) { return mediaByKey(key)?.LogoURL || fallback || ''; }
+function toast(message, ok=true) {
+  const el = $('toast'); if (!el) return;
+  el.textContent = message;
+  el.style.background = ok ? '#173447' : '#8c2832';
+  el.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+function showMessage(id, message, ok) {
+  const el = $(id); if (!el) return;
+  el.textContent = message || '';
+  el.className = 'message ' + (ok ? 'ok' : 'err');
+}
+function hideMessage(id) {
+  const el=$(id); if(el){el.textContent='';el.className='message';}
+}
+
+function b64url(value) {
+  const raw = typeof value === 'string' ? value : JSON.stringify(value);
+  const bytes = new TextEncoder().encode(raw);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
   return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 
-const FETCH_TIMEOUT_MS=20000;
-let requestCounter=0;
+async function request(action, params={}, method='GET', payloadData=null) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    let url = API_URL;
+    let options = {
+      method,
+      redirect: 'follow',
+      cache: 'no-store',
+      credentials: 'omit',
+      signal: controller.signal
+    };
 
-function makeRequestId(){
-  requestCounter=(requestCounter+1)%1000000;
-  return 'admin_'+Date.now().toString(36)+'_'+requestCounter.toString(36)+'_'+Math.random().toString(36).slice(2,10);
-}
-
-function normaliseApiResult(data, action){
-  if(!data || typeof data!=='object') throw new Error('Apps Script '+action+' returned an invalid JSON response.');
-  if(data.success===false) throw new Error(data.error||('Apps Script '+action+' failed.'));
-  return data;
-}
-
-function requestUrl(action, params={}){
-  const q=new URLSearchParams();
-  q.set('action',action);
-  const merged=Object.assign({}, params||{});
-  if(adminToken) merged.token=adminToken;
-  Object.keys(merged).forEach(k=>{
-    const v=merged[k];
-    if(v!==undefined && v!==null) q.set(k,String(v));
-  });
-  return API_URL+'?'+q.toString();
-}
-
-async function fetchWithTimeout(url, options={}, action='request'){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),FETCH_TIMEOUT_MS);
-  try{
-    const response=await fetch(url,Object.assign({
-      redirect:'follow',
-      cache:'no-store',
-      credentials:'omit',
-      signal:controller.signal
-    },options,{signal:controller.signal}));
-
-    const text=await response.text();
-    let data=null;
-    try{data=JSON.parse(text);}catch(parseErr){
-      const preview=text.replace(/\s+/g,' ').trim().slice(0,240);
-      throw new Error(
-        'Apps Script '+action+' returned non-JSON data (HTTP '+response.status+'). '+
-        (preview?('Response started with: '+preview):'The response body was empty.')
-      );
+    if (method === 'GET') {
+      const query = new URLSearchParams({action});
+      Object.entries(params || {}).forEach(([k,v]) => { if (v !== undefined && v !== null) query.set(k, String(v)); });
+      url += '?' + query.toString();
+    } else {
+      const body = new URLSearchParams();
+      body.set('action', action);
+      Object.entries(params || {}).forEach(([k,v]) => { if (v !== undefined && v !== null) body.set(k, String(v)); });
+      if (payloadData !== null) body.set('payload', b64url(payloadData));
+      options.headers = {'Content-Type':'application/x-www-form-urlencoded'};
+      options.body = body.toString();
     }
 
-    if(!response.ok){
-      throw new Error('Apps Script '+action+' returned HTTP '+response.status+'. '+(data.error||data.message||''));
+    const response = await fetch(url, options);
+    const raw = await response.text();
+    let data;
+    try { data = JSON.parse(raw); } catch (_) {
+      throw new Error(`Apps Script ${action} returned non-JSON data (HTTP ${response.status}).`);
     }
-    return normaliseApiResult(data,action);
-  }catch(err){
-    if(err && err.name==='AbortError'){
-      throw new Error('Apps Script '+action+' timed out after '+Math.round(FETCH_TIMEOUT_MS/1000)+' seconds.');
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.error || data?.message || `Apps Script ${action} failed.`);
     }
-    if(err instanceof TypeError){
-      throw new Error('The browser could not read the Apps Script response. Check that the Web App is deployed as "Execute as Me" and "Anyone", then try again. ('+err.message+')');
+    return data;
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new Error(`${action} timed out after ${FETCH_TIMEOUT_MS/1000} seconds.`);
+    if (err instanceof TypeError) {
+      throw new Error('The browser could not read Apps Script. Check that the web app is deployed as Execute as Me and accessible to the intended users.');
     }
     throw err;
-  }finally{clearTimeout(timer)}
-}
-
-async function fetchGet(action,params={}){
-  return fetchWithTimeout(requestUrl(action,params),{method:'GET'},action);
-}
-
-async function fetchPost(action,params={}){
-  // application/x-www-form-urlencoded is a CORS-safelisted request type,
-  // which avoids an OPTIONS preflight that Apps Script web apps are not
-  // designed to answer. ContentService follows its normal redirect to
-  // script.googleusercontent.com; fetch explicitly follows that redirect.
-  const body=new URLSearchParams();
-  body.set('action',action);
-  if(adminToken) body.set('token',adminToken);
-  Object.keys(params||{}).forEach(k=>{
-    const v=params[k];
-    if(v!==undefined && v!==null) body.set(k,String(v));
-  });
-  return fetchWithTimeout(API_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:body.toString()
-  },action);
-}
-
-async function call(action,params={}){
-  // Reads stay GET so they are easy to inspect directly in a new browser tab.
-  // Preview and Send use POST because their base64 HTML/email payloads can be
-  // much larger than a practical URL length.
-  if(action==='adminPreview' || action==='adminSend'){
-    return fetchPost(action,params);
+  } finally {
+    clearTimeout(timer);
   }
-  return fetchGet(action,params);
 }
 
+const POST_ACTIONS = new Set([
+  'adminUserSave','adminResendWelcome','adminCategorySave','adminCategoryDelete','adminActivitySave','adminActivityDelete',
+  'adminLinkSave','adminLinkDelete','adminUploadAsset','adminMediaDelete','adminSettingsSave',
+  'adminPreview','adminSend','adminPaperworkReminders','adminAccountPdf','adminRunSetup',
+  'adminClearCache'
+]);
 
-async function adminLoginPrompt(){
-  if(adminToken && adminTokenExpiry > Date.now()) return true;
-
-  adminToken='';
-  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-  sessionStorage.removeItem(ADMIN_TOKEN_EXPIRY_KEY);
-
-  let password = window.prompt('Enter the JOTA-JOTI admin password:');
-  if(password===null) return false;
-  password=password.trim();
-  if(!password) throw new Error('Admin password is required.');
-
-  const payload=b64url({password});
-  const result=await fetchGet('adminLogin',{payload});
-
-  if(!result?.success || !result.token) {
-    throw new Error('Admin sign-in failed.');
+async function call(action, params={}, payload=null) {
+  if (POST_ACTIONS.has(action)) {
+    const next = Object.assign({}, params, adminToken ? {token:adminToken} : {});
+    return request(action, next, 'POST', payload);
   }
-
-  adminToken=String(result.token);
-  adminTokenExpiry=Date.now() + (Math.max(60,Number(result.expiresInSeconds||21600)-60)*1000);
-
-  sessionStorage.setItem(ADMIN_TOKEN_KEY,adminToken);
-  sessionStorage.setItem(ADMIN_TOKEN_EXPIRY_KEY,String(adminTokenExpiry));
-
-  return true;
+  const next = Object.assign({}, params, adminToken ? {token:adminToken} : {});
+  return request(action, next, 'GET');
 }
 
-async function callProtected(action,params={}){
-  if(!adminToken || adminTokenExpiry <= Date.now()){
-    const ok=await adminLoginPrompt();
-    if(!ok) throw new Error('Admin sign-in required.');
-  }
-  try{
-    return await call(action,params);
-  }catch(error){
-    const message=String(error?.message||error);
-    if(/admin sign-in required|admin session expired|invalid admin session/i.test(message)){
-      const ok=await adminLoginPrompt();
-      if(!ok) throw error;
-      return await call(action,params);
+async function login(password) {
+  const result = await request('adminLogin', {payload:b64url({password})});
+  if (!result?.token) throw new Error('Admin sign-in failed.');
+  adminToken = String(result.token);
+  adminTokenExpiry = Date.now() + Math.max(60, Number(result.expiresInSeconds || 21600) - 60) * 1000;
+  sessionStorage.setItem(AUTH_TOKEN_KEY, adminToken);
+  sessionStorage.setItem(AUTH_EXPIRY_KEY, String(adminTokenExpiry));
+  return result;
+}
+
+async function ensureAuth() {
+  if (adminToken && adminTokenExpiry > Date.now()) return true;
+  adminToken = ''; adminTokenExpiry = 0;
+  sessionStorage.removeItem(AUTH_TOKEN_KEY); sessionStorage.removeItem(AUTH_EXPIRY_KEY);
+  return false;
+}
+
+async function callProtected(action, params={}, payload=null) {
+  if (!(await ensureAuth())) throw new Error('Admin sign-in required.');
+  try {
+    return await call(action, params, payload);
+  } catch (err) {
+    if (/admin sign-in required|admin session expired|invalid admin session/i.test(String(err?.message || err))) {
+      adminToken = ''; adminTokenExpiry = 0;
+      sessionStorage.removeItem(AUTH_TOKEN_KEY); sessionStorage.removeItem(AUTH_EXPIRY_KEY);
+      showLogin();
+      throw new Error('Your admin session expired. Sign in again.');
     }
-    throw error;
+    throw err;
   }
 }
 
-async function loadAll(){
-  await adminLoginPrompt();
-
-  try{
-    await callProtected('adminPing');
-    await call('health');
-  }catch(e){
-    throw new Error('Apps Script connection check failed: '+e.message);
-  }
-
-  let u=[];
-  try{u=await callProtected('adminUsers');}
-  catch(e){throw new Error('Users API failed after a healthy Apps Script check: '+e.message)}
-  users=Array.isArray(u)?u:(Array.isArray(u.users)?u.users:(Array.isArray(u.data)?u.data:[]));
-
-  try{const r=await callProtected('adminSections');sections=Array.isArray(r)?r:(r.sections||r.data||[]);}
-  catch(e){sections=[];console.warn('Sections API failed:',e);}
-
-  try{const r=await callProtected('adminCategories');categories=Array.isArray(r)?r:(r.categories||r.data||[]);}
-  catch(e){categories=[];console.warn('Categories API failed:',e);}
-
-  try{const r=await callProtected('adminGroups');groups=Array.isArray(r)?r:(r.groups||r.data||[]);}
-  catch(e){groups=[];console.warn('Saved groups unavailable:',e);}
-
-  let me={sender:'Admin',quota:'—'};
-  try{me=await callProtected('adminSender')||me;}
-  catch(e){console.warn('Sender/quota endpoint unavailable:',e);}
-
-  $('senderBadge').textContent=(me.sender||'Admin')+' · '+(me.quota??'—')+' emails left today';
-  renderStats(me.quota);
-  renderPeople();
-  renderGroups();
-  renderCategories();
-  renderSavedGroups();
-  refreshPreview();
+function showLogin(message='') {
+  $('loginView').classList.remove('hidden');
+  $('appView').classList.add('hidden');
+  if (message) showMessage('loginMessage', message, false); else hideMessage('loginMessage');
+  setTimeout(() => $('adminPassword')?.focus(), 50);
 }
-function activeUsers(){return users.filter(u=>String(u.Status||'').toLowerCase()!=='disabled')}
-function renderStats(q){const a=activeUsers();$('userCount').textContent=a.length;$('parentCount').textContent=a.filter(u=>validEmail(u.ParentEmail)).length;$('youthCount').textContent=a.filter(u=>validEmail(u.Email)).length;$('quota').textContent=q??'—'}
-function validEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim())}
-function norm(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9@._-]+/g,' ').trim()}
-function matches(u,q){if(!q)return true;const n=norm(q);return [u.Name,u.Username,u.PIN,u.ParticipantID,u.ParentName,u.ParentEmail,u.Email,u.AgeGroup,u.AgeYear,u.YouthSection].some(v=>norm(v).includes(n))}
-function optionHTML(u,i){return `<div class="option" data-i="${i}"><b>${esc(u.Name||'(no name)')}</b><span>ID ${esc(u.ParticipantID||'—')} · PIN ${esc(u.PIN||'—')} · Username ${esc(u.Username||'—')} · AgeYear ${esc(u.AgeYear||'—')}</span><span>parent ${esc(u.ParentEmail||'none')} · youth ${esc(u.Email||'none')}</span></div>`}
-function esc(v){const d=document.createElement('div');d.textContent=v==null?'':String(v);return d.innerHTML}
-function renderPeople(){const q=$('personSearch').value;const chosen=new Set(selected.map(x=>String(x.ParticipantID)));const list=activeUsers().filter(u=>!chosen.has(String(u.ParticipantID))&&matches(u,q)).sort((a,b)=>String(a.Name).localeCompare(String(b.Name))).slice(0,100);const box=$('personOptions');box.innerHTML=list.map((u,i)=>optionHTML(u,i)).join('')||'<div class="option"><span>No matching active users</span></div>';box._matches=list;box.style.display='block'}
-function renderChips(){const html=selected.map(u=>`<span class="chip">${esc(u.Name||u.PIN)} <button data-remove="${esc(u.ParticipantID)}">×</button></span>`).join('');$('chips').innerHTML=html;$('allChips').innerHTML=html}
-function renderGroups(){const box=$('sectionOptions');box.innerHTML=sections.map((x,i)=>`<div class="option" data-i="${i}"><b>${esc(x.label||x.value)}</b><span>${x.count} active user(s)</span></div>`).join('');box._matches=sections;$('sectionCards').innerHTML=sections.map(x=>`<button class="group-button" data-section="${esc(x.value)}"><b>${esc(x.label)}</b><span>${x.count} active users</span></button>`).join('')}
-function renderSavedGroups(){const box=$('groupOptions');box.innerHTML=groups.length?groups.map((x,i)=>`<div class="option" data-i="${i}"><b>${esc(x.GroupName||x.GroupKey)}</b><span>${x.ParticipantIDs.length} participant(s)${x.AgeYears?.length?' · AgeYear: '+esc(x.AgeYears.join(', ')):''}</span></div>`).join(''):'<div class="option"><span>No saved groups. Add rows to EmailGroups in the spreadsheet.</span></div>';box._matches=groups}
-function renderCategories(){const box=$('activityOptions');box.innerHTML=categories.map((x,i)=>`<div class="option" data-i="${i}"><b>${esc(x.Title||x.CategoryKey)}</b><span>${esc(x.CategoryKey||'')}</span></div>`).join('');box._matches=categories;$('categoryCards').innerHTML=categories.map(x=>`<button class="group-button" data-category="${esc(x.CategoryKey)}"><b>${esc(x.Title||x.CategoryKey)}</b><span>${esc(x.CategoryKey)}</span></button>`).join('')}
-function targetType(){return document.querySelector('input[name=targetType]:checked').value}
-function scope(){return document.querySelector('input[name=scope]:checked').value}
-function recipientEmails(u){const t=targetType(),a=[];if((t==='parent'||t==='both')&&validEmail(u.ParentEmail))a.push(u.ParentEmail);if((t==='youth'||t==='both')&&validEmail(u.Email))a.push(u.Email);return [...new Set(a.map(x=>String(x).toLowerCase()))]}
-function scopedUsers(){const s=scope();if(s==='selected')return selected;if(s==='all')return selected.length?selected:activeUsers();if(s==='section'){const v=norm($('sectionSearch').dataset.value);return activeUsers().filter(u=>norm(u.AgeYear)===v)}if(s==='activity'){const k=($('activitySearch').dataset.value||'').toLowerCase();const all=categories.map(x=>String(x.CategoryKey||'').toLowerCase());return activeUsers().filter(u=>{const raw=String(u.AllowedCategories||'').trim();if(!raw||raw==='*')return all.includes(k);return raw.split(',').map(x=>x.trim().toLowerCase()).includes(k)})}if(s==='group'){const key=($('groupSearch').dataset.value||'').toLowerCase();const g=groups.find(x=>String(x.GroupKey||'').toLowerCase()===key);const ids=g?g.ParticipantIDs.map(String):[];return activeUsers().filter(u=>ids.includes(String(u.ParticipantID)))}return []}
-function refreshPreview(){const us=scopedUsers();const n=us.reduce((t,u)=>t+recipientEmails(u).length,0);const missing=us.filter(u=>!recipientEmails(u).length).length;$('preview').textContent=us.length?`Selected: ${us.length} user(s) · ${n} individual email(s) · ${missing} missing email(s)`:'Choose recipients to see the live recipient count.'}
-function setScopeUI(){const s=scope();[['selected','select...'],['section','select...'],['activity','select...'],['group','select...'],['all','select...']].forEach(()=>{});['selectedBox','sectionBox','activityBox','groupBox','allBox'].forEach(id=>$(id).classList.add('hidden'));const map={selected:'selectedBox',section:'sectionBox',activity:'activityBox',group:'groupBox',all:'allBox'};$(map[s]).classList.remove('hidden');refreshPreview()}
-function findPersonByIdentifier(query){
- const q=norm(query);
- if(!q)return null;
- const exact=activeUsers().find(u=>[u.ParticipantID,u.PIN,u.Name,u.Username].some(v=>norm(v)===q));
- if(exact)return exact;
- const matchesList=activeUsers().filter(u=>[u.ParticipantID,u.PIN,u.Name,u.Username].some(v=>norm(v).includes(q)));
- return matchesList.length===1?matchesList[0]:null;
+function showApp() {
+  $('loginView').classList.add('hidden');
+  $('appView').classList.remove('hidden');
+  setPage(currentPage);
 }
-function choosePersonDirectly(){
- const value=$('personSearch').value.trim();
- const u=findPersonByIdentifier(value);
- if(u){
-   if(!selected.some(x=>String(x.ParticipantID)===String(u.ParticipantID)))selected.push(u);
-   $('personSearch').value='';
-   $('personOptions').style.display='none';
-   renderChips();
-   refreshPreview();
-   return true;
- }
- return false;
-}
-function choosePerson(i){const u=$('personOptions')._matches?.[i];if(!u)return;if(!selected.some(x=>String(x.ParticipantID)===String(u.ParticipantID)))selected.push(u);$('personSearch').value='';$('personOptions').style.display='none';renderChips();refreshPreview()}
-function chooseSection(i){const x=$('sectionOptions')._matches?.[i];if(!x)return;$('sectionSearch').value=x.label||x.value;$('sectionSearch').dataset.value=x.value;$('sectionOptions').style.display='none';refreshPreview()}
-function chooseCategory(i){const x=$('activityOptions')._matches?.[i];if(!x)return;$('activitySearch').value=x.Title||x.CategoryKey;$('activitySearch').dataset.value=x.CategoryKey;$('activityOptions').style.display='none';refreshPreview()}
-function payload(){const subject=$('subject').value.trim(),body=$('body').value.trim(),s=scope(),t=targetType();if(!subject)throw Error('Enter a subject.');if(!body)throw Error('Write an HTML message.');if(subject.length>180)throw Error('Subject is too long.');if(body.length>60000)throw Error('Keep the HTML message under 60,000 characters.');const us=scopedUsers();if(!us.length)throw Error('No active users are selected.');const p={subject,htmlBody:body,scope:s,targetType:t};if(s==='selected'||s==='all')p.participantIds=us.map(u=>u.ParticipantID);if(s==='section'){if(!$('sectionSearch').dataset.value)throw Error('Choose a youth section.');p.ageGroup=$('sectionSearch').dataset.value}if(s==='activity'){if(!$('activitySearch').dataset.value)throw Error('Choose an activity category.');p.categoryKey=$('activitySearch').dataset.value}if(s==='group'){if(!$('groupSearch').dataset.value)throw Error('Choose a saved group.');p.groupKey=$('groupSearch').dataset.value}const drive=$('driveAttachment').value.trim();if(drive)p.attachments=[{driveUrl:drive}];p.certificate={placement:$('certificatePlacement').value||'none',title:$('certificateTitle').value.trim(),subtitle:$('certificateSubtitle').value.trim(),message:$('certificateMessage').value.trim(),footer:$('certificateFooter').value.trim()};return p}
-async function preview(){try{const p=payload();showMsg('emailMsg','Checking the live Users sheet…',true);const r=await callProtected('adminPreview',{payload:b64url(p)});$('preview').textContent=`Ready: ${r.totalRecipients} individual email(s) · ${r.matchedUsers} matched user(s) · ${r.missingEmails} missing email(s)${r.warnings?.length?'\n'+r.warnings.join('\n'):''}`;showMsg('emailMsg','No email has been sent.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
-async function send(){try{const p=payload();if(!confirm('Send this email now to the live recipient list?'))return;showMsg('emailMsg','Sending… please wait. Do not press Send again.',true);const r=await callProtected('adminSend',{payload:b64url(p)});let text=`Sent ${r.sent} of ${r.total} email(s).\nMatched users: ${r.matchedUsers}.`;if(r.missingEmails)text+=`\nMissing emails: ${r.missingEmails}.`;if(r.failed?.length)text+='\nFailures:\n'+r.failed.join('\n');showMsg('emailMsg',text,r.failed?.length===0);await loadAll()}catch(e){showMsg('emailMsg',e.message,false)}}
-function clearComposer(){['subject','body','driveAttachment'].forEach(id=>$(id).value='');$('certificatePlacement').value='none';$('certificateTitle').value='CERTIFICATE OF COMPLETION';$('certificateSubtitle').value='JOTA-JOTI 2026';$('certificateMessage').value='This certifies that {{childFullName}} has successfully taken part in JOTA-JOTI 2026 with Boulder Scout Group.';$('certificateFooter').value='Issued by Boulder Scout Group';selected=[];allSelected=[];$('personSearch').value='';$('sectionSearch').value='';$('activitySearch').value='';$('groupSearch').value='';delete $('sectionSearch').dataset.value;delete $('activitySearch').dataset.value;delete $('groupSearch').dataset.value;document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();$('emailMsg').className='message';refreshPreview()}
-function insertTag(tag){const el=focusEl||$('body'),a=el.selectionStart||el.value.length,b=el.selectionEnd||el.value.length;el.value=el.value.slice(0,a)+tag+el.value.slice(b);el.focus();el.selectionStart=el.selectionEnd=a+tag.length}
-async function findScout(q){const n=norm(q);const list=activeUsers().filter(u=>matches(u,n)).slice(0,8);const box=$('findOptions');box.innerHTML=list.map((u,i)=>optionHTML(u,i)).join('')||'<div class="option"><span>No matching active users</span></div>';box._matches=list;box.style.display='block'}
-function showScout(u){$('findResult').classList.remove('hidden');$('findResult').innerHTML=`<b>${esc(u.Name||'Scout')}</b><br>PIN: ${esc(u.PIN||'—')}<br>Username: ${esc(u.Username||'—')}<br>Section: ${esc(u.YouthSection||u.AgeYear||'—')}<br>Youth email: ${esc(u.Email||'—')}<br>Parent: ${esc(u.ParentName||'—')} · ${esc(u.ParentEmail||'—')}<br><br><button class="ghost" id="useScout">Use this scout for email</button>`;$('useScout').onclick=()=>{selected=[u];document.querySelector('input[name=scope][value=selected]').checked=true;setScopeUI();renderChips();refreshPreview()}}
-function setupEvents(){
- $('refreshBtn').onclick=async()=>{try{await loadAll();showMsg('emailMsg','Live Users data refreshed.',true)}catch(e){showMsg('emailMsg',e.message,false)}};$('previewBtn').onclick=preview;$('sendBtn').onclick=send;$('clearBtn').onclick=clearComposer;
- document.querySelectorAll('input[name=scope]').forEach(e=>e.onchange=setScopeUI);document.querySelectorAll('input[name=targetType]').forEach(e=>e.onchange=refreshPreview);
- $('personSearch').onfocus=renderPeople;$('personSearch').oninput=renderPeople;$('personSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(!choosePersonDirectly()){const first=$('personOptions')._matches?.[0];if(first){selected.push(first);$('personSearch').value='';$('personOptions').style.display='none';renderChips();refreshPreview();}}}};$('personOptions').onmousedown=e=>{const x=e.target.closest('.option');if(x&&$('personOptions')._matches[x.dataset.i])choosePerson(Number(x.dataset.i))};$('chips').onclick=e=>{const id=e.target.dataset.remove;if(id){selected=selected.filter(u=>String(u.ParticipantID)!==String(id));renderChips();refreshPreview()}};
- $('sectionSearch').onfocus=()=>{$('sectionOptions').style.display='block'};$('sectionSearch').oninput=()=>{delete $('sectionSearch').dataset.value;const q=norm($('sectionSearch').value);const m=sections.filter(x=>norm(x.label||x.value).includes(q));$('sectionOptions').innerHTML=m.map((x,i)=>`<div class="option" data-i="${i}"><b>${esc(x.label||x.value)}</b><span>${x.count} active user(s)</span></div>`).join('');$('sectionOptions')._matches=m};$('sectionOptions').onmousedown=e=>{const x=e.target.closest('.option');if(x)chooseSection(Number(x.dataset.i))};
- $('groupSearch').onfocus=()=>{$('groupOptions').style.display='block'};$('groupSearch').oninput=()=>{delete $('groupSearch').dataset.value;const q=norm($('groupSearch').value);const m=groups.filter(x=>norm(x.GroupName||x.GroupKey).includes(q));$('groupOptions').innerHTML=m.map((x,i)=>`<div class="option" data-i="${i}"><b>${esc(x.GroupName||x.GroupKey)}</b><span>${x.ParticipantIDs.length} participant(s)</span></div>`).join('')||'<div class="option"><span>No saved groups</span></div>';$('groupOptions')._matches=m};$('groupOptions').onmousedown=e=>{const x=e.target.closest('.option');if(x&&$('groupOptions')._matches[x.dataset.i]){const g=$('groupOptions')._matches[x.dataset.i];$('groupSearch').value=g.GroupName||g.GroupKey;$('groupSearch').dataset.value=g.GroupKey;$('groupOptions').style.display='none';refreshPreview()}};
- $('activitySearch').onfocus=()=>{$('activityOptions').style.display='block'};$('activitySearch').oninput=()=>{delete $('activitySearch').dataset.value;const q=norm($('activitySearch').value);const m=categories.filter(x=>norm(x.Title||x.CategoryKey).includes(q)||norm(x.CategoryKey).includes(q));$('activityOptions').innerHTML=m.map((x,i)=>`<div class="option" data-i="${i}"><b>${esc(x.Title||x.CategoryKey)}</b><span>${esc(x.CategoryKey)}</span></div>`).join('');$('activityOptions')._matches=m};$('activityOptions').onmousedown=e=>{const x=e.target.closest('.option');if(x)chooseCategory(Number(x.dataset.i))};
- $('allSearch').onclick=()=>{$('allOptions').innerHTML='<div class="option"><b>All active users</b><span>Every active row in Users</span></div>';$('allOptions').style.display='block'};$('allOptions').onmousedown=()=>{allSelected=activeUsers().slice();selected=allSelected.slice();$('allOptions').style.display='none';renderChips();refreshPreview()};
- $('findSearch').onfocus=()=>findScout($('findSearch').value);$('findSearch').oninput=()=>findScout($('findSearch').value);$('findSearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const u=findPersonByIdentifier($('findSearch').value)||$('findOptions')._matches?.[0];if(u){$('findOptions').style.display='none';showScout(u);}}};$('findOptions').onmousedown=e=>{const x=e.target.closest('.option');if(x&&$('findOptions')._matches[x.dataset.i]){$('findOptions').style.display='none';showScout($('findOptions')._matches[x.dataset.i])}};
- document.addEventListener('click',e=>{['personOptions','sectionOptions','activityOptions','allOptions','findOptions','groupOptions'].forEach(id=>{if(!$(id).contains(e.target)&&!$(id).previousElementSibling?.contains(e.target))$(id).style.display='none'})});
- TAGS.forEach(tag=>{const b=document.createElement('button');b.className='tag';b.type='button';b.textContent=tag;b.onclick=()=>insertTag(tag);$('tags').appendChild(b)});$('subject').onfocus=()=>focusEl=$('subject');$('body').onfocus=()=>focusEl=$('body');
- $('sectionCards').onclick=e=>{const b=e.target.closest('[data-section]');if(b){document.querySelector('input[name=scope][value=section]').checked=true;setScopeUI();$('sectionSearch').value=b.dataset.section;$('sectionSearch').dataset.value=b.dataset.section;refreshPreview()}};$('categoryCards').onclick=e=>{const b=e.target.closest('[data-category]');if(b){document.querySelector('input[name=scope][value=activity]').checked=true;setScopeUI();$('activitySearch').value=b.dataset.category;$('activitySearch').dataset.value=b.dataset.category;refreshPreview()}};
-}
-function setupPreviewLink(){
-  const link=SKIP_PAGE_URL;
-  const input=$('previewLink');
-  if(!input)return;
-  input.value=link;
-  $('openPreviewLink').href=link;
-  $('copyPreviewLink').onclick=async()=>{
-    try{await navigator.clipboard.writeText(link);showMsg('previewMsg','Link copied.',true)}
-    catch(e){input.select();showMsg('previewMsg','Could not auto-copy — the link is selected, press Ctrl/Cmd+C.',false)}
+
+async function loadAll() {
+  $('connectionBadge').textContent = 'Refreshing…';
+  $('connectionBadge').className = 'badge neutral';
+
+  const calls = {
+    ping: callProtected('adminPing'),
+    users: callProtected('adminUsers'),
+    categories: callProtected('adminCategories'),
+    activities: callProtected('adminActivities'),
+    links: callProtected('adminLinks'),
+    media: callProtected('adminMedia'),
+    settings: callProtected('adminSettings'),
+    sender: callProtected('adminSender')
   };
+  const results = await Promise.all(Object.entries(calls).map(async ([key,promise]) => [key, await promise]));
+  const map = Object.fromEntries(results);
+
+  state.users = Array.isArray(map.users) ? map.users : (map.users?.users || []);
+  state.categories = Array.isArray(map.categories) ? map.categories : (map.categories?.categories || []);
+  state.activities = Array.isArray(map.activities) ? map.activities : (map.activities?.activities || []);
+  state.links = Array.isArray(map.links) ? map.links : (map.links?.links || []);
+  state.media = Array.isArray(map.media) ? map.media : (map.media?.media || []);
+  state.settings = Array.isArray(map.settings) ? map.settings : (map.settings?.settings || []);
+  state.sender = map.sender?.sender || '';
+  state.quota = map.sender?.quota ?? null;
+  state.lastRefresh = new Date();
+
+  $('connectionBadge').textContent = 'Connected';
+  $('connectionBadge').className = 'badge good';
+  $('systemApi').textContent = 'Online';
+  $('systemSender').textContent = state.sender || 'Apps Script account';
+  $('systemQuota').textContent = state.quota ?? '—';
+  $('systemRefresh').textContent = state.lastRefresh.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+  renderAll();
+  refreshReminderCount();
 }
-async function boot(){setupEvents();setupPreviewLink();try{await loadAll();showMsg('emailMsg','Admin loaded. Connected to Apps Script with a protected session.',true)}catch(e){showMsg('emailMsg',e.message,false)}}
-boot();
+
+function renderAll() {
+  renderOverview();
+  renderParticipants();
+  renderActivities();
+  renderCategories();
+  renderLinks();
+  renderMedia();
+  populateFilters();
+  renderSettings();
+  renderAudit();
+}
+
+function renderOverview() {
+  const users = activeUsers();
+  const pending = users.filter(u => norm(u.Status) === 'pending').length;
+  const outstanding = users.filter(u => !isCompletePaperwork(u.PaperworkStatus)).length;
+  const activeActivities = state.activities.filter(a => a.Active !== false).length;
+  $('statUsers').textContent = users.length;
+  $('statUsersSub').textContent = `${users.filter(u=>isValidEmail(u.ParentEmail)).length} with parent email`;
+  $('statPending').textContent = pending;
+  $('statPaperwork').textContent = outstanding;
+  $('statActivities').textContent = activeActivities;
+}
+
+function matchesText(row, query, fields) {
+  if (!query) return true;
+  const q = norm(query);
+  return fields.some(key => norm(row[key]).includes(q));
+}
+
+function renderParticipants() {
+  const q = $('participantSearch')?.value || '';
+  const status = $('participantStatusFilter')?.value || '';
+  const paper = $('participantPaperworkFilter')?.value || '';
+  const rows = state.users.filter(u => {
+    if (status && String(u.Status) !== status) return false;
+    if (paper && String(u.PaperworkStatus) !== paper) return false;
+    return matchesText(u, q, ['Name','Username','PIN','ParticipantID','ParentName','ParentEmail','Email','AgeYear','PaperworkStatus']);
+  }).sort((a,b)=>String(a.Name).localeCompare(String(b.Name)));
+
+  $('participantsTable').innerHTML = rows.map((u,i) => {
+    const paperBadge = isCompletePaperwork(u.PaperworkStatus) ? 'good' : 'warn';
+    const statusBadge = norm(u.Status) === 'active' ? 'good' : norm(u.Status) === 'pending' ? 'warn' : 'bad';
+    return `<tr>
+      <td><strong>${esc(u.Name || '—')}</strong><span class="sub">${esc(u.ParticipantID || '')}</span></td>
+      <td>${esc(u.AgeYear || u.AgeGroup || '—')}</td>
+      <td class="password-cell">${esc(u.Username || '—')}</td>
+      <td class="password-cell">${esc(u.Password || '—')} ${u.Password ? `<button class="copy-btn" data-copy="${escAttr(u.Password)}">Copy</button>`:''}</td>
+      <td class="password-cell">${esc(u.PIN || '—')} ${u.PIN ? `<button class="copy-btn" data-copy="${escAttr(u.PIN)}">Copy</button>`:''}</td>
+      <td>${esc(u.ParentName || '—')}<span class="sub">${esc(u.ParentEmail || '—')}</span></td>
+      <td><span class="badge ${paperBadge}">${esc(u.PaperworkStatus || 'Not set')}</span></td>
+      <td><span class="badge ${statusBadge}">${esc(u.Status || '—')}</span></td>
+      <td><div class="row-actions"><button data-edit-user="${i}" data-user-id="${escAttr(u.ParticipantID)}">Edit</button><button class="ghost" data-resend-welcome="${escAttr(u.ParticipantID)}" ${u.ParentEmail?'':'disabled title="No parent email"'}>Resend</button></div></td>
+    </tr>`;
+  }).join('');
+
+  $('participantEmpty').classList.toggle('hidden', rows.length > 0);
+}
+
+function renderActivities() {
+  const q = norm($('activitySearch')?.value || '');
+  const cat = $('activityCategoryFilter')?.value || '';
+  const active = $('activityActiveFilter')?.value || '';
+  const list = state.activities.filter(a => {
+    if (cat && String(a.CategoryKey) !== cat) return false;
+    if (active === 'true' && a.Active === false) return false;
+    if (active === 'false' && a.Active !== false) return false;
+    return !q || [a.Title,a.Description,a.CategoryKey,a.Duration,a.Difficulty,a.Participants,a.Equipment,a.Notes]
+      .some(v=>norm(v).includes(q));
+  }).sort((a,b)=>String(a.Title).localeCompare(String(b.Title)));
+
+  $('activitiesGrid').innerHTML = list.length ? list.map((a)=> {
+    const photo = a.PhotoURL || mediaUrl(a.PhotoKey,'');
+    const activeBadge = a.Active === false ? '<span class="badge bad">Archived</span>' : '<span class="badge good">Active</span>';
+    return `<article class="content-card">
+      <div class="content-photo">${photo ? `<img src="${escAttr(photo)}" alt="">` : '<div class="placeholder">ACTIVITY</div>'}</div>
+      <div class="content-body">
+        <h3>${esc(a.Title || 'Untitled activity')}</h3>
+        <div class="meta-row">
+          <span class="pill">${esc(categoryTitle(a.CategoryKey))}</span>
+          ${a.Duration ? `<span class="pill">${esc(a.Duration)}</span>`:''}
+          ${a.Difficulty ? `<span class="pill">${esc(a.Difficulty)}</span>`:''}
+          ${a.LeaderRequired ? '<span class="pill">Leader required</span>':''}
+          ${activeBadge}
+        </div>
+        <p>${esc(a.Description || 'No description added yet.')}</p>
+        <div class="card-actions">
+          <button class="small-btn" data-edit-activity="${escAttr(a.ActivityID)}">Edit</button>
+          <button class="small-btn archive" data-archive-activity="${escAttr(a.ActivityID)}">${a.Active === false ? 'Restore' : 'Archive'}</button>
+        </div>
+      </div>
+    </article>`;
+  }).join('') : '<div class="empty-state">No activities match the current filters.</div>';
+}
+
+function renderCategories() {
+  const counts = {};
+  state.links.forEach(l => { counts[l.CategoryKey] = (counts[l.CategoryKey] || 0) + (l.Active === false ? 0 : 1); });
+  state.activities.forEach(a => { counts[a.CategoryKey] = (counts[a.CategoryKey] || 0) + (a.Active === false ? 0 : 1); });
+
+  $('categoriesGrid').innerHTML = state.categories.length ? state.categories.map(c => {
+    const photo = c.LogoURL || mediaUrl(c.LogoKey,'');
+    return `<article class="content-card category-card">
+      <div class="content-photo">${photo ? `<img src="${escAttr(photo)}" alt="">` : '<div class="placeholder">CATEGORY</div>'}</div>
+      <div class="content-body">
+        <h3>${esc(c.Title || 'Untitled')}</h3>
+        <div class="meta-row"><span class="pill">${esc(c.CategoryKey)}</span><span class="pill">${counts[c.CategoryKey] || 0} items</span>${c.Active === false ? '<span class="badge bad">Archived</span>' : '<span class="badge good">Active</span>'}</div>
+        <p>${esc(c.Description || 'No description.')}</p>
+        <div class="card-actions"><button class="small-btn" data-edit-category="${escAttr(c.CategoryKey)}">Edit</button><button class="small-btn archive" data-archive-category="${escAttr(c.CategoryKey)}">${c.Active === false ? 'Restore' : 'Archive'}</button></div>
+      </div>
+    </article>`;
+  }).join('') : '<div class="empty-state">No categories yet.</div>';
+}
+
+function renderLinks() {
+  const q = norm($('linkSearch')?.value || '');
+  const cat = $('linkCategoryFilter')?.value || '';
+  const active = $('linkActiveFilter')?.value || '';
+  const list = state.links.filter(l => {
+    if (cat && String(l.CategoryKey) !== cat) return false;
+    if (active === 'true' && l.Active === false) return false;
+    if (active === 'false' && l.Active !== false) return false;
+    return !q || [l.Title,l.CategoryKey,l.URL,l.Notes,l.BlockStatus].some(v=>norm(v).includes(q));
+  }).sort((a,b)=>String(a.Title).localeCompare(String(b.Title)));
+
+  $('linksTable').innerHTML = list.map(l => {
+    const html = l.IsHTML || (!/^https?:\/\//i.test(String(l.URL || '').trim()));
+    return `<tr>
+      <td><strong>${esc(l.Title || '—')}</strong><span class="sub">${esc(l.LinkID || '')}</span></td>
+      <td>${esc(categoryTitle(l.CategoryKey))}</td>
+      <td><span class="badge neutral">${html ? 'HTML' : 'URL'}</span></td>
+      <td>${l.CanEmbed ? '<span class="badge good">Yes</span>' : '<span class="badge neutral">No</span>'}</td>
+      <td>${loginLabel(l.RequiresLogin)}</td>
+      <td>${loginLabel(l.RequiresEmail)}</td>
+      <td>${l.Active === false ? '<span class="badge bad">Archived</span>' : '<span class="badge good">Active</span>'}</td>
+      <td><div class="row-actions"><button data-edit-link="${escAttr(l.LinkID)}">Edit</button><button class="archive" data-archive-link="${escAttr(l.LinkID)}">${l.Active === false ? 'Restore' : 'Archive'}</button></div></td>
+    </tr>`;
+  }).join('');
+}
+function loginLabel(v) {
+  const n = String(v ?? '').trim();
+  if (n === '3') return '<span class="badge warn">External</span>';
+  if (n === '1' || /^(true|yes)$/i.test(n)) return '<span class="badge good">Saved</span>';
+  return '<span class="badge neutral">None</span>';
+}
+
+function renderMedia() {
+  $('mediaGrid').innerHTML = state.media.length ? state.media.map(m => `<article class="media-card">
+    <div class="media-thumb">${m.LogoURL ? `<img src="${escAttr(m.LogoURL)}" alt="">` : '<div class="placeholder">IMAGE</div>'}</div>
+    <div class="media-meta"><strong>${esc(m.Title || m.LogoKey)}</strong><small>${esc(m.LogoKey || '')}</small><div class="card-actions"><button class="small-btn" data-copy-media="${escAttr(m.LogoURL || '')}">Copy URL</button><button class="small-btn archive" data-archive-media="${escAttr(m.LogoKey || '')}">Hide</button></div></div>
+  </article>`).join('') : '<div class="empty-state">No uploaded media yet. External logo URLs already saved in Categories/Links still work.</div>';
+}
+
+function populateFilters() {
+  const catOpts = '<option value="">All categories</option>' + state.categories.filter(c=>c.Active !== false)
+    .map(c=>`<option value="${escAttr(c.CategoryKey)}">${esc(c.Title || c.CategoryKey)}</option>`).join('');
+  $('activityCategoryFilter').innerHTML = catOpts;
+  $('linkCategoryFilter').innerHTML = catOpts;
+}
+
+function renderSettings() {
+  $('settingsTable').innerHTML = state.settings.length ? state.settings.map((s,i) => `
+    <div class="settings-row">
+      <code>${esc(s.SettingKey || '')}</code>
+      <input data-setting-value="${i}" value="${escAttr(s.SettingValue || '')}">
+      <input data-setting-description="${i}" value="${escAttr(s.Description || '')}">
+      <button class="small-btn" data-save-setting="${i}">Save</button>
+    </div>`).join('') : '<div class="empty-state">No settings found.</div>';
+}
+
+function renderAudit() {
+  const rows = state.audit || [];
+  $('auditTable').innerHTML = rows.length ? rows.slice(0,100).map(x => `<tr><td>${esc(formatTime(x.Timestamp))}</td><td>${esc(x.Action)}</td><td>${esc(x.Target)}</td><td>${esc(x.Details)}</td><td>${esc(x.Status)}</td></tr>`).join('') : '<tr><td colspan="5">No recent admin activity.</td></tr>';
+}
+
+function formatTime(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString();
+}
+
+function setPage(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${page}`));
+  document.querySelector('.sidebar')?.classList.remove('open');
+  if (page === 'system') loadAudit();
+}
+
+async function loadAudit() {
+  try {
+    const r = await callProtected('adminAudit');
+    state.audit = r.entries || [];
+    renderAudit();
+  } catch (e) { /* dashboard can still work if audit read fails */ }
+}
+
+function closeModal() {
+  $('modalBackdrop').classList.add('hidden');
+  $('modalBody').innerHTML = '';
+  $('modalFooter').innerHTML = '';
+  pendingModalSave = null;
+}
+function openModal({eyebrow='',title='',subtitle='',body='',footer=''}) {
+  $('modalEyebrow').textContent = eyebrow;
+  $('modalTitle').textContent = title;
+  $('modalSubtitle').textContent = subtitle || '';
+  $('modalBody').innerHTML = body;
+  $('modalFooter').innerHTML = footer;
+  $('modalBackdrop').classList.remove('hidden');
+}
+function modalFooter(saveText='Save') {
+  return `<button class="ghost" id="modalCancelBtn">Cancel</button><button class="primary" id="modalSaveBtn">${esc(saveText)}</button>`;
+}
+function selectedOpt(value, expected) { return String(value ?? '') === String(expected) ? ' selected' : ''; }
+function boolChecked(v) { return v ? ' checked' : ''; }
+
+function mediaSelect(name, selectedKey, selectedUrl) {
+  const options = ['<option value="">No image</option>']
+    .concat(state.media.map(m => `<option value="${escAttr(m.LogoKey)}"${selectedOpt(selectedKey,m.LogoKey)}>${esc(m.Title || m.LogoKey)}</option>`));
+  const fallback = selectedKey && !state.media.some(m => String(m.LogoKey) === String(selectedKey))
+    ? `<option value="${escAttr(selectedKey)}" selected>${esc(selectedKey)}</option>` : '';
+  return `<label>Photo / logo<select id="${name}" data-media-select="${name}">${fallback}${options.join('')}</select><div class="field-help">${selectedUrl ? `Current URL: ${esc(selectedUrl)}` : 'Choose an existing uploaded image or leave blank.'}</div></label>`;
+}
+
+function attachModalSave(handler, saveLabel) {
+  pendingModalSave = handler;
+  $('modalSaveBtn').textContent = saveLabel || 'Save';
+  $('modalSaveBtn').onclick = async () => {
+    const btn = $('modalSaveBtn'); if (!btn) return;
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await pendingModalSave();
+      closeModal();
+    } catch (e) {
+      toast(e.message || String(e), false);
+      btn.disabled = false; btn.textContent = saveLabel || 'Save';
+    }
+  };
+  $('modalCancelBtn').onclick = closeModal;
+}
+
+function openUserModal(id) {
+  const u = state.users.find(x => String(x.ParticipantID) === String(id));
+  if (!u) return;
+  openModal({
+    eyebrow:'PARTICIPANT ACCOUNT',title:u.Name || 'Edit participant',
+    subtitle:`${u.ParticipantID} · PIN ${u.PIN || '—'}`,
+    body:`<div class="form-grid">
+      <label>Name<input id="uName" value="${escAttr(u.Name)}"></label>
+      <label>Age / section<input id="uAgeYear" value="${escAttr(u.AgeYear || u.AgeGroup || '')}"></label>
+      <label>Username<input id="uUsername" value="${escAttr(u.Username)}"></label>
+      <label>Password<input id="uPassword" value="${escAttr(u.Password)}"></label>
+      <label>Youth email<input id="uEmail" value="${escAttr(u.Email)}"></label>
+      <label>Parent name<input id="uParentName" value="${escAttr(u.ParentName)}"></label>
+      <label>Parent email<input id="uParentEmail" value="${escAttr(u.ParentEmail)}"></label>
+      <label>Status<select id="uStatus"><option${selectedOpt(u.Status,'Pending')}>Pending</option><option${selectedOpt(u.Status,'Active')}>Active</option><option${selectedOpt(u.Status,'Disabled')}>Disabled</option></select></label>
+      <label>Paperwork status<select id="uPaperwork"><option${selectedOpt(u.PaperworkStatus,'Required')}>Required</option><option${selectedOpt(u.PaperworkStatus,'Not Started')}>Not Started</option><option${selectedOpt(u.PaperworkStatus,'Complete')}>Complete</option></select></label>
+      <label>Allowed categories<input id="uAllowed" value="${escAttr(u.AllowedCategories)}"><div class="field-help">Use * for all configured categories or comma-separated keys.</div></label>
+      <label class="full">Notes<textarea id="uNotes">${esc(u.Notes)}</textarea></label>
+    </div>`,
+    footer:modalFooter('Save account')
+  });
+  attachModalSave(async () => {
+    const payload = {
+      ParticipantID:id, Name:$('uName').value.trim(), AgeYear:$('uAgeYear').value.trim(),
+      Username:$('uUsername').value.trim(), Password:$('uPassword').value.trim(),
+      Email:$('uEmail').value.trim(), ParentName:$('uParentName').value.trim(),
+      ParentEmail:$('uParentEmail').value.trim(), Status:$('uStatus').value,
+      PaperworkStatus:$('uPaperwork').value, AllowedCategories:$('uAllowed').value.trim(),
+      Notes:$('uNotes').value
+    };
+    const result = await callProtected('adminUserSave',{},payload);
+    const updated = result.user;
+    state.users = state.users.map(x => String(x.ParticipantID) === id ? updated : x);
+    renderAll();
+    toast('Participant updated.');
+  },'Save account');
+}
+
+function openActivityModal(id='') {
+  const a = state.activities.find(x=>String(x.ActivityID)===String(id)) || {
+    ActivityID:'',Title:'',Description:'',CategoryKey:state.categories.find(c=>c.Active!==false)?.CategoryKey || '',
+    Duration:'',Difficulty:'',Participants:'',Equipment:'',InstructionsURL:'',LeaderRequired:false,Active:true,PhotoURL:'',PhotoKey:'',CanEmbed:false,IsHTML:false,Notes:''
+  };
+  const contentType = a.IsHTML || (a.InstructionsURL && !/^https?:\/\//i.test(a.InstructionsURL)) ? 'html' : 'url';
+  openModal({
+    eyebrow:'ACTIVITY BUILDER',title:id?'Edit activity':'Add activity',
+    subtitle:'Set the participant-facing activity details, content and image.',
+    body:`<div class="form-grid">
+      <label>Title<input id="aTitle" value="${escAttr(a.Title)}"></label>
+      <label>Category<select id="aCategory">${state.categories.map(c=>`<option value="${escAttr(c.CategoryKey)}"${selectedOpt(a.CategoryKey,c.CategoryKey)}>${esc(c.Title || c.CategoryKey)}</option>`).join('')}</select></label>
+      <label>Duration<input id="aDuration" placeholder="e.g. 30 minutes" value="${escAttr(a.Duration)}"></label>
+      <label>Difficulty<select id="aDifficulty"><option value="">Not set</option><option${selectedOpt(a.Difficulty,'Easy')}>Easy</option><option${selectedOpt(a.Difficulty,'Medium')}>Medium</option><option${selectedOpt(a.Difficulty,'Hard')}>Hard</option></select></label>
+      <label>Participants<input id="aParticipants" placeholder="e.g. 2–6" value="${escAttr(a.Participants)}"></label>
+      <label>Equipment<input id="aEquipment" placeholder="e.g. Phones, paper, pens" value="${escAttr(a.Equipment)}"></label>
+      ${mediaSelect('aPhotoKey',a.PhotoKey,a.PhotoURL)}
+      <label>Active<select id="aActive"><option value="true"${a.Active!==false?' selected':''}>Active</option><option value="false"${a.Active===false?' selected':''}>Archived</option></select></label>
+      <div class="full">
+        <label>Description<textarea id="aDescription" rows="5">${esc(a.Description)}</textarea></label>
+      </div>
+      <div class="full">
+        <label>Instructions content type</label>
+        <div class="radio-row">
+          <label class="radio-chip"><input name="aContentType" type="radio" value="url"${contentType==='url'?' checked':''}> URL</label>
+          <label class="radio-chip"><input name="aContentType" type="radio" value="html"${contentType==='html'?' checked':''}> HTML code</label>
+        </div>
+      </div>
+      <div class="full">
+        <label id="aInstructionsLabel">${contentType==='html'?'HTML code':'Instructions URL'}<textarea id="aInstructions" rows="7">${esc(a.InstructionsURL)}</textarea></label>
+        <div class="field-help">HTML is rendered only in a sandboxed dashboard iframe when Embed is enabled.</div>
+      </div>
+      <div class="check-grid full">
+        <div class="check-card"><label><input id="aLeaderRequired" type="checkbox"${boolChecked(a.LeaderRequired)}> Leader required</label></div>
+        <div class="check-card"><label><input id="aCanEmbed" type="checkbox"${boolChecked(a.CanEmbed)}> Can embed</label></div>
+      </div>
+      <label class="full">Admin notes<textarea id="aNotes" rows="3">${esc(a.Notes)}</textarea></label>
+      <div class="callout full"><strong>Photo upload:</strong> upload the image first in Photos &amp; Logos. It will then appear in this picker.</div>
+    </div>`,
+    footer:modalFooter(id?'Save activity':'Create activity')
+  });
+
+  document.querySelectorAll('input[name="aContentType"]').forEach(r => r.onchange = () => {
+    $('aInstructionsLabel').firstChild.textContent = r.value === 'html' ? 'HTML code' : 'Instructions URL';
+  });
+
+  attachModalSave(async () => {
+    const photoKey = $('aPhotoKey').value;
+    const photo = mediaByKey(photoKey);
+    const isHtml = document.querySelector('input[name="aContentType"]:checked')?.value === 'html';
+    const payload = {
+      ActivityID:a.ActivityID, Title:$('aTitle').value.trim(), CategoryKey:$('aCategory').value,
+      Duration:$('aDuration').value.trim(), Difficulty:$('aDifficulty').value,
+      Participants:$('aParticipants').value.trim(), Equipment:$('aEquipment').value.trim(),
+      Description:$('aDescription').value, InstructionsURL:$('aInstructions').value.trim(),
+      LeaderRequired:$('aLeaderRequired').checked, CanEmbed:$('aCanEmbed').checked,
+      IsHTML:isHtml, Active:$('aActive').value === 'true',
+      PhotoKey:photoKey, PhotoURL:photo?.LogoURL || a.PhotoURL || '',
+      Notes:$('aNotes').value
+    };
+    const result = await callProtected('adminActivitySave',{},payload);
+    const saved = result.activity;
+    state.activities = [...state.activities.filter(x=>String(x.ActivityID)!==String(saved.ActivityID)),saved];
+    renderAll(); toast(id?'Activity updated.':'Activity created.');
+  },id?'Save activity':'Create activity');
+}
+
+function openCategoryModal(key='') {
+  const c = state.categories.find(x=>String(x.CategoryKey)===String(key)) || {
+    CategoryKey:'',Title:'',Description:'',LogoKey:'',LogoURL:'',Active:true
+  };
+  openModal({
+    eyebrow:'CATEGORY BUILDER',title:key?'Edit category':'Add category',
+    subtitle:'Categories become the large cards participants see on the dashboard.',
+    body:`<div class="form-grid">
+      <label>Category key<input id="cKey" placeholder="e.g. online-chats" value="${escAttr(c.CategoryKey)}" ${key?'readonly':''}><div class="field-help">Stable key used by links and activities. Keep it short.</div></label>
+      <label>Title<input id="cTitle" value="${escAttr(c.Title)}"></label>
+      ${mediaSelect('cLogoKey',c.LogoKey,c.LogoURL)}
+      <label>Active<select id="cActive"><option value="true"${c.Active!==false?' selected':''}>Active</option><option value="false"${c.Active===false?' selected':''}>Archived</option></select></label>
+      <label class="full">Description<textarea id="cDescription" rows="4">${esc(c.Description)}</textarea></label>
+    </div>`,
+    footer:modalFooter(key?'Save category':'Create category')
+  });
+  attachModalSave(async () => {
+    const logo = mediaByKey($('cLogoKey').value);
+    const payload = {
+      CategoryKey:$('cKey').value.trim(), Title:$('cTitle').value.trim(),
+      LogoKey:$('cLogoKey').value, LogoURL:logo?.LogoURL || c.LogoURL || '',
+      Description:$('cDescription').value, Active:$('cActive').value === 'true'
+    };
+    const result = await callProtected('adminCategorySave',{},payload);
+    const saved=result.category;
+    state.categories=[...state.categories.filter(x=>x.CategoryKey!==saved.CategoryKey),saved].sort((a,b)=>a.Title.localeCompare(b.Title));
+    renderAll(); toast(key?'Category updated.':'Category created.');
+  },key?'Save category':'Create category');
+}
+
+function openLinkModal(id='') {
+  const l=state.links.find(x=>String(x.LinkID)===String(id)) || {
+    LinkID:'',CategoryKey:state.categories.find(c=>c.Active!==false)?.CategoryKey||'',Title:'',URL:'',
+    CanEmbed:false,RequiresLogin:'0',RequiresEmail:'0',ParentApproval:false,LeaderApproved:false,Moderated:false,
+    Active:true,LogoKey:'',LogoURL:'',BlockStatus:'allow',Notes:'',IsHTML:false
+  };
+  const type = l.IsHTML || (l.URL && !/^https?:\/\//i.test(l.URL)) ? 'html' : 'url';
+  openModal({
+    eyebrow:'RESOURCE BUILDER',title:id?'Edit link':'Add link',
+    subtitle:'Add a normal website or paste a complete HTML page/snippet.',
+    body:`<div class="form-grid">
+      <label>Title<input id="lTitle" value="${escAttr(l.Title)}"></label>
+      <label>Category<select id="lCategory">${state.categories.map(c=>`<option value="${escAttr(c.CategoryKey)}"${selectedOpt(l.CategoryKey,c.CategoryKey)}>${esc(c.Title || c.CategoryKey)}</option>`).join('')}</select></label>
+      <div class="full">
+        <label>Content type</label>
+        <div class="radio-row">
+          <label class="radio-chip"><input name="lContentType" type="radio" value="url"${type==='url'?' checked':''}> URL</label>
+          <label class="radio-chip"><input name="lContentType" type="radio" value="html"${type==='html'?' checked':''}> HTML code</label>
+        </div>
+      </div>
+      <label class="full" id="lContentLabel">${type==='html'?'HTML code':'URL'}<textarea id="lContent" rows="8">${esc(l.URL)}</textarea></label>
+      <label>Can embed<select id="lCanEmbed"><option value="true"${l.CanEmbed?' selected':''}>Yes</option><option value="false"${!l.CanEmbed?' selected':''}>No</option></select></label>
+      <label>Login requirement<select id="lLogin"><option value="0"${selectedOpt(l.RequiresLogin,'0')}>None</option><option value="1"${selectedOpt(l.RequiresLogin,'1')}>Saved account</option><option value="3"${selectedOpt(l.RequiresLogin,'3')}>External site's own account</option></select></label>
+      <label>Email requirement<select id="lEmail"><option value="0"${selectedOpt(l.RequiresEmail,'0')}>None</option><option value="1"${selectedOpt(l.RequiresEmail,'1')}>Saved email</option><option value="3"${selectedOpt(l.RequiresEmail,'3')}>External site's own email</option></select></label>
+      ${mediaSelect('lLogoKey',l.LogoKey,l.LogoURL)}
+      <label>Block status<select id="lBlockStatus"><option value="allow"${selectedOpt(l.BlockStatus,'allow')}>Allow</option><option value="review"${selectedOpt(l.BlockStatus,'review')}>Review</option><option value="blocked"${selectedOpt(l.BlockStatus,'blocked')}>Blocked</option></select></label>
+      <div class="check-grid full">
+        <div class="check-card"><label><input id="lParentApproval" type="checkbox"${boolChecked(l.ParentApproval)}> Parent approval</label></div>
+        <div class="check-card"><label><input id="lLeaderApproved" type="checkbox"${boolChecked(l.LeaderApproved)}> Leader approved</label></div>
+        <div class="check-card"><label><input id="lModerated" type="checkbox"${boolChecked(l.Moderated)}> Moderated</label></div>
+      </div>
+      <label class="full">Active<select id="lActive"><option value="true"${l.Active!==false?' selected':''}>Active</option><option value="false"${l.Active===false?' selected':''}>Archived</option></select></label>
+      <label class="full">Notes<textarea id="lNotes" rows="3">${esc(l.Notes)}</textarea></label>
+    </div>`,
+    footer:modalFooter(id?'Save link':'Create link')
+  });
+
+  document.querySelectorAll('input[name="lContentType"]').forEach(r => r.onchange = () => $('lContentLabel').firstChild.textContent = r.value === 'html' ? 'HTML code' : 'URL');
+
+  attachModalSave(async () => {
+    const logo=mediaByKey($('lLogoKey').value);
+    const isHtml=document.querySelector('input[name="lContentType"]:checked')?.value==='html';
+    const payload={
+      LinkID:l.LinkID,CategoryKey:$('lCategory').value,Title:$('lTitle').value.trim(),URL:$('lContent').value.trim(),
+      IsHTML:isHtml,CanEmbed:$('lCanEmbed').value==='true',RequiresLogin:$('lLogin').value,RequiresEmail:$('lEmail').value,
+      ParentApproval:$('lParentApproval').checked,LeaderApproved:$('lLeaderApproved').checked,Moderated:$('lModerated').checked,
+      Active:$('lActive').value==='true',LogoKey:$('lLogoKey').value,LogoURL:logo?.LogoURL||l.LogoURL||'',
+      BlockStatus:$('lBlockStatus').value,Notes:$('lNotes').value
+    };
+    const result=await callProtected('adminLinkSave',{},payload);
+    const saved=result.link;
+    state.links=[...state.links.filter(x=>String(x.LinkID)!==String(saved.LinkID)),saved];
+    renderAll();toast(id?'Link updated.':'Link created.');
+  },id?'Save link':'Create link');
+}
+
+function printPasswordSheet() {
+  const rows=state.users.filter(u=>String(u.ParticipantID)!=='guest').sort((a,b)=>String(a.Name).localeCompare(String(b.Name)));
+  const win=window.open('','_blank','width=1100,height=800');
+  if(!win){toast('Your browser blocked the print window.',false);return;}
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>JOTA-JOTI Account Passwords</title><style>
+    body{font-family:Arial,sans-serif;padding:28px;color:#17232d}h1{margin:0 0 4px}p{margin:4px 0 18px;color:#60707a}
+    table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cfd8dd;padding:7px;text-align:left}th{background:#eef3f5}
+    .warn{margin:16px 0;padding:10px;background:#fff2d8;border:1px solid #e6c98c}.pw{font-family:monospace;font-weight:bold}
+    @media print{button{display:none}.warn{break-inside:avoid}body{padding:10px}}
+  </style></head><body><h1>JOTA-JOTI Account List</h1><p>Boulder Scout Group · Generated ${esc(new Date().toLocaleString())}</p>
+    <div class="warn"><strong>Private document.</strong> This sheet contains participant usernames, PINs and passwords. Keep it secure.</div>
+    <table><thead><tr><th>Name</th><th>Section</th><th>Username</th><th>Password</th><th>PIN</th><th>Parent email</th><th>Paperwork</th><th>Status</th></tr></thead><tbody>
+    ${rows.map(u=>`<tr><td>${esc(u.Name)}</td><td>${esc(u.AgeYear||u.AgeGroup)}</td><td class="pw">${esc(u.Username)}</td><td class="pw">${esc(u.Password)}</td><td class="pw">${esc(u.PIN)}</td><td>${esc(u.ParentEmail)}</td><td>${esc(u.PaperworkStatus)}</td><td>${esc(u.Status)}</td></tr>`).join('')}
+    </tbody></table><button onclick="window.print()">Print</button></body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),300);
+}
+
+async function downloadPasswordPdf() {
+  try {
+    toast('Generating the private password PDF…');
+    const r=await callProtected('adminAccountPdf',{},null);
+    if(r.url) window.open(r.url,'_blank','noopener,noreferrer');
+    toast('Password PDF generated.');
+  } catch(e){toast(e.message,false);}
+}
+
+async function refreshReminderCount() {
+  try {
+    const r=await callProtected('adminPaperworkReminderPreview');
+    $('reminderCountBadge').textContent=`${r.eligible} eligible`;
+    $('reminderCountBadge').className=`badge ${r.eligible ? 'warn' : 'good'}`;
+    return r;
+  } catch(e) {
+    $('reminderCountBadge').textContent='Unavailable';
+    $('reminderCountBadge').className='badge bad';
+  }
+}
+
+async function sendPaperworkReminders() {
+  const preview=await refreshReminderCount();
+  if(!preview?.eligible) { showMessage('reminderMessage','There are no eligible parent emails needing a reminder.',false); return; }
+  if(!confirm(`Send ${preview.eligible} paperwork reminder email(s)? Completed paperwork is excluded again on the server immediately before sending.`)) return;
+  try {
+    showMessage('reminderMessage','Sending reminders… Do not press the button again.',true);
+    const r=await callProtected('adminPaperworkReminders',{},{
+      subject:$('reminderSubject').value.trim(),
+      htmlBody:$('reminderBody').value.trim()
+    });
+    let msg=`Sent ${r.result?.sent || 0} reminder(s) out of ${r.result?.attempted || 0}.`;
+    if(r.result?.failed?.length) msg+=`\nFailures:\n${r.result.failed.join('\n')}`;
+    showMessage('reminderMessage',msg,!r.result?.failed?.length);
+    toast('Reminder run finished.');
+    await loadAll();
+  } catch(e){showMessage('reminderMessage',e.message,false);}
+}
+
+function bulkPayload() {
+  const scope=$('bulkScope').value, targetType=$('bulkTargetType').value;
+  const payload={subject:$('bulkSubject').value.trim(),htmlBody:$('bulkBody').value.trim(),targetType,scope};
+  if(!payload.subject) throw new Error('Enter a subject.');
+  if(!payload.htmlBody) throw new Error('Write an HTML message.');
+  if(scope==='section') payload.ageGroup=$('bulkScopeValue').value.trim();
+  if(scope==='selected') payload.participantIds=$('bulkScopeValue').value.split(',').map(x=>x.trim()).filter(Boolean);
+  return payload;
+}
+async function previewBulk() {
+  try {
+    const p=bulkPayload();
+    const r=await callProtected('adminPreview',{},p);
+    showMessage('bulkMessage',`Ready to send ${r.totalRecipients} email(s) to ${r.matchedUsers} matched user(s). Missing emails: ${r.missingEmails}.`,true);
+  } catch(e){showMessage('bulkMessage',e.message,false);}
+}
+async function sendBulk() {
+  try {
+    const p=bulkPayload();
+    const r1=await callProtected('adminPreview',{},p);
+    if(!confirm(`Send this message to ${r1.totalRecipients} email(s)?`)) return;
+    showMessage('bulkMessage','Sending… Do not press Send again.',true);
+    const r=await callProtected('adminSend',{},p);
+    let msg=`Sent ${r.sent} of ${r.total} email(s).`;
+    if(r.failed?.length) msg+=`\nFailures:\n${r.failed.join('\n')}`;
+    showMessage('bulkMessage',msg,!r.failed?.length);
+    await loadAll();
+  } catch(e){showMessage('bulkMessage',e.message,false);}
+}
+
+function updateBulkScopeHint() {
+  const s=$('bulkScope').value;
+  $('bulkScopeValueWrap').classList.toggle('hidden',s==='all');
+  const field=$('bulkScopeValue');
+  field.placeholder=s==='section' ? 'e.g. Scout, Cub, Joey, Vent or your saved AgeYear label' : 'Comma-separated ParticipantIDs';
+}
+
+async function loadSettings() {
+  try { const r=await callProtected('adminSettings'); state.settings=r.settings||[]; renderSettings(); }
+  catch(e){toast('Could not load settings: '+e.message,false);}
+}
+async function saveSetting(index) {
+  const s=state.settings[index];
+  if(!s) return;
+  try {
+    const r=await callProtected('adminSettingsSave',{},{
+      SettingKey:s.SettingKey,
+      SettingValue:document.querySelector(`[data-setting-value="${index}"]`).value,
+      Description:document.querySelector(`[data-setting-description="${index}"]`).value
+    });
+    state.settings[index]=r.settings || r.setting || s;
+    renderSettings(); toast('Setting saved.');
+  } catch(e){toast(e.message,false);}
+}
+
+async function runFullSetup() {
+  if(!confirm('Run the full Apps Script spreadsheet setup? This can recreate missing headers/triggers and warm the cache.')) return;
+  try {
+    showMessage('systemMessage','Running setup…',true);
+    const r=await callProtected('adminRunSetup');
+    showMessage('systemMessage',String(r.result || 'Setup completed.'),true);
+    toast('System setup completed.');
+    await loadAll();
+  } catch(e){showMessage('systemMessage',e.message,false);}
+}
+async function clearCache() {
+  try {
+    await callProtected('adminClearCache',{},null);
+    showMessage('systemMessage','Public dashboard cache cleared.',true);
+    toast('Cache cleared.');
+  } catch(e){showMessage('systemMessage',e.message,false);}
+}
+async function uploadMedia() {
+  const input=$('mediaUploadFile');
+  const file=input?.files?.[0];
+  if(!file){showMessage('mediaMessage','Choose an image first.',false);return;}
+  if(file.size>6*1024*1024){showMessage('mediaMessage','Keep each image under 6 MB.',false);return;}
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    try{
+      const base64=String(reader.result).split(',')[1]||'';
+      if(!base64) throw new Error('Could not read that image.');
+      showMessage('mediaMessage','Uploading…',true);
+      const r=await callProtected('adminUploadAsset',{},{
+        base64,mimeType:file.type,filename:file.name,title:$('mediaUploadTitle').value.trim()||file.name,
+        CategoryKey:$('mediaUploadCategory').value.trim()
+      });
+      showMessage('mediaMessage','Upload complete. The image is now available in all media pickers.',true);
+      $('mediaUploadFile').value=''; $('mediaUploadTitle').value=''; $('mediaUploadCategory').value='';
+      await loadAll();
+      if(r.asset?.LogoURL){ $('mediaUploadPreview').innerHTML=`<img src="${escAttr(r.asset.LogoURL)}" alt="">`; }
+    }catch(e){showMessage('mediaMessage',e.message,false);}
+  };
+  reader.onerror=()=>showMessage('mediaMessage','Could not read the selected file.',false);
+  reader.readAsDataURL(file);
+}
+
+function setupTags() {
+  document.querySelectorAll('.tag-row').forEach(row=>{
+    const target=row.dataset.target;
+    row.innerHTML=TAGS.map(t=>`<button type="button" class="tag" data-insert-tag="${escAttr(t)}" data-tag-target="${escAttr(target)}">${esc(t)}</button>`).join('');
+  });
+}
+function insertTag(targetId,tag) {
+  const el=$(targetId); if(!el)return;
+  const start=el.selectionStart ?? el.value.length, end=el.selectionEnd ?? el.value.length;
+  el.value=el.value.slice(0,start)+tag+el.value.slice(end);
+  el.focus(); el.selectionStart=el.selectionEnd=start+tag.length;
+}
+
+async function archiveOrRestore(type,id,currentlyActive) {
+  const action = type==='activity' ? 'adminActivityDelete' : type==='category' ? 'adminCategoryDelete' : 'adminLinkDelete' ;
+  if(currentlyActive && !confirm(`Archive this ${type}? It will disappear from the public dashboard but remain in the sheet.`)) return;
+  if(!currentlyActive){
+    // Restore is handled by saving the full existing row.
+    try{
+      if(type==='activity'){
+        const a=state.activities.find(x=>String(x.ActivityID)===String(id)); if(!a)return;
+        a.Active=true; await callProtected('adminActivitySave',{},a);
+      } else if(type==='category'){
+        const c=state.categories.find(x=>String(x.CategoryKey)===String(id)); if(!c)return;
+        c.Active=true; await callProtected('adminCategorySave',{},c);
+      } else {
+        const l=state.links.find(x=>String(x.LinkID)===String(id)); if(!l)return;
+        l.Active=true; await callProtected('adminLinkSave',{},l);
+      }
+      await loadAll(); toast(`${type[0].toUpperCase()+type.slice(1)} restored.`);
+    }catch(e){toast(e.message,false);}
+    return;
+  }
+  try {
+    await callProtected(action,{}, type==='activity'?{ActivityID:id}:type==='category'?{CategoryKey:id}:{LinkID:id});
+    await loadAll();
+    toast(`${type[0].toUpperCase()+type.slice(1)} archived.`);
+  }catch(e){toast(e.message,false);}
+}
+
+async function archiveMedia(key) {
+  if(!confirm('Hide this image from the admin media picker? It will not be deleted from Drive.'))return;
+  try{await callProtected('adminMediaDelete',{}, {LogoKey:key});await loadAll();toast('Media item hidden.');}
+  catch(e){toast(e.message,false);}
+}
+
+function previewUploadImage() {
+  const file=$('mediaUploadFile')?.files?.[0]; const box=$('mediaUploadPreview'); if(!box)return;
+  if(!file){box.innerHTML='';return;}
+  const url=URL.createObjectURL(file); box.innerHTML=`<img src="${url}" alt="">`;
+}
+
+function setupEvents() {
+  $('loginForm').onsubmit=async e=>{
+    e.preventDefault();
+    hideMessage('loginMessage');
+    const btn=$('loginBtn');btn.disabled=true;btn.textContent='Signing in…';
+    try{
+      const result=await login($('adminPassword').value.trim());
+      $('adminPassword').value='';
+      showApp();
+      await loadAll();
+      toast(`Signed in${result.sender ? ' as '+result.sender : ''}.`);
+    }catch(err){showMessage('loginMessage',err.message,false);}
+    finally{btn.disabled=false;btn.textContent='Sign in';}
+  };
+  $('togglePassword').onclick=()=>{
+    const p=$('adminPassword');const shown=p.type==='text';p.type=shown?'password':'text';$('togglePassword').textContent=shown?'Show':'Hide';
+  };
+  $('logoutBtn').onclick=()=>{adminToken='';adminTokenExpiry=0;sessionStorage.removeItem(AUTH_TOKEN_KEY);sessionStorage.removeItem(AUTH_EXPIRY_KEY);showLogin('Signed out.');};
+  $('mobileMenuBtn').onclick=()=>document.querySelector('.sidebar')?.classList.toggle('open');
+  $('mobileRefreshBtn').onclick=()=>loadAll().catch(e=>toast(e.message,false));
+  $('mainNav').onclick=e=>{const b=e.target.closest('.nav-btn');if(b)setPage(b.dataset.page);};
+  document.addEventListener('click',async e=>{
+    const copy=e.target.closest('[data-copy]'); if(copy){try{await navigator.clipboard.writeText(copy.dataset.copy);toast('Copied.');}catch(_){toast('Could not copy automatically.',false)}}
+    const act=e.target.closest('[data-action]'); if(act){if(act.dataset.action==='newActivity'){setPage('activities');openActivityModal();}if(act.dataset.action==='newCategory'){setPage('categories');openCategoryModal();}if(act.dataset.action==='passwordPdf')downloadPasswordPdf();if(act.dataset.action==='reminders'){setPage('emails');refreshReminderCount();}}
+    const editUser=e.target.closest('[data-edit-user]'); if(editUser)openUserModal(editUser.dataset.userId);
+    const resend=e.target.closest('[data-resend-welcome]');
+    if(resend){
+      const id=String(resend.dataset.resendWelcome||'');
+      const user=state.users.find(x=>String(x.ParticipantID)===id);
+      if(!user) return;
+      if(!confirm(`Resend the welcome/account email to ${user.ParentEmail || 'the parent'}?`)) return;
+      try{
+        resend.disabled=true; resend.textContent='Sending…';
+        await callProtected('adminResendWelcome',{}, {ParticipantID:id});
+        toast('Welcome email resent.');
+        await loadUsers();
+      }catch(e){toast(e.message,false);resend.disabled=false;resend.textContent='Resend';}
+    }
+    const editActivity=e.target.closest('[data-edit-activity]'); if(editActivity)openActivityModal(editActivity.dataset.editActivity);
+    const editCategory=e.target.closest('[data-edit-category]'); if(editCategory)openCategoryModal(editCategory.dataset.editCategory);
+    const editLink=e.target.closest('[data-edit-link]'); if(editLink)openLinkModal(editLink.dataset.editLink);
+    const arcA=e.target.closest('[data-archive-activity]'); if(arcA){const a=state.activities.find(x=>String(x.ActivityID)===String(arcA.dataset.archiveActivity));archiveOrRestore('activity',arcA.dataset.archiveActivity,a?.Active!==false);}
+    const arcC=e.target.closest('[data-archive-category]'); if(arcC){const c=state.categories.find(x=>String(x.CategoryKey)===String(arcC.dataset.archiveCategory));archiveOrRestore('category',arcC.dataset.archiveCategory,c?.Active!==false);}
+    const arcL=e.target.closest('[data-archive-link]'); if(arcL){const l=state.links.find(x=>String(x.LinkID)===String(arcL.dataset.archiveLink));archiveOrRestore('link',arcL.dataset.archiveLink,l?.Active!==false);}
+    const arcM=e.target.closest('[data-archive-media]'); if(arcM)archiveMedia(arcM.dataset.archiveMedia);
+    const cm=e.target.closest('[data-copy-media]'); if(cm){navigator.clipboard?.writeText(cm.dataset.copyMedia).then(()=>toast('Image URL copied.')).catch(()=>toast('Could not copy URL.',false));}
+    const saveSettingBtn=e.target.closest('[data-save-setting]'); if(saveSettingBtn)saveSetting(Number(saveSettingBtn.dataset.saveSetting));
+    const tag=e.target.closest('[data-insert-tag]'); if(tag)insertTag(tag.dataset.tagTarget,tag.dataset.insertTag);
+  });
+
+  $('modalClose').onclick=closeModal;
+  $('modalBackdrop').onclick=e=>{if(e.target===$('modalBackdrop'))closeModal();};
+
+  $('refreshOverviewBtn').onclick=()=>loadAll().catch(e=>toast(e.message,false));
+  $('refreshParticipantsBtn').onclick=()=>loadAll().catch(e=>toast(e.message,false));
+  $('printPasswordsBtn').onclick=printPasswordSheet;
+  $('downloadPasswordPdfBtn').onclick=downloadPasswordPdf;
+
+  ['participantSearch','participantStatusFilter','participantPaperworkFilter'].forEach(id=>$(id).addEventListener('input',renderParticipants));
+  ['participantStatusFilter','participantPaperworkFilter'].forEach(id=>$(id).addEventListener('change',renderParticipants));
+
+  $('newActivityBtn').onclick=()=>openActivityModal();
+  $('activitySearch').oninput=renderActivities;$('activityCategoryFilter').onchange=renderActivities;$('activityActiveFilter').onchange=renderActivities;
+  $('newCategoryBtn').onclick=()=>openCategoryModal();
+  $('newLinkBtn').onclick=()=>openLinkModal();
+  $('linkSearch').oninput=renderLinks;$('linkCategoryFilter').onchange=renderLinks;$('linkActiveFilter').onchange=renderLinks;
+
+  $('uploadMediaBtn').onclick=uploadMedia;$('mediaUploadFile').onchange=previewUploadImage;
+  $('refreshEmailCountsBtn').onclick=refreshReminderCount;$('previewReminderBtn').onclick=refreshReminderCount;$('sendReminderBtn').onclick=sendPaperworkReminders;
+  $('bulkScope').onchange=updateBulkScopeHint;$('previewBulkBtn').onclick=previewBulk;$('sendBulkBtn').onclick=sendBulk;
+
+  $('runSetupBtn').onclick=runFullSetup;
+  $('clearCacheBtn').onclick=clearCache;
+  $('systemPdfBtn').onclick=downloadPasswordPdf;
+  $('refreshSettingsBtn').onclick=loadSettings;
+  $('refreshAuditBtn').onclick=loadAudit;
+}
+
+async function boot() {
+  setupEvents(); setupTags(); updateBulkScopeHint();
+  $('publicSiteLink').href=SITE_URL;
+  $('publicSiteLink').textContent=SITE_URL;
+  if (await ensureAuth()) {
+    showApp();
+    try { await loadAll(); await loadAudit(); } catch(e) { showLogin(e.message); }
+  } else {
+    showLogin();
+  }
+}
+
+document.addEventListener('DOMContentLoaded',boot);

@@ -6,7 +6,7 @@
 //
 // A new version creates a new cache and automatically removes the old one.
 
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v14';
 const CACHE_NAME = `jota-joti-shell-${APP_VERSION}`;
 
 const APP_SHELL = [
@@ -122,24 +122,12 @@ self.addEventListener('fetch', event => {
     }
 
 
-    // Secret admin route
-    if (path.endsWith('/admin@5-6-4-3')) {
-      event.respondWith(loadPage('./admin.html'));
-      return;
-    }
-
-
-    // Never expose old /admin route
+    // Normal admin route
     if (
       path.endsWith('/admin') ||
       path.endsWith('/admin.html')
     ) {
-      event.respondWith(
-        Response.redirect(
-          new URL('./', self.location.origin).href,
-          302
-        )
-      );
+      event.respondWith(loadPage('./admin.html'));
       return;
     }
 

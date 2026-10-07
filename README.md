@@ -1,3 +1,8 @@
+
+## Current admin centre
+
+The live management interface is **`/admin`**. It handles participants/passwords, activities, categories, links/resources, media uploads, paperwork reminder emails, settings, cache control, and an admin audit log. It replaces the older hidden admin URL. See `ADMIN-CENTRE.md` for deployment and setup notes.
+
 # JOTA-JOTI Dashboard — Boulder Scout Group
 
 Unofficial JOTA-JOTI 2026 website for Boulder Scout Group.

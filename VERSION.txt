@@ -1,0 +1,6 @@
+JOTA-JOTI Boulder Scout Group — Complete Admin Centre Build
+Release: 2026-10-07
+
+Main route: /admin
+Apps Script: Code.gs (Code (1).gs kept in sync)
+Service worker: v14
