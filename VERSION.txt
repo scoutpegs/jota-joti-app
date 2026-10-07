@@ -1,12 +1,10 @@
-JOTA-JOTI 2026 — Boulder Scout Group
-Admin centre build: v17
-Service worker: v16
-Backend: protected token-based admin API
+Boulder Scout Group JOTA-JOTI 2026
+Website/Admin release: v18
+Apps Script release: v18
 
-v17 fixes:
-- Fixed Apps Script "Cache warm failed: Argument too large: value" errors.
-- Large cache payloads now use safe 40,000-character chunks.
-- Dashboard bundle and user login index can be larger than a single cache value.
-- Cached sheet snapshots use the same safe chunking.
-- Cache warming now reports counts and warnings instead of silently failing.
-- Existing public/admin functionality from v16 is retained.
+Key fixes:
+- Single protected admin bootstrap request
+- Retry protection for transient Google Apps Script redirected 404 responses
+- Full user fields returned to admin UI
+- Hall and whole-site layout images included and cached
+- Existing LogoKey/PhotoKey references continue to resolve from Logos

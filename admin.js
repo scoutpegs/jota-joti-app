@@ -70,50 +70,85 @@ function b64url(value) {
 }
 
 async function request(action, params={}, method='GET', payloadData=null) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    let url = API_URL;
-    let options = {
-      method,
-      redirect: 'follow',
-      cache: 'no-store',
-      credentials: 'omit',
-      signal: controller.signal
-    };
+  const maxAttempts = method === 'GET' ? 3 : 2;
+  let lastError = null;
 
-    if (method === 'GET') {
-      const query = new URLSearchParams({action});
-      Object.entries(params || {}).forEach(([k,v]) => { if (v !== undefined && v !== null) query.set(k, String(v)); });
-      url += '?' + query.toString();
-    } else {
-      const body = new URLSearchParams();
-      body.set('action', action);
-      Object.entries(params || {}).forEach(([k,v]) => { if (v !== undefined && v !== null) body.set(k, String(v)); });
-      if (payloadData !== null) body.set('payload', b64url(payloadData));
-      options.headers = {'Content-Type':'application/x-www-form-urlencoded'};
-      options.body = body.toString();
-    }
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    const response = await fetch(url, options);
-    const raw = await response.text();
-    let data;
-    try { data = JSON.parse(raw); } catch (_) {
-      throw new Error(`Apps Script ${action} returned non-JSON data (HTTP ${response.status}).`);
+    try {
+      let url = API_URL;
+      const cacheBust = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      const requestParams = Object.assign({}, params || {});
+      let options = {
+        method,
+        redirect: 'follow',
+        cache: 'no-store',
+        credentials: 'omit',
+        signal: controller.signal,
+        headers: {'Accept':'application/json'}
+      };
+
+      if (method === 'GET') {
+        const query = new URLSearchParams({action});
+        Object.entries(requestParams).forEach(([k,v]) => {
+          if (v !== undefined && v !== null) query.set(k, String(v));
+        });
+        query.set('_cb', cacheBust);
+        url += '?' + query.toString();
+      } else {
+        const body = new URLSearchParams();
+        body.set('action', action);
+        Object.entries(requestParams).forEach(([k,v]) => {
+          if (v !== undefined && v !== null) body.set(k, String(v));
+        });
+        if (payloadData !== null) body.set('payload', b64url(payloadData));
+        body.set('_cb', cacheBust);
+        options.headers['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+        options.body = body.toString();
+      }
+
+      const response = await fetch(url, options);
+      const raw = await response.text();
+
+      // Google Apps Script uses a redirected googleusercontent response for
+      // web apps. A stale redirect can occasionally come back as 404 even
+      // though a fresh request works. Retry the whole request in that case.
+      let data = null;
+      try { data = JSON.parse(raw); } catch (_) {
+        if (attempt < maxAttempts && (response.status === 404 || /<!doctype html|<html/i.test(raw))) {
+          lastError = new Error(`Apps Script ${action} returned non-JSON data (HTTP ${response.status}).`);
+          await new Promise(resolve => setTimeout(resolve, 350 * attempt));
+          continue;
+        }
+        throw new Error(`Apps Script ${action} returned non-JSON data (HTTP ${response.status}).`);
+      }
+
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error || data?.message || `Apps Script ${action} failed (HTTP ${response.status}).`);
+      }
+
+      return data;
+    } catch (err) {
+      lastError = err;
+      if (err?.name === 'AbortError') {
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 350 * attempt));
+          continue;
+        }
+        throw new Error(`${action} timed out after ${FETCH_TIMEOUT_MS/1000} seconds.`);
+      }
+      if (err instanceof TypeError) {
+        throw new Error('The browser could not read Apps Script. Check that the web app is deployed as Execute as Me and accessible to the intended users.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    if (!response.ok || data?.success === false) {
-      throw new Error(data?.error || data?.message || `Apps Script ${action} failed.`);
-    }
-    return data;
-  } catch (err) {
-    if (err?.name === 'AbortError') throw new Error(`${action} timed out after ${FETCH_TIMEOUT_MS/1000} seconds.`);
-    if (err instanceof TypeError) {
-      throw new Error('The browser could not read Apps Script. Check that the web app is deployed as Execute as Me and accessible to the intended users.');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw lastError || new Error(`Apps Script ${action} failed.`);
 }
 
 const POST_ACTIONS = new Set([
@@ -180,18 +215,36 @@ async function loadAll() {
   $('connectionBadge').textContent = 'Refreshing…';
   $('connectionBadge').className = 'badge neutral';
 
-  const calls = {
-    ping: callProtected('adminPing'),
-    users: callProtected('adminUsers'),
-    categories: callProtected('adminCategories'),
-    activities: callProtected('adminActivities'),
-    links: callProtected('adminLinks'),
-    media: callProtected('adminMedia'),
-    settings: callProtected('adminSettings'),
-    sender: callProtected('adminSender')
-  };
-  const results = await Promise.all(Object.entries(calls).map(async ([key,promise]) => [key, await promise]));
-  const map = Object.fromEntries(results);
+  let map;
+  try {
+    // Preferred path: one protected request. This avoids Google Apps Script
+    // redirect races caused by eight simultaneous executions.
+    const bundle = await callProtected('adminBootstrap');
+    map = {
+      users: bundle.users || [],
+      categories: bundle.categories || [],
+      activities: bundle.activities || [],
+      links: bundle.links || [],
+      media: bundle.media || [],
+      settings: bundle.settings || [],
+      sender: {sender: bundle.sender || '', quota: bundle.quota ?? null},
+      ping: {success: true, version: bundle.version || 'v18'}
+    };
+  } catch (bootstrapError) {
+    // Compatibility fallback for an older deployed Apps Script. Requests are
+    // deliberately sequential so we don't recreate the concurrency problem.
+    const callOne = async action => callProtected(action);
+    map = {
+      ping: await callOne('adminPing'),
+      users: await callOne('adminUsers'),
+      categories: await callOne('adminCategories'),
+      activities: await callOne('adminActivities'),
+      links: await callOne('adminLinks'),
+      media: await callOne('adminMedia'),
+      settings: await callOne('adminSettings'),
+      sender: await callOne('adminSender')
+    };
+  }
 
   state.users = Array.isArray(map.users) ? map.users : (map.users?.users || []);
   state.categories = Array.isArray(map.categories) ? map.categories : (map.categories?.categories || []);
@@ -211,7 +264,7 @@ async function loadAll() {
   $('systemRefresh').textContent = state.lastRefresh.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 
   renderAll();
-  refreshReminderCount();
+  refreshReminderCount().catch(() => {});
   await loadAudit();
 }
 

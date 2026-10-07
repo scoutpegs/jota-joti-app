@@ -1,0 +1,37 @@
+JOTA-JOTI 2026 — BOULDER SCOUT GROUP
+RELEASE v18
+
+1. GitHub Pages
+Extract this ZIP and upload the files at the ROOT of the repository.
+Do not put them inside another folder.
+
+2. Google Apps Script
+Use Code.gs from the matching Apps Script v18 ZIP.
+Replace the current Apps Script code, Save, then Deploy > Manage deployments.
+Edit the existing web app deployment and create a new version.
+Set:
+  Execute as: Me
+  Who has access: Anyone with the required access model used by your event
+Use the SAME deployment URL already in config.js so no website setting needs changing.
+
+3. First admin check
+Open:
+  https://scoutpegs.github.io/jota-joti-app/admin
+Sign in.
+The admin page now uses one protected adminBootstrap request instead of eight simultaneous sheet requests.
+
+4. After deployment
+Run:
+  JOTA-JOTI Admin -> Run full setup
+  JOTA-JOTI Admin -> Warm cache now (large-data safe)
+
+5. Important v18 fixes
+- transient Google Apps Script redirected 404 responses are retried
+- admin page uses a single bootstrap call, with sequential fallback for older deployments
+- all Users fields needed by the admin page are returned, including Password, ParentPhone, PaperworkStatus and EmailStatus
+- existing LogoKey and PhotoKey entries are resolved from the Logos sheet
+- hall-layout.png and site-layout.png are included and cached by the PWA
+- the cache remains chunked to avoid "Argument too large: value"
+
+6. Private data
+Never put Users, passwords, PINs or private Google Sheet exports in the public GitHub repository.
