@@ -1,41 +1,87 @@
-# JOTA-JOTI Admin Centre
+# JOTA-JOTI Admin Centre — Boulder Scout Group
 
-The web admin centre is now available at `/admin`. The old hidden admin route is no longer used.
+The live management interface is **`/admin`**. It is the private control centre for the JOTA-JOTI portal. The website itself is public, but every admin data operation requires a short-lived Apps Script session token.
 
 ## What `/admin` manages
 
-- **Overview** — account counts, paperwork status, active activities/categories/links, cache and connection status.
-- **Participants** — search users, view usernames/PINs/passwords, edit account details, status and paperwork, print a private password sheet, or generate the existing private password PDF.
-- **Activities** — create/edit/archive activities, choose a category, add description, duration, difficulty, participants, equipment, leader requirement, instructions as URL or HTML, embedding permission, and a photo.
-- **Categories** — create/edit/archive categories, descriptions and logos.
-- **Links & Resources** — create/edit/archive links or raw HTML resources, control embedding, login/email requirements, approvals, moderation and logos.
-- **Photos & Logos** — upload images to a managed Drive folder, copy their public view URL, and hide old media.
-- **Emails** — send a paperwork reminder to every parent who still needs paperwork, with a server-side recheck immediately before sending; also includes the existing bulk email composer.
-- **System & Settings** — run full spreadsheet setup, clear the public cache, edit settings, view the admin audit log, and regenerate the private password PDF.
+### Participants
+- Search by name, Participant ID, PIN, username, parent, email or section.
+- Edit name, age/section, PIN, username, activity password, youth email, parent details, status, paperwork status, category access and notes.
+- Resend the parent account/welcome email.
+- Print the account table.
+- Download the full account list as CSV.
+- Download the private password/account PDF.
 
-## First-time setup
+### Activities
+- Add/edit/archive activities.
+- Select any live category.
+- Set duration, difficulty, participants, equipment and leader requirement.
+- Use a normal URL or paste HTML instructions.
+- Turn embedding on/off.
+- Select an existing image from the **live Logos sheet**.
+- Upload a new PNG/JPG/WEBP/GIF directly from the activity editor.
 
-1. Open the Apps Script project and replace the deployed `Code.gs` with this version. Keep `Code (1).gs` in sync if your Apps Script project uses that copy.
-2. Deploy the Apps Script as a web app using the account that owns/edits the JOTA-JOTI spreadsheet.
-3. Run `setupEOISystem()` once from Apps Script, or sign into `/admin` and use **System & Settings → Run full setup**.
-4. The setup creates/repairs the required `Activities` and `AdminAuditLog` sheets as well as the existing JOTA-JOTI sheets.
-5. The first admin password is created in Apps Script Script Properties when none exists. Keep it private.
-6. Open the GitHub Pages site and go to `/admin`.
+### Categories
+- Add/edit/archive categories.
+- Set the stable CategoryKey and display title.
+- Select an existing sheet logo or upload a new one.
+- Keep descriptions and Active state in the live sheet.
 
-## Security
+### Links & Resources
+- Add/edit/archive normal websites.
+- Paste complete HTML instead of a URL when required.
+- Control embedding, login, email, parent approval, leader approval, moderation and Active state.
+- Reuse a logo already stored in Logos, or upload a new one.
 
-The public portal never exposes the admin tables. Every admin action except the initial `adminLogin` request requires a short-lived session token. Passwords are deliberately shown only inside the private admin centre and private password output because the current participant system stores the account password in the Users sheet.
+### Photos & Logos
+The admin centre reads the existing **Logos** sheet directly. If a category/link/activity already has a LogoKey and that key exists in Logos, the matching image is used automatically. If a row already contains a LogoURL, that URL is also respected.
 
-The paperwork-reminder endpoint checks `PaperworkStatus` again on the server immediately before sending, so accounts marked `Complete`, `Completed`, or `Done` are excluded even if the page was left open for a while.
+Uploading a new image creates a managed file in Google Drive and adds a corresponding row to Logos.
 
-## Photos
+### Emails
+- Paperwork reminder preview.
+- Reminder emails are rechecked on the server immediately before sending, so `Complete`, `Completed` and `Done` participants are skipped.
+- Existing bulk email composer with merge tags remains available.
 
-Uploaded images are stored in a Google Drive folder named `JOTA-JOTI Media`. The server attempts to make each image viewable by link and stores its view URL in the `Logos` sheet. If your Workspace policy blocks public link sharing, use another accessible image URL from the admin picker instead.
+### System & Settings
+- Run full setup.
+- Import/repair existing live sheet content.
+- Clear dashboard/login caches.
+- Edit non-secret Settings values.
+- Review AdminAuditLog.
 
-## Public activities
+## First-time deployment
 
-Activities are included in the public dashboard bundle. They appear inside their chosen category next to regular links/resources. A participant can open an activity details sheet showing its description, metadata, photo, notes and instructions.
+1. Open the live Boulder JOTA-JOTI Google Sheet.
+2. Go to **Extensions → Apps Script**.
+3. Replace the backend `Code.gs` with the private copy in the Apps Script package.
+4. Save.
+5. Run `setupEOISystem()` once from the Apps Script editor and approve the requested Google permissions.
+6. Deploy the Apps Script as a Web app: **Execute as Me** and access set so the public website can reach it.
+7. Open the GitHub Pages site at `/admin`.
+8. Enter the admin password shown by the first setup run. Keep it private.
+9. In `/admin` use **System & Settings → Import / repair live sheet content** once.
 
-## 404 / clean routes
+## Important live-sheet behaviour
 
-`404.html` now keeps the friendly 404 screen for unknown pages and boots `/admin`, `/setup`, `/track` and `/skip` through clean routes when GitHub Pages falls back to `404.html`. The service worker also handles `/admin` directly when it is installed.
+The admin page does not replace the live workbook with its own copy. It reads and writes the existing Users, Categories, Links, Logos, Activities and Settings sheets. This means existing categories, links and logos stay usable. The repair function adds missing headers/defaults only where needed.
+
+Existing logo relationships are resolved like this:
+
+`Category/Link/Activity LogoKey → Logos.LogoKey → Logos.LogoURL`
+
+If a direct LogoURL/PhotoURL is already present, it is used as a fallback even when the LogoKey is missing.
+
+## Password exports
+
+The account PDF and CSV intentionally contain private credentials. Store them with the event paperwork and do not place them in a public repository or public chat.
+
+## Clean routes
+
+- `/` — public countdown/dashboard
+- `/setup` — parent setup guide
+- `/skip` — testing route that bypasses the countdown
+- `/track` — JID tracker
+- `/admin` — protected admin centre
+
+`404.html` and the service worker handle the clean routes for GitHub Pages.

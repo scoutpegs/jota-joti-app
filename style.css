@@ -1672,3 +1672,13 @@ body{background:var(--page)!important;color:var(--text-main);min-height:100dvh;o
 .activity-meta-row strong{display:block;color:#183e52;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
 .activity-detail-note{padding:13px 14px;background:#f6f8f9;border-left:3px solid #174a6a;border-radius:9px;color:#53636c;line-height:1.55;margin:16px 0}
 @media(max-width:600px){.activity-meta{grid-template-columns:1fr}}
+
+/* Weekend plan */
+.weekend-plan-card{border-top:4px solid #174a6a}
+.plan-card-label{font-size:11px;font-weight:800;letter-spacing:.8px;color:#174a6a;margin-bottom:4px}
+.weekend-plan-card details{margin-top:10px;border:1px solid #e1e6e9;border-radius:11px;background:#fbfcfc;overflow:hidden}
+.weekend-plan-card summary{padding:12px 14px;font-weight:800;cursor:pointer;color:#214453}
+.public-plan-list{display:grid;padding:0 14px 12px}
+.public-plan-list div{display:grid;grid-template-columns:82px 1fr;gap:10px;padding:7px 0;border-top:1px solid #edf1f3;font-size:12px}
+.public-plan-list strong{color:#174a6a}
+@media(max-width:600px){.public-plan-list div{grid-template-columns:70px 1fr}}

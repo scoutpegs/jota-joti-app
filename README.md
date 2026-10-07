@@ -1,98 +1,31 @@
-
-## Current admin centre
-
-The live management interface is **`/admin`**. It handles participants/passwords, activities, categories, links/resources, media uploads, paperwork reminder emails, settings, cache control, and an admin audit log. It replaces the older hidden admin URL. See `ADMIN-CENTRE.md` for deployment and setup notes.
-
 # JOTA-JOTI Dashboard — Boulder Scout Group
 
-Unofficial JOTA-JOTI 2026 website for Boulder Scout Group.
+Unofficial JOTA-JOTI 2026 website and administration system for Boulder Scout Group.
 
-## Public GitHub Pages files
+## Public routes
 
-Upload the files in this package to the root of the GitHub Pages repository:
+- `/` — main countdown/dashboard
+- `/setup` — family setup guide
+- `/skip` — dashboard testing route
+- `/track` — JID World Tracker
+- `/admin` — protected leader admin centre
 
-- `index.html` — main countdown/dashboard
-- `setup.html` — cleaned parent setup guide, available through `/setup`
-- `skip.html` — testing page that skips the countdown
-- `track.html` — JID World Tracker, available through `/track`
-- `admin.html` — admin interface shell; protected by the Apps Script admin session
-- `admin.js` — admin interface logic
-- `admin.css` — admin styling
-- `script.js` — main dashboard logic
-- `style.css` — main dashboard styling
-- `sw.js` — PWA service worker and clean-route handling
-- `404.html` — clean-route fallback for GitHub Pages
-- `manifest.json` — PWA metadata
-- `photo1.png` — PWA icon/logo
+## `/admin`
 
-## Clean routes
+The admin centre is the live management interface. It reads and writes the existing Google Sheet instead of maintaining a separate copy. It handles participant accounts, PINs, passwords, activities, categories, links/resources, photos/logos, paperwork reminders, settings, cache control and audit history.
 
-- `/` → main countdown/dashboard
-- `/setup` → parent setup guide
-- `/skip` → dashboard test route
-- `/track` → JID World Tracker (world map, JID collection, certificates)
+Participant tools include a private print view, **Download account CSV** and **Download password PDF**. Activity/category/link editors can reuse images already present in the live **Logos** sheet or upload a new image.
 
-The admin route is deliberately not documented in the public repository. Use the private deployment notes supplied with the project.
+## Live sheet import behaviour
 
-## JID World Tracker
-
-`track.html` is a self-contained page (its own map, its own local storage, no backend calls) that scouts use to log the JIDs they collect during JOTA-JOTI and see them plotted on a world map. It can be reached two ways, and both stay in sync because they share the same browser storage on the same site:
-
-1. Directly at `/track`.
-2. As a normal dashboard link. Add a row to the **Links** sheet, for example:
-
-   | LinkID | CategoryKey | Title | URL | CanEmbed |
-   |---|---|---|---|---|
-   | chat_004 | chat | JID Map Collector | `https://scoutpegs.github.io/jota-joti-app/track` | TRUE |
-
-   (fill in the other columns — RequiresLogin, RequiresEmail, ParentApproval, LeaderApproved, Moderated, Active, LogoKey, LogoURL, BlockStatus, Notes — the same way as the existing rows). With `CanEmbed` set to `TRUE`, clicking it opens the tracker inside the dashboard's existing embed screen, which already has its own Back button.
-
-If a scout is logged in to the dashboard, the certificate button on the tracker already knows their name (it reads the same login session the dashboard keeps) and pre-fills it, so they don't have to type it in each time — they can still edit it before creating the certificate.
-
-## Important security rule
-
-Do **not** upload the Google Apps Script backend, spreadsheet ID, private admin notes, or old ZIP backups to a public GitHub repository.
-
-The public admin page does not contain the admin password. It asks Apps Script for a short-lived admin session after the password is entered.
+Existing `LogoKey` values are resolved through the `Logos` sheet automatically. Existing direct image URLs are respected as fallbacks. The admin repair action fills missing `LogoURL`, `PhotoURL`, `IsHTML` and `Active` values without replacing existing rows.
 
 ## Backend
 
-The Apps Script backend is supplied separately as a private deployment package. It must be deployed as a Google Apps Script Web App running as the owner with access configured as required by the project.
+`Code.gs` is the private Google Apps Script backend. **Do not upload it to the public GitHub Pages repository.** Deploy it from the Apps Script project attached to the live JOTA-JOTI spreadsheet.
 
-The protected admin endpoints are:
+The admin API uses short-lived session tokens. The only unauthenticated admin request is `adminLogin`; participant data, credentials and admin writes require the issued token.
 
-- `adminLogin`
-- `adminUsers`
-- `adminSections`
-- `adminCategories`
-- `adminGroups`
-- `adminSender`
-- `adminPreview`
-- `adminSend`
+## Deployment
 
-The old unauthenticated `openAdmin*` endpoints must not be used.
-
-## Updating
-
-The public site can be uploaded to GitHub Pages without exposing the private Apps Script source. When the Apps Script deployment URL changes, update the API URL in the public client files and redeploy the private backend separately.
-
-
-## Setup and testing
-
-### Run locally
-
-1. Install Python 3.
-2. Open a terminal in this folder.
-3. Run `python -m http.server 8080`.
-4. Open `http://localhost:8080/` in your browser.
-5. Test the setup guide at `http://localhost:8080/setup`.
-
-A local web server is recommended because service workers and some PWA features do not work reliably when opening files directly with `file://`.
-
-### Deploy to GitHub Pages
-
-Upload the public files to the repository root. The `/setup` route is handled by `sw.js` after the service worker has been installed. If GitHub Pages does not yet have the service worker cached, open `/setup.html` directly once.
-
-### Important
-
-The setup guide contains event details and links supplied by the project owner. Verify registration deadlines, domains, moderation arrangements and backend URLs before publishing publicly.
+See `ADMIN-CENTRE.md` and `START-HERE.txt`.

@@ -212,10 +212,12 @@ async function loadAll() {
 
   renderAll();
   refreshReminderCount();
+  await loadAudit();
 }
 
 function renderAll() {
   renderOverview();
+  if (window.renderEventPlanPage) window.renderEventPlanPage();
   renderParticipants();
   renderActivities();
   renderCategories();
@@ -251,7 +253,7 @@ function renderParticipants() {
   const rows = state.users.filter(u => {
     if (status && String(u.Status) !== status) return false;
     if (paper && String(u.PaperworkStatus) !== paper) return false;
-    return matchesText(u, q, ['Name','Username','PIN','ParticipantID','ParentName','ParentEmail','Email','AgeYear','PaperworkStatus']);
+    return matchesText(u, q, ['Name','Username','PIN','ParticipantID','ParentName','ParentEmail','ParentPhone','Email','AgeYear','PaperworkStatus']);
   }).sort((a,b)=>String(a.Name).localeCompare(String(b.Name)));
 
   $('participantsTable').innerHTML = rows.map((u,i) => {
@@ -401,6 +403,7 @@ function setPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${page}`));
   document.querySelector('.sidebar')?.classList.remove('open');
   if (page === 'system') loadAudit();
+  if (page === 'eventplan' && window.renderEventPlanPage) window.renderEventPlanPage();
 }
 
 async function loadAudit() {
@@ -431,12 +434,32 @@ function modalFooter(saveText='Save') {
 function selectedOpt(value, expected) { return String(value ?? '') === String(expected) ? ' selected' : ''; }
 function boolChecked(v) { return v ? ' checked' : ''; }
 
-function mediaSelect(name, selectedKey, selectedUrl) {
+function mediaSelect(name, selectedKey, selectedUrl, uploadTitle='JOTA-JOTI image', categoryKey='', itemKey='') {
   const options = ['<option value="">No image</option>']
     .concat(state.media.map(m => `<option value="${escAttr(m.LogoKey)}"${selectedOpt(selectedKey,m.LogoKey)}>${esc(m.Title || m.LogoKey)}</option>`));
   const fallback = selectedKey && !state.media.some(m => String(m.LogoKey) === String(selectedKey))
     ? `<option value="${escAttr(selectedKey)}" selected>${esc(selectedKey)}</option>` : '';
-  return `<label>Photo / logo<select id="${name}" data-media-select="${name}">${fallback}${options.join('')}</select><div class="field-help">${selectedUrl ? `Current URL: ${esc(selectedUrl)}` : 'Choose an existing uploaded image or leave blank.'}</div></label>`;
+  return `<label>Photo / logo<select id="${name}" data-media-select="${name}">${fallback}${options.join('')}</select>
+    <input id="${name}Upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="inline-upload">
+    <div class="field-help">${selectedUrl ? `Current image: ${esc(selectedUrl)}` : 'Pick an existing image from the live Logos sheet, or upload a new image here.'}</div></label>`;
+}
+
+async function uploadInlineAsset(inputId, title, categoryKey='', itemKey='') {
+  const input = $(inputId);
+  const file = input?.files?.[0];
+  if (!file) return null;
+  if (file.size > 6 * 1024 * 1024) throw new Error('Keep each image under 6 MB.');
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Could not read the selected image.'));
+    reader.readAsDataURL(file);
+  });
+  if (!base64) throw new Error('Could not read the selected image.');
+  const r = await callProtected('adminUploadAsset', {}, {
+    base64, mimeType:file.type, filename:file.name, title:title || file.name, CategoryKey:categoryKey, ItemKey:itemKey
+  });
+  return r.asset || null;
 }
 
 function attachModalSave(handler, saveLabel) {
@@ -465,11 +488,13 @@ function openUserModal(id) {
     body:`<div class="form-grid">
       <label>Name<input id="uName" value="${escAttr(u.Name)}"></label>
       <label>Age / section<input id="uAgeYear" value="${escAttr(u.AgeYear || u.AgeGroup || '')}"></label>
+      <label>PIN<input id="uPin" inputmode="numeric" maxlength="4" value="${escAttr(u.PIN)}"></label>
       <label>Username<input id="uUsername" value="${escAttr(u.Username)}"></label>
       <label>Password<input id="uPassword" value="${escAttr(u.Password)}"></label>
       <label>Youth email<input id="uEmail" value="${escAttr(u.Email)}"></label>
       <label>Parent name<input id="uParentName" value="${escAttr(u.ParentName)}"></label>
       <label>Parent email<input id="uParentEmail" value="${escAttr(u.ParentEmail)}"></label>
+      <label>Parent phone<input id="uParentPhone" value="${escAttr(u.ParentPhone || '')}"></label>
       <label>Status<select id="uStatus"><option${selectedOpt(u.Status,'Pending')}>Pending</option><option${selectedOpt(u.Status,'Active')}>Active</option><option${selectedOpt(u.Status,'Disabled')}>Disabled</option></select></label>
       <label>Paperwork status<select id="uPaperwork"><option${selectedOpt(u.PaperworkStatus,'Required')}>Required</option><option${selectedOpt(u.PaperworkStatus,'Not Started')}>Not Started</option><option${selectedOpt(u.PaperworkStatus,'Complete')}>Complete</option></select></label>
       <label>Allowed categories<input id="uAllowed" value="${escAttr(u.AllowedCategories)}"><div class="field-help">Use * for all configured categories or comma-separated keys.</div></label>
@@ -480,9 +505,9 @@ function openUserModal(id) {
   attachModalSave(async () => {
     const payload = {
       ParticipantID:id, Name:$('uName').value.trim(), AgeYear:$('uAgeYear').value.trim(),
-      Username:$('uUsername').value.trim(), Password:$('uPassword').value.trim(),
+      PIN:$('uPin').value.trim(), Username:$('uUsername').value.trim(), Password:$('uPassword').value.trim(),
       Email:$('uEmail').value.trim(), ParentName:$('uParentName').value.trim(),
-      ParentEmail:$('uParentEmail').value.trim(), Status:$('uStatus').value,
+      ParentEmail:$('uParentEmail').value.trim(), ParentPhone:$('uParentPhone').value.trim(), Status:$('uStatus').value,
       PaperworkStatus:$('uPaperwork').value, AllowedCategories:$('uAllowed').value.trim(),
       Notes:$('uNotes').value
     };
@@ -510,7 +535,7 @@ function openActivityModal(id='') {
       <label>Difficulty<select id="aDifficulty"><option value="">Not set</option><option${selectedOpt(a.Difficulty,'Easy')}>Easy</option><option${selectedOpt(a.Difficulty,'Medium')}>Medium</option><option${selectedOpt(a.Difficulty,'Hard')}>Hard</option></select></label>
       <label>Participants<input id="aParticipants" placeholder="e.g. 2–6" value="${escAttr(a.Participants)}"></label>
       <label>Equipment<input id="aEquipment" placeholder="e.g. Phones, paper, pens" value="${escAttr(a.Equipment)}"></label>
-      ${mediaSelect('aPhotoKey',a.PhotoKey,a.PhotoURL)}
+      ${mediaSelect('aPhotoKey',a.PhotoKey,a.PhotoURL,a.Title || 'Activity image',a.CategoryKey,a.ActivityID || '')}
       <label>Active<select id="aActive"><option value="true"${a.Active!==false?' selected':''}>Active</option><option value="false"${a.Active===false?' selected':''}>Archived</option></select></label>
       <div class="full">
         <label>Description<textarea id="aDescription" rows="5">${esc(a.Description)}</textarea></label>
@@ -541,8 +566,12 @@ function openActivityModal(id='') {
   });
 
   attachModalSave(async () => {
-    const photoKey = $('aPhotoKey').value;
-    const photo = mediaByKey(photoKey);
+    let photoKey = $('aPhotoKey').value;
+    let photo = mediaByKey(photoKey);
+    if ($('aPhotoKeyUpload')?.files?.length) {
+      photo = await uploadInlineAsset('aPhotoKeyUpload', $('aTitle').value.trim() || 'Activity image', $('aCategory').value, a.ActivityID || '');
+      photoKey = photo?.LogoKey || '';
+    }
     const isHtml = document.querySelector('input[name="aContentType"]:checked')?.value === 'html';
     const payload = {
       ActivityID:a.ActivityID, Title:$('aTitle').value.trim(), CategoryKey:$('aCategory').value,
@@ -571,17 +600,22 @@ function openCategoryModal(key='') {
     body:`<div class="form-grid">
       <label>Category key<input id="cKey" placeholder="e.g. online-chats" value="${escAttr(c.CategoryKey)}" ${key?'readonly':''}><div class="field-help">Stable key used by links and activities. Keep it short.</div></label>
       <label>Title<input id="cTitle" value="${escAttr(c.Title)}"></label>
-      ${mediaSelect('cLogoKey',c.LogoKey,c.LogoURL)}
+      ${mediaSelect('cLogoKey',c.LogoKey,c.LogoURL,c.Title || 'Category logo',c.CategoryKey,'')}
       <label>Active<select id="cActive"><option value="true"${c.Active!==false?' selected':''}>Active</option><option value="false"${c.Active===false?' selected':''}>Archived</option></select></label>
       <label class="full">Description<textarea id="cDescription" rows="4">${esc(c.Description)}</textarea></label>
     </div>`,
     footer:modalFooter(key?'Save category':'Create category')
   });
   attachModalSave(async () => {
-    const logo = mediaByKey($('cLogoKey').value);
+    let logo = mediaByKey($('cLogoKey').value);
+    let logoKey = $('cLogoKey').value;
+    if ($('cLogoKeyUpload')?.files?.length) {
+      logo = await uploadInlineAsset('cLogoKeyUpload', $('cTitle').value.trim() || 'Category logo', $('cKey').value.trim(), '');
+      logoKey = logo?.LogoKey || '';
+    }
     const payload = {
       CategoryKey:$('cKey').value.trim(), Title:$('cTitle').value.trim(),
-      LogoKey:$('cLogoKey').value, LogoURL:logo?.LogoURL || c.LogoURL || '',
+      LogoKey:logoKey, LogoURL:logo?.LogoURL || c.LogoURL || '',
       Description:$('cDescription').value, Active:$('cActive').value === 'true'
     };
     const result = await callProtected('adminCategorySave',{},payload);
@@ -615,7 +649,7 @@ function openLinkModal(id='') {
       <label>Can embed<select id="lCanEmbed"><option value="true"${l.CanEmbed?' selected':''}>Yes</option><option value="false"${!l.CanEmbed?' selected':''}>No</option></select></label>
       <label>Login requirement<select id="lLogin"><option value="0"${selectedOpt(l.RequiresLogin,'0')}>None</option><option value="1"${selectedOpt(l.RequiresLogin,'1')}>Saved account</option><option value="3"${selectedOpt(l.RequiresLogin,'3')}>External site's own account</option></select></label>
       <label>Email requirement<select id="lEmail"><option value="0"${selectedOpt(l.RequiresEmail,'0')}>None</option><option value="1"${selectedOpt(l.RequiresEmail,'1')}>Saved email</option><option value="3"${selectedOpt(l.RequiresEmail,'3')}>External site's own email</option></select></label>
-      ${mediaSelect('lLogoKey',l.LogoKey,l.LogoURL)}
+      ${mediaSelect('lLogoKey',l.LogoKey,l.LogoURL,l.Title || 'Resource logo',l.CategoryKey,l.LinkID || '')}
       <label>Block status<select id="lBlockStatus"><option value="allow"${selectedOpt(l.BlockStatus,'allow')}>Allow</option><option value="review"${selectedOpt(l.BlockStatus,'review')}>Review</option><option value="blocked"${selectedOpt(l.BlockStatus,'blocked')}>Blocked</option></select></label>
       <div class="check-grid full">
         <div class="check-card"><label><input id="lParentApproval" type="checkbox"${boolChecked(l.ParentApproval)}> Parent approval</label></div>
@@ -631,13 +665,18 @@ function openLinkModal(id='') {
   document.querySelectorAll('input[name="lContentType"]').forEach(r => r.onchange = () => $('lContentLabel').firstChild.textContent = r.value === 'html' ? 'HTML code' : 'URL');
 
   attachModalSave(async () => {
-    const logo=mediaByKey($('lLogoKey').value);
+    let logo=mediaByKey($('lLogoKey').value);
+    let logoKey=$('lLogoKey').value;
+    if ($('lLogoKeyUpload')?.files?.length) {
+      logo=await uploadInlineAsset('lLogoKeyUpload', $('lTitle').value.trim() || 'Resource logo', $('lCategory').value, l.LinkID || '');
+      logoKey=logo?.LogoKey || '';
+    }
     const isHtml=document.querySelector('input[name="lContentType"]:checked')?.value==='html';
     const payload={
       LinkID:l.LinkID,CategoryKey:$('lCategory').value,Title:$('lTitle').value.trim(),URL:$('lContent').value.trim(),
       IsHTML:isHtml,CanEmbed:$('lCanEmbed').value==='true',RequiresLogin:$('lLogin').value,RequiresEmail:$('lEmail').value,
       ParentApproval:$('lParentApproval').checked,LeaderApproved:$('lLeaderApproved').checked,Moderated:$('lModerated').checked,
-      Active:$('lActive').value==='true',LogoKey:$('lLogoKey').value,LogoURL:logo?.LogoURL||l.LogoURL||'',
+      Active:$('lActive').value==='true',LogoKey:logoKey,LogoURL:logo?.LogoURL||l.LogoURL||'',
       BlockStatus:$('lBlockStatus').value,Notes:$('lNotes').value
     };
     const result=await callProtected('adminLinkSave',{},payload);
@@ -665,10 +704,44 @@ function printPasswordSheet() {
   setTimeout(()=>win.print(),300);
 }
 
+function downloadAccountCsv() {
+  const rows = state.users.filter(u => String(u.ParticipantID || '').toLowerCase() !== 'guest')
+    .sort((a,b)=>String(a.Name).localeCompare(String(b.Name)));
+  if (!rows.length) { toast('There are no participant accounts to export.', false); return; }
+  const headers = ['ParticipantID','Name','Section','Username','Password','PIN','YouthEmail','ParentName','ParentEmail','ParentPhone','PaperworkStatus','Status'];
+  const csvCell = value => '"' + String(value == null ? '' : value).replace(/"/g,'""') + '"';
+  const lines = [headers.map(csvCell).join(',')];
+  rows.forEach(u => lines.push([
+    u.ParticipantID,u.Name,u.AgeYear || u.AgeGroup,u.Username,u.Password,u.PIN,
+    u.Email,u.ParentName,u.ParentEmail,u.ParentPhone,u.PaperworkStatus,u.Status
+  ].map(csvCell).join(',')));
+  const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `JOTA-JOTI-account-list-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Account CSV downloaded. Keep it private.');
+}
+
 async function downloadPasswordPdf() {
   try {
     toast('Generating the private password PDF…');
     const r=await callProtected('adminAccountPdf',{},null);
+    const pdf = r.pdf || r;
+    if (pdf.base64) {
+      const binary = atob(pdf.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], {type: pdf.mimeType || 'application/pdf'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = pdf.filename || 'JOTA-JOTI-Account-List.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+      toast('Password PDF downloaded. Keep it private.');
+      return;
+    }
     if(r.url) window.open(r.url,'_blank','noopener,noreferrer');
     toast('Password PDF generated.');
   } catch(e){toast(e.message,false);}
@@ -739,6 +812,19 @@ function updateBulkScopeHint() {
   $('bulkScopeValueWrap').classList.toggle('hidden',s==='all');
   const field=$('bulkScopeValue');
   field.placeholder=s==='section' ? 'e.g. Scout, Cub, Joey, Vent or your saved AgeYear label' : 'Comma-separated ParticipantIDs';
+}
+
+async function normalizeContent() {
+  const msg = $('systemMessage');
+  try {
+    if (!confirm('Import and repair the live sheet content now? Existing rows will be kept; the system will fill missing logo URLs, photo URLs, HTML flags and Active values from the live data.')) return;
+    showMessage('systemMessage','Repairing live spreadsheet content…',true);
+    const r = await callProtected('adminNormalizeContent');
+    const x = r.result || {};
+    showMessage('systemMessage',`Done. Repaired ${x.categoriesFixed || 0} category/link/media defaults and ${x.linksFixed || 0} links / ${x.activitiesFixed || 0} activities.`,true);
+    await loadAll(); await loadAudit();
+    toast('Live sheet content repaired.');
+  } catch(e) { showMessage('systemMessage',e.message,false); }
 }
 
 async function loadSettings() {
@@ -888,7 +974,7 @@ function setupEvents() {
         resend.disabled=true; resend.textContent='Sending…';
         await callProtected('adminResendWelcome',{}, {ParticipantID:id});
         toast('Welcome email resent.');
-        await loadUsers();
+        await loadAll();
       }catch(e){toast(e.message,false);resend.disabled=false;resend.textContent='Resend';}
     }
     const editActivity=e.target.closest('[data-edit-activity]'); if(editActivity)openActivityModal(editActivity.dataset.editActivity);
@@ -909,6 +995,7 @@ function setupEvents() {
   $('refreshOverviewBtn').onclick=()=>loadAll().catch(e=>toast(e.message,false));
   $('refreshParticipantsBtn').onclick=()=>loadAll().catch(e=>toast(e.message,false));
   $('printPasswordsBtn').onclick=printPasswordSheet;
+  $('downloadPasswordCsvBtn').onclick=downloadAccountCsv;
   $('downloadPasswordPdfBtn').onclick=downloadPasswordPdf;
 
   ['participantSearch','participantStatusFilter','participantPaperworkFilter'].forEach(id=>$(id).addEventListener('input',renderParticipants));
@@ -926,6 +1013,7 @@ function setupEvents() {
 
   $('runSetupBtn').onclick=runFullSetup;
   $('clearCacheBtn').onclick=clearCache;
+  $('normalizeContentBtn').onclick=normalizeContent;
   $('systemPdfBtn').onclick=downloadPasswordPdf;
   $('refreshSettingsBtn').onclick=loadSettings;
   $('refreshAuditBtn').onclick=loadAudit;

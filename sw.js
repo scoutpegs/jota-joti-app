@@ -6,7 +6,7 @@
 //
 // A new version creates a new cache and automatically removes the old one.
 
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v16';
 const CACHE_NAME = `jota-joti-shell-${APP_VERSION}`;
 
 const APP_SHELL = [
@@ -20,7 +20,9 @@ const APP_SHELL = [
   './style.css',
   './script.js',
   './admin.css',
-  './admin.js'
+  './admin.js',
+  './config.js',
+  './event-plan.js'
 ];
 
 /* ============================================================
@@ -158,7 +160,9 @@ self.addEventListener('fetch', event => {
     pathname.endsWith('/style.css') ||
     pathname.endsWith('/script.js') ||
     pathname.endsWith('/admin.css') ||
-    pathname.endsWith('/admin.js');
+    pathname.endsWith('/admin.js') ||
+    pathname.endsWith('/config.js') ||
+    pathname.endsWith('/event-plan.js');
 
   if (!isAppFile) return;
 

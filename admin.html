@@ -51,6 +51,7 @@
 
       <nav id="mainNav" class="main-nav">
         <button data-page="overview" class="nav-btn active"><span>Overview</span></button>
+        <button data-page="eventplan" class="nav-btn"><span>Event Plan</span></button>
         <button data-page="participants" class="nav-btn"><span>Participants</span></button>
         <button data-page="activities" class="nav-btn"><span>Activities</span></button>
         <button data-page="categories" class="nav-btn"><span>Categories</span></button>
@@ -126,6 +127,17 @@
           </div>
         </section>
 
+        <section id="page-eventplan" class="page">
+          <div class="page-head">
+            <div>
+              <div class="eyebrow">WEEKEND MANAGEMENT</div>
+              <h1>Event Plan</h1>
+              <p>Schedule, food plan, pricing, site layouts, activity links and tomorrow's meeting checklist.</p>
+            </div>
+          </div>
+          <div id="eventPlanMount"></div>
+        </section>
+
         <section id="page-participants" class="page">
           <div class="page-head">
             <div>
@@ -135,6 +147,7 @@
             </div>
             <div class="head-actions">
               <button id="printPasswordsBtn" class="ghost">Print password sheet</button>
+              <button id="downloadPasswordCsvBtn" class="ghost">Download account CSV</button>
               <button id="downloadPasswordPdfBtn" class="primary">Download password PDF</button>
             </div>
           </div>
@@ -343,6 +356,7 @@
               <div class="action-list">
                 <button id="runSetupBtn" class="action-row"><strong>Run full setup</strong><span>Create missing sheets, headers and triggers.</span></button>
                 <button id="clearCacheBtn" class="action-row"><strong>Clear cache</strong><span>Force the public dashboard to reread Categories, Links, Logos and Activities.</span></button>
+                <button id="normalizeContentBtn" class="action-row"><strong>Import / repair live sheet content</strong><span>Use existing LogoKeys, photos, HTML flags and active values from the live sheets without replacing your rows.</span></button>
                 <button id="systemPdfBtn" class="action-row"><strong>Generate password PDF</strong><span>Create the private printable account list.</span></button>
               </div>
               <div id="systemMessage" class="message"></div>
@@ -380,5 +394,6 @@
 
   <script src="config.js"></script>
   <script src="admin.js"></script>
+<script src="event-plan.js"></script>
 </body>
 </html>

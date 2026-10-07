@@ -1,54 +1,58 @@
 JOTA-JOTI 2026 — BOULDER SCOUT GROUP
-FINAL READY-TO-UPLOAD PACKAGE
+FINAL READY-TO-DEPLOY PACKAGE
+=================================
 
-This package is already wired together. Do NOT edit the API URL or spreadsheet ID.
+PUBLIC WEBSITE
+---------------
+Upload the website files to the ROOT of the GitHub Pages repository.
+Use the separate GitHub-ready ZIP so private Apps Script source is not published.
 
-WHAT IS INSIDE
-- index.html / setup.html / admin.html / skip.html / track.html / 404.html
-- config.js / script.js / admin.js
-- style.css / admin.css / sw.js / manifest.json / photo1.png
-- Code.gs = the Google Apps Script backend
-- Boulder Scouts section forms and email templates
-- spreadsheet-schema.json
+Main routes:
+  /       public countdown/dashboard
+  /setup  parent setup guide
+  /skip   dashboard test route
+  /track  JID tracker
+  /admin  protected leader admin centre
 
-IMPORTANT
-The live Google Sheet and Apps Script deployment are configured in Code.gs/config.js.
-The website uses one consistent Apps Script deployment URL.
-The Users sheet remains the source of truth for login accounts.
+PRIVATE APPS SCRIPT
+-------------------
+Code.gs belongs in the live Google Apps Script project connected to the JOTA-JOTI Sheet.
+Do NOT upload Code.gs to the public GitHub repository.
 
-STEP 1 — WEBSITE
-Upload the CONTENTS of this folder to the root of your GitHub Pages repository.
-Do not upload the outer ZIP folder itself.
+1. Open the live sheet.
+2. Extensions → Apps Script.
+3. Replace the existing backend with Code.gs from the Apps Script package.
+4. Save.
+5. Run setupEOISystem() once and approve permissions.
+6. Deploy / update the Web App as Execute as Me with access configured for the public site.
+7. Open /admin and sign in with the generated admin password.
+8. Run System & Settings → Import / repair live sheet content.
 
-STEP 2 — APPS SCRIPT
-Open the Apps Script project connected to the JOTA-JOTI system.
-Replace its Code.gs with the Code.gs included here.
-Save.
-Then go to Deploy > Manage deployments > Edit the existing Web app deployment.
-Choose the latest version and deploy it.
-Keep Execute as: Me.
-Keep access set so the public website can call the web app.
+WHAT THE ADMIN NOW DOES
+-----------------------
+Participants: edit live Users rows, resend account email, print, CSV download, password PDF.
+Activities: create/edit/archive, category, photo, URL/HTML instructions, embedding and leader controls.
+Categories: create/edit/archive and reuse/upload logos.
+Links: create/edit/archive, URL/HTML content, embedding, approvals, moderation and logos.
+Photos & Logos: directly uses the existing Logos sheet and can upload new media.
+Emails: paperwork reminders and bulk email tools.
+System: repair, setup, cache clearing, settings and audit log.
 
-STEP 3 — SHEET SETUP
-Open the live Boulder Scout Group JOTA-JOTI spreadsheet.
-Use the JOTA-JOTI menu and run Full Setup once if it is available.
-Then run Warm Cache once.
+LIVE SHEET / LOGO IMPORT
+------------------------
+The admin page reads the existing live sheet data. A row with LogoKey=chat automatically finds Logos.LogoKey=chat and uses its LogoURL. The same rule works for categories, links and activities. Direct LogoURL/PhotoURL values are also honoured.
 
-STEP 4 — FIRST TEST
-Open:
-https://scoutpegs.github.io/jota-joti-app/
+RUN THIS ONCE AFTER DEPLOYMENT
+------------------------------
+Use /admin → System & Settings → Import / repair live sheet content.
+Then refresh. Existing rows are kept; missing headers/defaults are added; logo/photo URLs are resolved from the existing Logos sheet; raw HTML content is detected; blank Active values default to active.
 
-Hard refresh once with Ctrl+Shift+R.
-Test an existing PIN.
-Then submit a test EOI and test the newly-created PIN immediately.
+PASSWORD OUTPUTS
+----------------
+The Participants page has:
+  - Print password sheet
+  - Download account CSV
+  - Download password PDF
+These contain private credentials and must be kept with restricted event paperwork.
 
-ADMIN CENTRE
-The admin page is already included.
-Use the private admin route configured by the current service worker/admin system.
-Do not edit admin.js or the API URL.
-
-CACHING
-The service worker in this package is v13 so browsers should install a fresh site cache.
-New Users are invalidated from the backend cache when the Users sheet changes.
-
-DO NOT MIX FILES FROM OLDER JOTA-JOTI ZIPs INTO THIS PACKAGE.
+NEVER PUT THE USERS SHEET, PASSWORD EXPORTS OR PRIVATE CODE.GS IN A PUBLIC GITHUB REPOSITORY.

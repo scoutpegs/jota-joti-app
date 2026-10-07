@@ -1,136 +1,19 @@
 {
-  "Form responses 1": [
-    "Timestamp",
-    "Parent/Guardian Full Name",
-    "Parent/Guardian Email",
-    "Child First Name",
-    "Child Last Name",
-    "Child's age/year group",
-    "Which activities would your child like access to?",
-    "I understand this is only an Expression of Interest",
-    "I understand further paperwork/permissions may be required before participation",
-    "I agree the the terms and conditions (link below)"
-  ],
-  "EmailLog": [
-    "Timestamp",
-    "AdminEmail",
-    "RecipientEmail",
-    "ParticipantID",
-    "RecipientType",
-    "Subject",
-    "Status",
-    "Error"
-  ],
-  "EmailGroups": [
-    "GroupKey",
-    "GroupName",
-    "ParticipantIDs",
-    "Active",
-    "Notes"
-  ],
-  "Users": [
-    "ParticipantID",
-    "PIN",
-    "Name",
-    "Username",
-    "Email",
-    "AllowedCategories",
-    "Password",
-    "ParentEmail",
-    "ParentName",
-    "ScoutGroup",
-    "AgeYear",
-    "Status",
-    "EOIReceived",
-    "AccountCreated",
-    "PaperworkStatus",
-    "EmailStatus",
-    "Notes",
-    "AgeGroup"
-  ],
-  "Categories": [
-    "CategoryKey",
-    "Title",
-    "LogoKey",
-    "LogoURL",
-    "Description",
-    "Active"
-  ],
-  "Links": [
-    "LinkID",
-    "CategoryKey",
-    "Title",
-    "URL",
-    "CanEmbed",
-    "RequiresLogin",
-    "RequiresEmail",
-    "ParentApproval",
-    "LeaderApproved",
-    "Moderated",
-    "Active",
-    "LogoKey",
-    "LogoURL",
-    "BlockStatus",
-    "Notes",
-    "IsHTML"
-  ],
-  "Logos": [
-    "LogoKey",
-    "CategoryKey",
-    "ItemKey",
-    "Title",
-    "LogoURL",
-    "Active"
-  ],
-  "Activities": [
-    "ActivityID",
-    "Title",
-    "Description",
-    "CategoryKey",
-    "Duration",
-    "Difficulty",
-    "Participants",
-    "Equipment",
-    "InstructionsURL",
-    "LeaderRequired",
-    "Active",
-    "PhotoURL",
-    "PhotoKey",
-    "CanEmbed",
-    "IsHTML",
-    "Notes"
-  ],
-  "BlockedURLs": [
-    "BlockID",
-    "Domain",
-    "URLPattern",
-    "BlockType",
-    "Reason",
-    "Active"
-  ],
-  "BlockedCategories": [
-    "CategoryKey",
-    "Reason",
-    "Active",
-    "AppliesTo",
-    "Notes"
-  ],
-  "Settings": [
-    "SettingKey",
-    "SettingValue",
-    "Description"
-  ],
-  "EmailTemplates": [
-    "TemplateKey",
-    "Subject",
-    "Body/HTML Notes"
-  ],
-  "AdminAuditLog": [
-    "Timestamp",
-    "AdminEmail",
-    "Action",
-    "Target",
-    "Details",
-    "Status"
-  ]
+  "project": "Boulder Scout Group JOTA-JOTI 2026",
+  "purpose": "Google Sheets schema used by the JOTA-JOTI Apps Script backend and /admin control centre.",
+  "sheets": {
+    "Users": ["ParticipantID","PIN","Name","Username","Email","AllowedCategories","Password","ParentEmail","ParentName","ScoutGroup","AgeYear","Status","EOIReceived","AccountCreated","PaperworkStatus","EmailStatus","Notes","AgeGroup","ParentPhone"],
+    "Categories": ["CategoryKey","Title","LogoKey","LogoURL","Description","Active"],
+    "Links": ["LinkID","CategoryKey","Title","URL","CanEmbed","RequiresLogin","RequiresEmail","ParentApproval","LeaderApproved","Moderated","Active","LogoKey","LogoURL","BlockStatus","Notes","IsHTML"],
+    "Activities": ["ActivityID","Title","Description","CategoryKey","Duration","Difficulty","Participants","Equipment","InstructionsURL","LeaderRequired","Active","PhotoURL","PhotoKey","CanEmbed","IsHTML","Notes"],
+    "Logos": ["LogoKey","CategoryKey","ItemKey","Title","LogoURL","Active"],
+    "Settings": ["SettingKey","SettingValue","Description"],
+    "AdminAuditLog": ["Timestamp","AdminEmail","Action","Target","Details","Status"]
+  },
+  "normalisation": {
+    "blankActive": "treated as true",
+    "htmlDetection": "raw non-http content is treated as HTML",
+    "logoResolution": "Category/Link/Activity LogoKey or PhotoKey resolves through Logos.LogoKey to Logos.LogoURL",
+    "directImageFallback": "existing LogoURL/PhotoURL remains valid even without a matching key"
+  }
 }
