@@ -200,8 +200,8 @@
                 <input type="text" id="jid-input" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" aria-describedby="jid-format-note jid-live-status" placeholder="3AU42A or 6CL114GNT" class="flex-1 bg-black/40 border border-white/10 text-white rounded-lg px-4 py-2 font-mono tracking-widest focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-600 transition-all">
                 <button type="submit" id="jid-submit-btn" class="bg-amber-600/80 hover:bg-amber-500 text-white px-5 py-2 rounded-lg font-medium transition-colors backdrop-blur-md border border-amber-400/50 shadow-lg">Add</button>
             </div>
-            <p id="jid-format-note" class="text-[11px] leading-5 text-zinc-400">Accepts classic six-character JamPuz codes (for example 3AU42A) and the nine-character format shown in your supplied site capture (for example 6CL114GNT). Codes are checked for format and region/country consistency only; this does not prove a real exchange. <a href="https://jotajoti.info/my-connections" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">Official My Connections</a> · <a href="https://jotajoti.info/jampuz" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">JamPuz guide</a>.</p>
-            <p id="jid-live-status" class="text-[11px] text-zinc-500" aria-live="polite">Use a code exchanged during a real JOTA-JOTI conversation. Duplicate codes count once.</p>
+            <p id="jid-format-note" class="text-[11px] leading-5 text-zinc-400">Classic 6-character and supplied 9-character formats. Format checks do not verify an actual exchange. <a href="https://jotajoti.info/my-connections" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">My Connections</a> · <a href="https://jotajoti.info/jampuz" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">JamPuz</a>.</p>
+            <p id="jid-live-status" class="text-[11px] text-zinc-500" aria-live="polite">Use real exchanged codes. Duplicates count once.</p>
         </form>
         <div id="participant-card" class="border-t border-white/10 pt-3 flex items-center justify-between gap-3" hidden aria-hidden="true">
             <div class="min-w-0 flex-1">
@@ -332,7 +332,7 @@
             </div>
             <p class="text-xs uppercase tracking-[.22em] text-zinc-400 mb-2">JOTA-JOTI Global Tracker</p>
             <h2 class="text-2xl font-extrabold text-white mb-2">First, who's taking part?</h2>
-            <p class="text-sm leading-6 text-zinc-400 mb-6">Your progress is saved on this device and syncs to the shared spreadsheet when the server is reachable. Download a backup before switching devices.</p>
+            <p class="text-sm leading-6 text-zinc-400 mb-6">Your progress saves here and syncs online.</p>
             <label for="profile-name-input" class="block text-sm font-semibold text-zinc-200 mb-2">Your name</label>
             <input id="profile-name-input" type="text" maxlength="80" required autocomplete="name" placeholder="Enter your name" class="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 outline-none focus:border-teal-400 mb-5">
             <div id="profile-section-group">
@@ -348,16 +348,16 @@
             <div id="profile-password-group" class="hidden">
                 <label for="profile-password-input" class="block text-sm font-semibold text-zinc-200 mb-2">Organiser password</label>
                 <input id="profile-password-input" type="password" autocomplete="current-password" class="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 outline-none focus:border-teal-400 mb-5" placeholder="Enter organiser password">
-                <p class="text-xs text-zinc-500 -mt-2 mb-5">Shared participant records require the organiser password. Offline tools can only use records and backups already in this browser.</p>
+                <p class="text-xs text-zinc-500 -mt-2 mb-5">Enter the organiser password to open shared records.</p>
             </div>
             <p id="profile-error" class="hidden text-sm text-red-300 mb-3">Enter a name and choose a section.</p>
             <div class="flex gap-3">
                 <button type="button" id="profile-cancel" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Cancel</button>
-                <button type="button" id="profile-local-mode" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Open offline tools (local backups only)</button>
+                <button type="button" id="profile-local-mode" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Use offline backups</button>
                 <button type="submit" id="profile-save-btn" class="flex-1 rounded-xl px-5 py-3 font-bold text-white shadow-lg" style="background:#0d9488">Start tracking</button>
             </div>
-            <p class="text-[11px] text-zinc-500 mt-4 text-center">Progress is saved locally first. Shared syncing requires an internet connection and the event server to be available.</p>
-            <button type="button" id="profile-restore-backup" class="w-full mt-3 rounded-xl px-5 py-2.5 text-sm font-semibold text-zinc-200 border border-white/15 hover:bg-white/10"><i class="fa-solid fa-file-arrow-up mr-2"></i>Restore progress from a backup file</button>
+            <p class="text-[11px] text-zinc-500 mt-4 text-center">Progress saves here first; syncing needs internet.</p>
+            <button type="button" id="profile-restore-backup" class="w-full mt-3 rounded-xl px-5 py-2.5 text-sm font-semibold text-zinc-200 border border-white/15 hover:bg-white/10"><i class="fa-solid fa-file-arrow-up mr-2"></i>Restore backup</button>
         </form>
     </div>
 
@@ -366,7 +366,7 @@
         <div class="w-full max-w-5xl max-h-[92vh] overflow-hidden rounded-3xl border border-white/15 bg-[#101318] shadow-2xl flex flex-col">
             <div class="p-5 sm:p-6 border-b border-white/10 flex justify-between items-center gap-3">
                 <div>
-                    <p class="text-xs uppercase tracking-[.2em] text-zinc-500">Organiser tools</p>
+                    <p class="text-xs uppercase tracking-[.2em] text-zinc-500">Organiser</p>
                     <h2 class="text-xl sm:text-2xl font-extrabold text-white">Certificate centre</h2>
                 </div>
                 <button id="organiser-close" class="w-10 h-10 rounded-full text-zinc-300 hover:bg-white/10" aria-label="Close organiser panel"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -383,7 +383,7 @@
                     </div>
                     <div class="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 mb-5">
                         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-                            <div><h3 class="font-bold text-white">Bulk certificate actions</h3><p class="text-xs text-zinc-400 mt-1">Use the section filter to print or download a specific group.</p></div>
+                            <div><h3 class="font-bold text-white">Downloads & certificates</h3><p class="text-xs text-zinc-400 mt-1">Choose a section, or back up everything.</p></div>
                             <select id="admin-section-filter" class="bg-[#171a20] text-white border border-white/15 rounded-xl px-3 py-2.5 text-sm outline-none">
                                 <option value="all">All sections</option><option value="Joey Scout">Joey Scouts</option><option value="Cub Scout">Cub Scouts</option><option value="Scouts">Scouts</option><option value="Venture Scout">Venture Scouts</option>
                             </select>
@@ -393,18 +393,19 @@
                             <button id="admin-refresh" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-cloud-arrow-down mr-2"></i>Refresh participants</button>
                             <button id="admin-import-backups" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-file-import mr-2"></i>Import backups</button>
                             <button id="admin-upload-backups" class="rounded-xl px-4 py-3 text-sm font-bold bg-sky-700 hover:bg-sky-600 text-white"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Restore imported backups to server</button>
-                            <button id="admin-export-records" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-download mr-2"></i>Export participant data</button>
+                            <button id="admin-export-records" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-download mr-2"></i>Download section backup</button>
+                            <button id="admin-export-full" class="rounded-xl px-4 py-3 text-sm font-bold bg-sky-700 hover:bg-sky-600 text-white"><i class="fa-solid fa-box-archive mr-2"></i>Full backup · all sections</button>
                             <button id="admin-bulk-print" class="rounded-xl px-4 py-3 text-sm font-bold bg-teal-600 hover:bg-teal-500 text-white"><i class="fa-solid fa-print mr-2"></i>Bulk print</button>
                             <button id="admin-bulk-download" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-file-zipper mr-2"></i>Download section ZIP</button>
                             <input id="admin-import-input" class="hidden" type="file" accept=".json,application/json" multiple>
                         </div>
-                        <p id="admin-action-status" class="text-xs text-zinc-400 mt-3" role="status">Connect to the server to load participant records.</p>
+                        <p id="admin-action-status" class="text-xs text-zinc-400 mt-3" role="status">Sign in to load shared records.</p>
                     </div>
                     <div class="rounded-2xl border border-white/10 overflow-hidden">
                         <div class="p-4 bg-white/5 flex items-center justify-between gap-3"><h3 class="font-bold text-white">Received participants</h3><span id="admin-visible-count" class="text-xs text-zinc-400">0 records</span></div>
                         <div id="admin-participant-list" class="max-h-72 overflow-y-auto divide-y divide-white/5"><div class="p-5 text-sm text-zinc-500">No data loaded yet.</div></div>
                     </div>
-                    <p class="text-xs leading-5 text-zinc-500 mt-4">These are participant-reported tracker records. The browser can prevent duplicate entries and obvious rapid spam, but client-side checks cannot prove that a code was genuinely exchanged or prevent a determined user editing local data. Use leader review before treating milestones as verified. Force sync only reaches pages that are open and online.</p>
+                    <p class="text-xs leading-5 text-zinc-500 mt-4">Records are self-reported and format-checked, not proof of real exchanges. Force sync reaches open, online devices only.</p>
                 </div>
             </div>
         </div>
@@ -844,7 +845,7 @@
         jidInput.addEventListener('input', () => {
             const value = jidInput.value.trim().toUpperCase();
             if (!value) {
-                jidLiveStatus.textContent = 'Use a code exchanged during a real JOTA-JOTI conversation. Duplicate codes count once.';
+                jidLiveStatus.textContent = 'Use real exchanged codes. Duplicates count once.';
                 jidLiveStatus.style.color = '#71717a';
                 return;
             }
@@ -1330,7 +1331,7 @@
             title.textContent = isHunter ? 'Organiser sign-in' : (profileEditing ? 'Update your details' : 'First, who\'s taking part?');
             if (description) description.textContent = isHunter
                 ? 'Hunter is the organiser account. Enter the organiser password to open the certificate centre.'
-                : 'Your progress is saved on this device and syncs to the shared spreadsheet when the server is reachable. Download a backup before switching devices.';
+                : 'Your progress saves here and syncs online.';
             button.textContent = isHunter ? 'Sign in to shared organiser tools' : (profileEditing ? 'Save details' : 'Start tracking');
             const localModeButton = document.getElementById('profile-local-mode');
             if (localModeButton) localModeButton.classList.toggle('hidden', !isHunter);
@@ -1426,12 +1427,12 @@
                 saveButton.disabled = true;
                 saveButton.textContent = 'Checking organiser access…';
                 try {
-                    const result = await jsonpRequest({ action: 'list', adminKey: password }, 9000);
-                    if (!result || !result.ok) throw new Error(result?.error || 'The organiser password was not accepted.');
-                    organiserKey = password;
+                    const result = await jsonpRequest({ action: 'adminLogin', password }, 12000);
+                    if (!result || !result.ok || !result.token) throw new Error(result?.error || 'The organiser password was not accepted.');
+                    organiserKey = result.token;
                     showOrganiserDashboard(result.participants || [], false);
                 } catch (error) {
-                    if (/Incorrect organiser key/i.test(error.message || '')) {
+                    if (/Incorrect organiser (key|password)/i.test(error.message || '')) {
                         errorEl.textContent = 'That organiser password is incorrect.';
                         errorEl.classList.remove('hidden');
                     } else {
@@ -2121,7 +2122,7 @@
             }
             adminStatus.textContent = 'Refreshing participant records…';
             try {
-                const result = await jsonpRequest({ action: 'list', adminKey: organiserKey }, 9000);
+                const result = await jsonpRequest({ action: 'list', adminToken: organiserKey }, 12000);
                 if (!result || !result.ok) throw new Error(result?.error || 'Could not read participant records.');
                 organiserLocalMode = false;
                 renderOrganiserParticipants(result.participants || []);
@@ -2131,7 +2132,12 @@
                 organiserLocalMode = true;
                 renderOrganiserParticipants([]);
                 document.getElementById('admin-force-sync').disabled = true;
-                adminStatus.textContent = 'Server unavailable · showing local and imported backups only. Use Refresh to try again.';
+                if (/session expired|session missing/i.test(error.message || '')) {
+                    organiserKey = '';
+                    adminStatus.textContent = 'Session expired. Close this panel and sign in as Hunter again.';
+                } else {
+                    adminStatus.textContent = 'Server unavailable · local backups only. Try Refresh again.';
+                }
             }
         }
         document.getElementById('admin-refresh').addEventListener('click', refreshOrganiserParticipants);
@@ -2283,14 +2289,40 @@
             }
         });
 
-        document.getElementById('admin-export-records').addEventListener('click', () => {
-            const people = getFilteredParticipants();
-            if (!people.length) { showToast('There are no participant records to export.', 'warning'); return; }
-            const filter = document.getElementById('admin-section-filter').value;
-            downloadJsonFile(`JOTA-JOTI-Participant-Backups-${filter === 'all' ? 'All-Sections' : safeFilename(filter)}.json`, {
-                format: 'jota-joti-participant-backup-bundle-v1', exportedAt: new Date().toISOString(), participants: people
-            });
-            adminStatus.textContent = `Exported ${people.length} participant record${people.length === 1 ? '' : 's'} to JSON.`;
+        async function downloadServerBackup(section, buttonId) {
+            if (!organiserKey || organiserLocalMode) throw new Error('Sign in to the shared organiser tools first.');
+            const button = buttonId ? document.getElementById(buttonId) : null;
+            if (button) button.disabled = true;
+            const label = section === 'all' ? 'all sections' : section;
+            adminStatus.textContent = `Downloading backup for ${label} from Google Sheets…`;
+            try {
+                const result = await jsonpRequest({ action: 'backup', adminToken: organiserKey, section }, 30000);
+                if (!result || !result.ok) throw new Error(result?.error || 'The server backup could not be created.');
+                const filenameScope = section === 'all' ? 'All-Sections' : safeFilename(section);
+                downloadJsonFile(`JOTA-JOTI-Backup-${filenameScope}-${new Date().toISOString().slice(0,10)}.json`, result);
+                adminStatus.textContent = `Downloaded ${result.participantCount || 0} participant records and ${result.activityCount || 0} activity rows from Google Sheets.`;
+                showToast(`Backup downloaded · ${label}.`, 'success');
+                return result;
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        document.getElementById('admin-export-records').addEventListener('click', async () => {
+            const section = document.getElementById('admin-section-filter').value;
+            try { await downloadServerBackup(section, 'admin-export-records'); }
+            catch (error) {
+                adminStatus.textContent = error.message || 'Could not download the section backup.';
+                showToast(adminStatus.textContent, 'error');
+            }
+        });
+
+        document.getElementById('admin-export-full').addEventListener('click', async () => {
+            try { await downloadServerBackup('all', 'admin-export-full'); }
+            catch (error) {
+                adminStatus.textContent = error.message || 'Could not download the full backup.';
+                showToast(adminStatus.textContent, 'error');
+            }
         });
 
         document.getElementById('admin-force-sync').addEventListener('click', async () => {
@@ -2299,7 +2331,7 @@
             button.disabled = true;
             adminStatus.textContent = 'Sending a force-sync request to online participant pages…';
             try {
-                const result = await jsonpRequest({ action: 'forceSync', adminKey: organiserKey });
+                const result = await jsonpRequest({ action: 'forceSync', adminToken: organiserKey });
                 if (!result || !result.ok) throw new Error(result?.error || 'The server could not queue a force sync.');
                 adminStatus.textContent = 'Force-sync request queued. Open, online participant pages should upload within about a minute; refresh records after they respond.';
                 showToast('Force sync request sent to active devices.', 'success');
@@ -2310,8 +2342,8 @@
             }
         });
 
-        async function makeBulkCertificates() {
-            const people = getFilteredParticipants();
+        async function makeBulkCertificates(peopleOverride) {
+            const people = Array.isArray(peopleOverride) ? peopleOverride : getFilteredParticipants();
             if (!people.length) throw new Error('There are no participants in the selected section yet.');
             const output = [];
             for (let index = 0; index < people.length; index++) {
@@ -2362,9 +2394,20 @@
             button.disabled = true;
             try {
                 const section = document.getElementById('admin-section-filter').value;
-                const certificates = await makeBulkCertificates();
+                let serverBackup = null;
+                if (organiserKey && !organiserLocalMode) {
+                    serverBackup = await jsonpRequest({ action: 'backup', adminToken: organiserKey, section }, 30000);
+                    if (!serverBackup || !serverBackup.ok) throw new Error(serverBackup?.error || 'Could not include the Google Sheets backup.');
+                }
+                const certificates = await makeBulkCertificates(serverBackup ? serverBackup.participants : undefined);
                 if (window.JSZip) {
                     const zip = new JSZip();
+                    if (serverBackup) {
+                        zip.file('data-backup.json', JSON.stringify(serverBackup, null, 2));
+                        zip.file('activity-log.json', JSON.stringify(serverBackup.activityLog || [], null, 2));
+                    } else {
+                        zip.file('LOCAL-ONLY-backup.json', JSON.stringify({ format: 'jota-joti-local-backup-v1', exportedAt: new Date().toISOString(), scope: section, participants: getFilteredParticipants() }, null, 2));
+                    }
                     certificates.forEach(item => {
                         const data = item.dataUrl.split(',')[1];
                         zip.file(`${safeFilename(item.person.section || 'Scout')}/${safeFilename(item.person.name)}-JOTA-JOTI-Certificate.png`, data, { base64: true });
@@ -2373,10 +2416,10 @@
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = `JOTA-JOTI-Certificates-${section === 'all' ? 'All-Sections' : safeFilename(section)}.zip`;
+                    link.download = `JOTA-JOTI-Section-Bundle-${section === 'all' ? 'All-Sections' : safeFilename(section)}.zip`;
                     document.body.appendChild(link); link.click(); link.remove();
                     setTimeout(() => URL.revokeObjectURL(url), 1500);
-                    adminStatus.textContent = `Prepared ${certificates.length} certificates in a ZIP file.`;
+                    adminStatus.textContent = `Prepared ${certificates.length} certificates and ${serverBackup ? 'server backup data' : 'local backup data'} in a ZIP file.`;
                     showToast(`Downloaded ${certificates.length} certificate(s) in a ZIP file.`, 'success');
                 } else {
                     certificates.forEach((item, index) => setTimeout(() => downloadCanvas(item.canvas, `${safeFilename(item.person.name)}-JOTA-JOTI-Certificate.png`), index * 450));
