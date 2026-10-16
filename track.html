@@ -75,6 +75,7 @@
         /* Minimum layout fallback: the HTML remains usable if the utility-CSS CDN is blocked. */
         *, *::before, *::after { box-sizing:border-box; }
         .hidden { display:none !important; }
+        .sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
         .fixed { position:fixed; }
         .absolute { position:absolute; }
         .relative { position:relative; }
@@ -125,6 +126,8 @@
         #toast-container { position:fixed; top:1rem; right:1rem; z-index:100; display:flex; flex-direction:column; gap:.5rem; pointer-events:none; }
         #profile-overlay, #organiser-overlay { overflow-y: auto; }
         button:disabled { opacity: .58; cursor: wait; }
+        #participant-card .participant-overline, #participant-card .participant-name-row, #participant-card .participant-status { display:none !important; }
+        #participant-card { border-top:0; padding-top:0; }
         .participant-overline { color:#9ca3af; font-size:10px; letter-spacing:.16em; font-weight:700; margin-bottom:3px; }
         .participant-name-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-width:0; }
         .participant-section-badge { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; font-size:9px; font-weight:800; letter-spacing:.04em; white-space:nowrap; }
@@ -194,28 +197,23 @@
         <form id="jid-form" class="flex flex-col gap-3">
             <label for="jid-input" class="text-sm font-medium text-zinc-300 flex justify-between items-center">
                 <span>Enter a JID code</span>
-                <span class="text-[10px] text-zinc-500">6 or 9 characters</span>
             </label>
             <div class="flex gap-2">
-                <input type="text" id="jid-input" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" aria-describedby="jid-format-note jid-live-status" placeholder="3AU42A or 6CL114GNT" class="flex-1 bg-black/40 border border-white/10 text-white rounded-lg px-4 py-2 font-mono tracking-widest focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-600 transition-all">
+                <input type="text" id="jid-input" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="JID code" class="flex-1 bg-black/40 border border-white/10 text-white rounded-lg px-4 py-2 font-mono tracking-widest focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-600 transition-all">
                 <button type="submit" id="jid-submit-btn" class="bg-amber-600/80 hover:bg-amber-500 text-white px-5 py-2 rounded-lg font-medium transition-colors backdrop-blur-md border border-amber-400/50 shadow-lg">Add</button>
             </div>
-            <p id="jid-format-note" class="text-[11px] leading-5 text-zinc-400">Classic 6-character and supplied 9-character formats. Format checks do not verify an actual exchange. <a href="https://jotajoti.info/my-connections" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">My Connections</a> · <a href="https://jotajoti.info/jampuz" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">JamPuz</a>.</p>
-            <p id="jid-live-status" class="text-[11px] text-zinc-500" aria-live="polite">Use real exchanged codes. Duplicates count once.</p>
+            <span id="jid-live-status" class="sr-only" aria-live="polite"></span>
         </form>
-        <div id="participant-card" class="border-t border-white/10 pt-3 flex items-center justify-between gap-3" hidden aria-hidden="true">
-            <div class="min-w-0 flex-1">
-                <div class="participant-overline">YOUR PROFILE</div>
-                <div class="participant-name-row">
-                    <div id="participant-label" class="text-sm font-bold text-white truncate">Set up your profile</div>
-                    <span id="participant-section-badge" class="participant-section-badge hidden">Section</span>
-                </div>
-                <div id="sync-status" class="participant-status" data-state="idle" aria-live="polite">Waiting for setup</div>
+        <div id="participant-card" class="border-t border-white/10 pt-2 flex items-center justify-end gap-2" hidden aria-hidden="true">
+            <div class="sr-only" aria-hidden="true">
+                <div class="participant-overline">Profile</div>
+                <div class="participant-name-row"><div id="participant-label">Participant</div><span id="participant-section-badge" class="hidden">Section</span></div>
+                <div id="sync-status" data-state="idle" aria-live="polite">Saved</div>
             </div>
-            <div class="participant-actions">
-                <button type="button" id="btn-export-progress" class="text-xs rounded-lg px-3 py-2 border border-white/15 text-zinc-200 hover:bg-white/10" title="Download a backup of your progress"><i class="fa-solid fa-download mr-1"></i>Backup</button>
-                <button type="button" id="btn-import-progress" class="shrink-0 text-xs rounded-lg px-3 py-2 border border-white/15 text-zinc-200 hover:bg-white/10" title="Restore a previous backup"><i class="fa-solid fa-upload mr-1"></i>Restore</button>
-                <button type="button" id="btn-edit-profile" class="shrink-0 text-xs rounded-lg px-3 py-2 border border-white/15 text-zinc-200 hover:bg-white/10">Edit</button>
+            <div class="participant-actions flex items-center gap-2">
+                <button type="button" id="btn-export-progress" class="w-9 h-9 rounded-lg border border-white/15 text-zinc-200 hover:bg-white/10" title="Download a backup" aria-label="Download a backup"><i class="fa-solid fa-download"></i></button>
+                <button type="button" id="btn-import-progress" class="w-9 h-9 rounded-lg border border-white/15 text-zinc-200 hover:bg-white/10" title="Restore a backup" aria-label="Restore a backup"><i class="fa-solid fa-upload"></i></button>
+                <button type="button" id="btn-edit-profile" class="w-9 h-9 rounded-lg border border-white/15 text-zinc-200 hover:bg-white/10" title="Edit participant details" aria-label="Edit participant details"><i class="fa-solid fa-pen"></i></button>
             </div>
         </div>
     </div>
@@ -330,9 +328,7 @@
             <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" id="profile-icon" style="background:rgba(186,98,40,.16);color:#ba6228">
                 <i class="fa-solid fa-user-astronaut text-2xl"></i>
             </div>
-            <p class="text-xs uppercase tracking-[.22em] text-zinc-400 mb-2">JOTA-JOTI Global Tracker</p>
-            <h2 class="text-2xl font-extrabold text-white mb-2">First, who's taking part?</h2>
-            <p class="text-sm leading-6 text-zinc-400 mb-6">Your progress saves here and syncs online.</p>
+            <h2 class="text-2xl font-extrabold text-white mb-5" id="profile-title">Participant profile</h2>
             <label for="profile-name-input" class="block text-sm font-semibold text-zinc-200 mb-2">Your name</label>
             <input id="profile-name-input" type="text" maxlength="80" required autocomplete="name" placeholder="Enter your name" class="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 outline-none focus:border-teal-400 mb-5">
             <div id="profile-section-group">
@@ -346,17 +342,16 @@
                 </select>
             </div>
             <div id="profile-password-group" class="hidden">
-                <label for="profile-password-input" class="block text-sm font-semibold text-zinc-200 mb-2">Organiser password</label>
+                <label for="profile-password-input" class="block text-sm font-semibold text-zinc-200 mb-2">Password</label>
                 <input id="profile-password-input" type="password" autocomplete="current-password" class="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 outline-none focus:border-teal-400 mb-5" placeholder="Enter organiser password">
-                <p class="text-xs text-zinc-500 -mt-2 mb-5">Enter the organiser password to open shared records.</p>
+
             </div>
             <p id="profile-error" class="hidden text-sm text-red-300 mb-3">Enter a name and choose a section.</p>
             <div class="flex gap-3">
                 <button type="button" id="profile-cancel" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Cancel</button>
-                <button type="button" id="profile-local-mode" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Use offline backups</button>
+                <button type="button" id="profile-local-mode" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Offline</button>
                 <button type="submit" id="profile-save-btn" class="flex-1 rounded-xl px-5 py-3 font-bold text-white shadow-lg" style="background:#0d9488">Start tracking</button>
             </div>
-            <p class="text-[11px] text-zinc-500 mt-4 text-center">Progress saves here first; syncing needs internet.</p>
             <button type="button" id="profile-restore-backup" class="w-full mt-3 rounded-xl px-5 py-2.5 text-sm font-semibold text-zinc-200 border border-white/15 hover:bg-white/10"><i class="fa-solid fa-file-arrow-up mr-2"></i>Restore backup</button>
         </form>
     </div>
@@ -375,7 +370,7 @@
                 <div id="organiser-dashboard" class="hidden">
                     <div id="organiser-stats" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Participant records</div><div id="admin-total-participants" class="text-3xl font-extrabold text-white mt-1">0</div></div>
-                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Unique format-checked codes</div><div id="admin-total-jids" class="text-3xl font-extrabold text-white mt-1">0</div></div>
+                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Unique JIDs</div><div id="admin-total-jids" class="text-3xl font-extrabold text-white mt-1">0</div></div>
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Joey Scouts</div><div id="admin-total-joey" class="text-3xl font-extrabold mt-1" style="color:#ba6228">0</div></div>
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Cub Scouts</div><div id="admin-total-cub" class="text-3xl font-extrabold mt-1" style="color:#ffc82e">0</div></div>
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Scouts</div><div id="admin-total-scouts" class="text-3xl font-extrabold mt-1" style="color:#00843d">0</div></div>
@@ -405,7 +400,7 @@
                         <div class="p-4 bg-white/5 flex items-center justify-between gap-3"><h3 class="font-bold text-white">Received participants</h3><span id="admin-visible-count" class="text-xs text-zinc-400">0 records</span></div>
                         <div id="admin-participant-list" class="max-h-72 overflow-y-auto divide-y divide-white/5"><div class="p-5 text-sm text-zinc-500">No data loaded yet.</div></div>
                     </div>
-                    <p class="text-xs leading-5 text-zinc-500 mt-4">Records are self-reported and format-checked, not proof of real exchanges. Force sync reaches open, online devices only.</p>
+
                 </div>
             </div>
         </div>
@@ -842,22 +837,6 @@
 
         const jidInput = document.getElementById('jid-input');
         const jidLiveStatus = document.getElementById('jid-live-status');
-        jidInput.addEventListener('input', () => {
-            const value = jidInput.value.trim().toUpperCase();
-            if (!value) {
-                jidLiveStatus.textContent = 'Use real exchanged codes. Duplicates count once.';
-                jidLiveStatus.style.color = '#71717a';
-                return;
-            }
-            if (value.length !== 6 && value.length !== 9) {
-                jidLiveStatus.textContent = `${value.length} character${value.length === 1 ? '' : 's'} entered · supported lengths are 6 or 9.`;
-                jidLiveStatus.style.color = '#fbbf24';
-                return;
-            }
-            const result = analyseJidCode(value);
-            jidLiveStatus.textContent = result.ok ? `${result.formatLabel} · Region ${result.regionChar}: ${result.regionName} · format only, not officially verified.` : result.error;
-            jidLiveStatus.style.color = result.ok ? '#5eead4' : '#fda4af';
-        });
 
         document.getElementById('jid-form').addEventListener('submit', (event) => {
             event.preventDefault();
@@ -871,8 +850,8 @@
                 return;
             }
             if (isJidAlreadySaved(analysis.code)) {
-                showToast(`${analysis.code} has already been saved. Duplicate codes count once.`, 'warning');
-                jidLiveStatus.textContent = 'Already saved — this code will not be counted twice.';
+                showToast(`${analysis.code} has already been saved.`, 'warning');
+                jidLiveStatus.textContent = 'Already saved.';
                 jidLiveStatus.style.color = '#fbbf24';
                 return;
             }
@@ -881,7 +860,7 @@
             if (added) {
                 recordJidAddTime();
                 jidInput.value = '';
-                jidLiveStatus.textContent = 'Saved on this device. This is a format check only, not proof of an exchanged or officially issued JID.';
+                jidLiveStatus.textContent = 'Saved.';
                 jidLiveStatus.style.color = '#5eead4';
             }
         });
@@ -1206,7 +1185,7 @@
 
         // ---------------- Participant profile, certificate design and sync ----------------
         const SERVER_URL = 'https://script.google.com/macros/s/AKfycbyMeud4-2i_WUk_tHNV4gXpICR9gPVByc-1Q9Wv70xzXqlx4VBKiLxycRvkxXLrxTs8/exec';
-        const AUTO_SYNC_INTERVAL_MS = 60 * 60 * 1000; // one hour
+        const AUTO_SYNC_INTERVAL_MS = 60 * 60 * 1000; // hourly while the tracker tab is open
         const FORCE_SYNC_POLL_MS = 60 * 1000;         // check for organiser requests once a minute
         const QUICK_SYNC_DEBOUNCE_MS = 12000;
         const SECTION_META = {
@@ -1222,6 +1201,7 @@
         let hourlySyncTimer = null;
         let forcePollTimer = null;
         let organiserKey = '';
+        let organiserAuthMode = 'none'; // session-token or legacy-key for pre-upgrade deployments
         let organiserLocalMode = false;
         let serverParticipants = [];
         let syncInProgress = false;
@@ -1332,7 +1312,9 @@
             if (description) description.textContent = isHunter
                 ? 'Hunter is the organiser account. Enter the organiser password to open the certificate centre.'
                 : 'Your progress saves here and syncs online.';
-            button.textContent = isHunter ? 'Sign in to shared organiser tools' : (profileEditing ? 'Save details' : 'Start tracking');
+            button.textContent = isHunter ? 'Sign in' : (profileEditing ? 'Save' : 'Start');
+            const profileTitle = document.getElementById('profile-title');
+            if (profileTitle) profileTitle.textContent = isHunter ? 'Organiser sign-in' : (profileEditing ? 'Edit profile' : 'Participant profile');
             const localModeButton = document.getElementById('profile-local-mode');
             if (localModeButton) localModeButton.classList.toggle('hidden', !isHunter);
         }
@@ -1383,6 +1365,7 @@
             if (!isHunterName(typedName)) return;
             // Offline mode grants no shared-server access; it only exposes backups already in this browser.
             organiserKey = '';
+            organiserAuthMode = 'none';
             showOrganiserDashboard([], true);
             adminStatus.textContent = 'Offline tools only · participant records from the shared spreadsheet are not accessible until the real organiser password is verified.';
             showToast('Opened offline tools. Shared participant records and force-sync are disabled.', 'warning');
@@ -1427,10 +1410,26 @@
                 saveButton.disabled = true;
                 saveButton.textContent = 'Checking organiser access…';
                 try {
-                    const result = await jsonpRequest({ action: 'adminLogin', password }, 12000);
-                    if (!result || !result.ok || !result.token) throw new Error(result?.error || 'The organiser password was not accepted.');
-                    organiserKey = result.token;
-                    showOrganiserDashboard(result.participants || [], false);
+                    let result = await jsonpRequest({ action: 'adminLogin', password }, 12000);
+                    if (result && result.ok && result.token) {
+                        organiserKey = result.token;
+                        organiserAuthMode = 'session-token';
+                        showOrganiserDashboard(result.participants || [], false);
+                    } else if (isUnknownAction(result)) {
+                        // Compatibility with the previous deployed script, which protected list/forceSync
+                        // using adminKey but did not implement adminLogin or backup exports.
+                        const legacy = await jsonpRequest({ action: 'list', adminKey: password }, 12000);
+                        if (legacy && legacy.ok && Array.isArray(legacy.participants)) {
+                            organiserKey = password;
+                            organiserAuthMode = 'legacy-key';
+                            showOrganiserDashboard(legacy.participants, false);
+                            adminStatus.textContent = 'Connected to an older backend. List and force-sync are available; update Code.gs to enable section backups.';
+                        } else {
+                            throw new Error(deploymentHelp(legacy && legacy.error ? legacy.error : result.error));
+                        }
+                    } else {
+                        throw new Error(result?.error || 'The organiser password was not accepted.');
+                    }
                 } catch (error) {
                     if (/Incorrect organiser (key|password)/i.test(error.message || '')) {
                         errorEl.textContent = 'That organiser password is incorrect.';
@@ -1755,7 +1754,7 @@
                     setSyncStatus('Synced at ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), 'ok');
                 } else {
                     safeStorageSet('jotaJotiLastSentAt_v1', new Date().toISOString());
-                    setSyncStatus('Sent · waiting for confirmation', 'working');
+                    setSyncStatus('Sync pending', 'working');
                 }
             } catch (error) {
                 console.warn('Participant sync failed:', error);
@@ -1856,6 +1855,34 @@
                 script.src = url + (url.includes('?') ? '&' : '?') + query.toString();
                 document.head.appendChild(script);
             });
+        }
+
+        function isUnknownAction(resultOrError) {
+            const message = typeof resultOrError === 'string' ? resultOrError : (resultOrError && resultOrError.error) || '';
+            return /unknown action|unsupported action/i.test(String(message));
+        }
+
+        function deploymentHelp(message) {
+            if (isUnknownAction(message)) {
+                return 'The Apps Script URL is running an older deployment. In Apps Script choose Deploy → Manage deployments → Edit → New version → Deploy, then reload this page. Keep SERVER_URL set to that deployment’s /exec URL.';
+            }
+            return String(message || 'The shared server request failed. Check the Apps Script deployment and try again.');
+        }
+
+        async function organiserRequest(action, extra = {}, timeoutMs = 18000) {
+            if (!organiserKey) throw new Error('Sign in as Hunter first.');
+            let params;
+            if (organiserAuthMode === 'legacy-key') {
+                params = { action, ...extra, adminKey: organiserKey };
+            } else {
+                params = { action, ...extra, adminToken: organiserKey };
+            }
+            const result = await jsonpRequest(params, timeoutMs);
+            if (!result || !result.ok) throw new Error(deploymentHelp(result && result.error ? result.error : 'The organiser request failed.'));
+            if (organiserAuthMode === 'legacy-key' && action === 'backup') {
+                throw new Error('This older Apps Script can list records, but cannot export full Google Sheets backups. Deploy the current JOTA-JOTI backend Code.gs as a New version to enable section downloads.');
+            }
+            return result;
         }
 
         // ---------------- Certificate renderer ----------------
@@ -2122,7 +2149,7 @@
             }
             adminStatus.textContent = 'Refreshing participant records…';
             try {
-                const result = await jsonpRequest({ action: 'list', adminToken: organiserKey }, 12000);
+                const result = await organiserRequest('list', {}, 12000);
                 if (!result || !result.ok) throw new Error(result?.error || 'Could not read participant records.');
                 organiserLocalMode = false;
                 renderOrganiserParticipants(result.participants || []);
@@ -2136,7 +2163,7 @@
                     organiserKey = '';
                     adminStatus.textContent = 'Session expired. Close this panel and sign in as Hunter again.';
                 } else {
-                    adminStatus.textContent = 'Server unavailable · local backups only. Try Refresh again.';
+                    adminStatus.textContent = deploymentHelp(error.message || 'Server unavailable. Try Refresh again.');
                 }
             }
         }
@@ -2296,7 +2323,7 @@
             const label = section === 'all' ? 'all sections' : section;
             adminStatus.textContent = `Downloading backup for ${label} from Google Sheets…`;
             try {
-                const result = await jsonpRequest({ action: 'backup', adminToken: organiserKey, section }, 30000);
+                const result = await organiserRequest('backup', { section }, 30000);
                 if (!result || !result.ok) throw new Error(result?.error || 'The server backup could not be created.');
                 const filenameScope = section === 'all' ? 'All-Sections' : safeFilename(section);
                 downloadJsonFile(`JOTA-JOTI-Backup-${filenameScope}-${new Date().toISOString().slice(0,10)}.json`, result);
@@ -2331,8 +2358,7 @@
             button.disabled = true;
             adminStatus.textContent = 'Sending a force-sync request to online participant pages…';
             try {
-                const result = await jsonpRequest({ action: 'forceSync', adminToken: organiserKey });
-                if (!result || !result.ok) throw new Error(result?.error || 'The server could not queue a force sync.');
+                const result = await organiserRequest('forceSync');
                 adminStatus.textContent = 'Force-sync request queued. Open, online participant pages should upload within about a minute; refresh records after they respond.';
                 showToast('Force sync request sent to active devices.', 'success');
             } catch (error) {
@@ -2396,8 +2422,7 @@
                 const section = document.getElementById('admin-section-filter').value;
                 let serverBackup = null;
                 if (organiserKey && !organiserLocalMode) {
-                    serverBackup = await jsonpRequest({ action: 'backup', adminToken: organiserKey, section }, 30000);
-                    if (!serverBackup || !serverBackup.ok) throw new Error(serverBackup?.error || 'Could not include the Google Sheets backup.');
+                    serverBackup = await organiserRequest('backup', { section }, 30000);
                 }
                 const certificates = await makeBulkCertificates(serverBackup ? serverBackup.participants : undefined);
                 if (window.JSZip) {
