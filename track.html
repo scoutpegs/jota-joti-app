@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>JOTA-JOTI JID Global Tracker</title>
+    <title>JOTA-JOTI JID Global Tracker · Improved</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -108,6 +108,7 @@
         #jid-form input { min-width:0; flex:1; background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.12); border-radius:9px; padding:.65rem .8rem; color:#fff; }
         #jid-submit-btn { background:#b7791f; border:1px solid rgba(251,191,36,.5); border-radius:9px; padding:.6rem 1rem; color:#fff; }
         #participant-card { display:flex; align-items:center; justify-content:space-between; gap:.75rem; border-top:1px solid rgba(255,255,255,.1); padding-top:.85rem; }
+        .participant-actions { flex-wrap:wrap; justify-content:flex-end; }
         #participant-card[hidden] { display:none !important; }
         #global-progress { position:absolute; bottom:1rem; right:1rem; z-index:10; width:min(310px,calc(100vw - 2rem)); min-width:0; padding:1rem; border-radius:18px; }
         #global-progress .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
@@ -192,12 +193,15 @@
     <div id="jid-panel" class="absolute top-4 left-4 sm:top-8 sm:left-8 w-[calc(100%-2rem)] sm:w-[380px] glass-panel rounded-2xl p-6 z-10 flex flex-col gap-4">
         <form id="jid-form" class="flex flex-col gap-3">
             <label for="jid-input" class="text-sm font-medium text-zinc-300 flex justify-between items-center">
-                <span>Enter 6-Char JID Code:</span>
+                <span>Enter a JID code</span>
+                <span class="text-[10px] text-zinc-500">6 or 9 characters</span>
             </label>
             <div class="flex gap-2">
-                <input type="text" id="jid-input" maxlength="6" placeholder="e.g. 3AU42A" class="flex-1 bg-black/40 border border-white/10 text-white rounded-lg px-4 py-2 font-mono tracking-widest focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-600 transition-all">
+                <input type="text" id="jid-input" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" aria-describedby="jid-format-note jid-live-status" placeholder="3AU42A or 6CL114GNT" class="flex-1 bg-black/40 border border-white/10 text-white rounded-lg px-4 py-2 font-mono tracking-widest focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-600 transition-all">
                 <button type="submit" id="jid-submit-btn" class="bg-amber-600/80 hover:bg-amber-500 text-white px-5 py-2 rounded-lg font-medium transition-colors backdrop-blur-md border border-amber-400/50 shadow-lg">Add</button>
             </div>
+            <p id="jid-format-note" class="text-[11px] leading-5 text-zinc-400">Accepts classic six-character JamPuz codes (for example 3AU42A) and the nine-character format shown in your supplied site capture (for example 6CL114GNT). Codes are checked for format and region/country consistency only; this does not prove a real exchange. <a href="https://jotajoti.info/my-connections" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">Official My Connections</a> · <a href="https://jotajoti.info/jampuz" target="_blank" rel="noopener noreferrer" class="text-teal-300 underline">JamPuz guide</a>.</p>
+            <p id="jid-live-status" class="text-[11px] text-zinc-500" aria-live="polite">Use a code exchanged during a real JOTA-JOTI conversation. Duplicate codes count once.</p>
         </form>
         <div id="participant-card" class="border-t border-white/10 pt-3 flex items-center justify-between gap-3" hidden aria-hidden="true">
             <div class="min-w-0 flex-1">
@@ -210,6 +214,7 @@
             </div>
             <div class="participant-actions">
                 <button type="button" id="btn-export-progress" class="text-xs rounded-lg px-3 py-2 border border-white/15 text-zinc-200 hover:bg-white/10" title="Download a backup of your progress"><i class="fa-solid fa-download mr-1"></i>Backup</button>
+                <button type="button" id="btn-import-progress" class="shrink-0 text-xs rounded-lg px-3 py-2 border border-white/15 text-zinc-200 hover:bg-white/10" title="Restore a previous backup"><i class="fa-solid fa-upload mr-1"></i>Restore</button>
                 <button type="button" id="btn-edit-profile" class="shrink-0 text-xs rounded-lg px-3 py-2 border border-white/15 text-zinc-200 hover:bg-white/10">Edit</button>
             </div>
         </div>
@@ -221,7 +226,7 @@
         <div class="grid grid-cols-2 gap-4">
             <div class="flex flex-col">
                 <span class="text-3xl font-bold text-teal-400" id="stat-jids">0</span>
-                <span class="text-xs text-zinc-400 mt-1">Total JIDs</span>
+                <span class="text-xs text-zinc-400 mt-1">Unique format-checked codes</span>
             </div>
             <div class="flex flex-col border-l border-white/10 pl-4">
                 <span class="text-3xl font-bold text-emerald-400" id="stat-countries">0</span>
@@ -233,7 +238,8 @@
                 <span class="text-lg font-semibold text-amber-400/80" id="stat-remaining">195</span>
                 <span class="text-xs text-zinc-400">Countries Left</span>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap justify-end">
+                <button id="btn-special-codes" class="text-xs text-amber-300 hover:text-amber-200 transition-colors bg-amber-950/30 px-3 py-1.5 rounded-md border border-amber-900/50" title="View Region 7 / special-project codes">Special</button>
                 <button id="btn-cert" class="text-xs text-teal-400 hover:text-teal-300 transition-colors bg-teal-950/30 px-3 py-1.5 rounded-md border border-teal-900/50 flex items-center gap-1" title="Download Certificate">
                     <i class="fa-solid fa-award"></i> Cert
                 </button>
@@ -326,7 +332,7 @@
             </div>
             <p class="text-xs uppercase tracking-[.22em] text-zinc-400 mb-2">JOTA-JOTI Global Tracker</p>
             <h2 class="text-2xl font-extrabold text-white mb-2">First, who's taking part?</h2>
-            <p class="text-sm leading-6 text-zinc-400 mb-6">Your progress is saved on this device. When the shared server is reachable, it will also sync to the event spreadsheet.</p>
+            <p class="text-sm leading-6 text-zinc-400 mb-6">Your progress is saved on this device and syncs to the shared spreadsheet when the server is reachable. Download a backup before switching devices.</p>
             <label for="profile-name-input" class="block text-sm font-semibold text-zinc-200 mb-2">Your name</label>
             <input id="profile-name-input" type="text" maxlength="80" required autocomplete="name" placeholder="Enter your name" class="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 outline-none focus:border-teal-400 mb-5">
             <div id="profile-section-group">
@@ -342,14 +348,16 @@
             <div id="profile-password-group" class="hidden">
                 <label for="profile-password-input" class="block text-sm font-semibold text-zinc-200 mb-2">Organiser password</label>
                 <input id="profile-password-input" type="password" autocomplete="current-password" class="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 outline-none focus:border-teal-400 mb-5" placeholder="Enter organiser password">
-                <p class="text-xs text-zinc-500 -mt-2 mb-5">Organiser access is only available for the name Hunter.</p>
+                <p class="text-xs text-zinc-500 -mt-2 mb-5">Shared participant records require the organiser password. Offline tools can only use records and backups already in this browser.</p>
             </div>
             <p id="profile-error" class="hidden text-sm text-red-300 mb-3">Enter a name and choose a section.</p>
             <div class="flex gap-3">
                 <button type="button" id="profile-cancel" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Cancel</button>
+                <button type="button" id="profile-local-mode" class="hidden flex-1 rounded-xl px-5 py-3 font-semibold text-zinc-200 border border-white/15 hover:bg-white/10">Open offline tools (local backups only)</button>
                 <button type="submit" id="profile-save-btn" class="flex-1 rounded-xl px-5 py-3 font-bold text-white shadow-lg" style="background:#0d9488">Start tracking</button>
             </div>
             <p class="text-[11px] text-zinc-500 mt-4 text-center">Progress is saved locally first. Shared syncing requires an internet connection and the event server to be available.</p>
+            <button type="button" id="profile-restore-backup" class="w-full mt-3 rounded-xl px-5 py-2.5 text-sm font-semibold text-zinc-200 border border-white/15 hover:bg-white/10"><i class="fa-solid fa-file-arrow-up mr-2"></i>Restore progress from a backup file</button>
         </form>
     </div>
 
@@ -366,8 +374,8 @@
             <div class="p-5 sm:p-6 overflow-y-auto">
                 <div id="organiser-dashboard" class="hidden">
                     <div id="organiser-stats" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
-                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Participants received</div><div id="admin-total-participants" class="text-3xl font-extrabold text-white mt-1">0</div></div>
-                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Total JID codes</div><div id="admin-total-jids" class="text-3xl font-extrabold text-white mt-1">0</div></div>
+                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Participant records</div><div id="admin-total-participants" class="text-3xl font-extrabold text-white mt-1">0</div></div>
+                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Unique format-checked codes</div><div id="admin-total-jids" class="text-3xl font-extrabold text-white mt-1">0</div></div>
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Joey Scouts</div><div id="admin-total-joey" class="text-3xl font-extrabold mt-1" style="color:#ba6228">0</div></div>
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Cub Scouts</div><div id="admin-total-cub" class="text-3xl font-extrabold mt-1" style="color:#ffc82e">0</div></div>
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4"><div class="text-xs text-zinc-400">Scouts</div><div id="admin-total-scouts" class="text-3xl font-extrabold mt-1" style="color:#00843d">0</div></div>
@@ -384,6 +392,7 @@
                             <button id="admin-force-sync" class="rounded-xl px-4 py-3 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-black"><i class="fa-solid fa-arrows-rotate mr-2"></i>Force sync online devices</button>
                             <button id="admin-refresh" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-cloud-arrow-down mr-2"></i>Refresh participants</button>
                             <button id="admin-import-backups" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-file-import mr-2"></i>Import backups</button>
+                            <button id="admin-upload-backups" class="rounded-xl px-4 py-3 text-sm font-bold bg-sky-700 hover:bg-sky-600 text-white"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Restore imported backups to server</button>
                             <button id="admin-export-records" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-download mr-2"></i>Export participant data</button>
                             <button id="admin-bulk-print" class="rounded-xl px-4 py-3 text-sm font-bold bg-teal-600 hover:bg-teal-500 text-white"><i class="fa-solid fa-print mr-2"></i>Bulk print</button>
                             <button id="admin-bulk-download" class="rounded-xl px-4 py-3 text-sm font-bold bg-white/10 hover:bg-white/15 text-white"><i class="fa-solid fa-file-zipper mr-2"></i>Download section ZIP</button>
@@ -395,11 +404,14 @@
                         <div class="p-4 bg-white/5 flex items-center justify-between gap-3"><h3 class="font-bold text-white">Received participants</h3><span id="admin-visible-count" class="text-xs text-zinc-400">0 records</span></div>
                         <div id="admin-participant-list" class="max-h-72 overflow-y-auto divide-y divide-white/5"><div class="p-5 text-sm text-zinc-500">No data loaded yet.</div></div>
                     </div>
-                    <p class="text-xs leading-5 text-zinc-500 mt-4">Force sync only reaches participant pages that are open and online. Closed or offline devices cannot be triggered remotely. If the server is unavailable, import JSON backups from each device to bulk-print certificates locally.</p>
+                    <p class="text-xs leading-5 text-zinc-500 mt-4">These are participant-reported tracker records. The browser can prevent duplicate entries and obvious rapid spam, but client-side checks cannot prove that a code was genuinely exchanged or prevent a determined user editing local data. Use leader review before treating milestones as verified. Force sync only reaches pages that are open and online.</p>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Participant backup import is shared by the first-run profile screen and profile card. -->
+    <input id="participant-backup-input" class="hidden" type="file" accept=".json,application/json">
 
     <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed top-4 right-4 sm:top-8 sm:right-8 z-[70] flex flex-col gap-2 pointer-events-none"></div>
@@ -409,7 +421,7 @@
         <div class="glass-panel border border-white/10 rounded-xl shadow-2xl p-6 max-w-sm mx-4 text-center">
             <i class="fa-solid fa-triangle-exclamation text-4xl text-amber-500 mb-4"></i>
             <h3 class="text-lg font-bold text-white mb-2">Clear all data?</h3>
-            <p class="text-sm text-zinc-400 mb-6">This action cannot be undone. All your collected JIDs will be wiped.</p>
+            <p class="text-sm text-zinc-400 mb-6">This clears this device's tracker entries and milestones. A previous backup or the shared spreadsheet may still contain a copy.</p>
             <div class="flex gap-3 justify-center">
                 <button id="confirm-cancel" class="flex-1 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-medium transition-colors border border-white/10">Cancel</button>
                 <button id="confirm-yes" class="flex-1 px-4 py-2 rounded-lg bg-red-600/80 hover:bg-red-500 text-white font-medium transition-colors border border-red-500/50 shadow-lg">Yes, Delete</button>
@@ -514,9 +526,7 @@
         let geoData = null;
         let maxJidsInOneCountry = 1;
 
-        // Anti-Spam Rate Limiting variables
-        let lastSubmissionTime = 0;
-        const SUBMISSION_COOLDOWN_MS = 2500; // 2.5 second cooldown between submissions
+        // Persisted, per-browser rate limiting supplements global duplicate checks.
 
         // Storage wrappers keep the tracker usable if a browser restricts localStorage for file:// pages.
         const memoryStorageFallback = Object.create(null);
@@ -540,20 +550,24 @@
 
         function loadState() {
             const saved = safeStorageGet('jotaJotiState_v3');
-            if (saved) {
-                try {
-                    appState = JSON.parse(saved);
-                    if (!appState.jids) appState.jids = {};
-                    if (!appState.achievements) appState.achievements = {};
-                    if (!Array.isArray(appState.activityLog)) appState.activityLog = [];
-                    for (const code in appState.jids) {
-                        if (appState.jids[code].length > maxJidsInOneCountry) {
-                            maxJidsInOneCountry = appState.jids[code].length;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Failed to load state", e);
+            if (!saved) return;
+            try {
+                const parsed = JSON.parse(saved);
+                if (!parsed || typeof parsed !== 'object') throw new Error('Saved tracker data is not an object.');
+                // Preserve the exact pre-migration save once so no existing codes are lost.
+                if (!safeStorageGet('jotaJotiState_v3_pre_migration_backup')) {
+                    safeStorageSet('jotaJotiState_v3_pre_migration_backup', saved);
                 }
+                appState = {
+                    jids: normalizeJidBuckets(parsed.jids),
+                    achievements: parsed.achievements && typeof parsed.achievements === 'object' ? parsed.achievements : {},
+                    activityLog: Array.isArray(parsed.activityLog) ? parsed.activityLog.slice(-1000) : []
+                };
+            } catch (error) {
+                // Keep a copy of data that cannot be parsed instead of silently overwriting it.
+                safeStorageSet('jotaJotiState_v3_corrupt_backup_' + Date.now(), saved);
+                console.error('Failed to load saved state; original data backed up.', error);
+                appState = { jids: {}, achievements: {}, activityLog: [] };
             }
         }
 
@@ -591,7 +605,7 @@
 
         function getCountryColor(iso3Code) {
             if (!iso3Code) return 'transparent';
-            const count = appState.jids[iso3Code] ? appState.jids[iso3Code].length : 0;
+            const count = getUniqueJidEntries(appState).filter(entry => entry.countryKey === iso3Code).length;
             if (count === 0) return 'rgba(100, 100, 100, 0.6)';
             if (!window.d3) return '#0f766e';
             return d3.scaleLinear()
@@ -646,7 +660,7 @@
         const tooltipCount = document.getElementById("tooltip-count");
 
         function handleMouseOver(event, d) {
-            const count = (d.id && appState.jids[d.id]) ? appState.jids[d.id].length : 0;
+            const count = d.id ? getUniqueJidEntries(appState).filter(entry => entry.countryKey === d.id).length : 0;
             tooltipCountry.textContent = d.properties.name || "Unknown Region";
             tooltipCount.textContent = count;
             tooltip.style.opacity = 1;
@@ -672,51 +686,203 @@
             }
         }
 
-        const jidRegex = /^[1-7][A-Z]{2}[0-9]{2}[A-Z]$/;
+        // JamPuz's documented classic JID is six characters: region + ISO alpha-2 country + two digits + suffix.
+        // The supplied HAR/site capture also shows a nine-character code. Its trailing six characters are
+        // deliberately treated as opaque because we have not found official public decoding rules for them.
+        const LEGACY_JID_REGEX = /^[1-7][A-Z]{2}[0-9]{2}[A-Z]$/;
+        const NINE_CHAR_JID_REGEX = /^[1-7][A-Z]{2}[A-Z0-9]{6}$/;
+        const JID_RATE_HISTORY_KEY = 'jotaJotiJidAddTimes_v1';
+        const JID_LAST_ADD_KEY = 'jotaJotiLastJidAddAt_v1';
+        const JID_SUBMISSION_COOLDOWN_MS = 1800;
+        const MAX_JIDS_PER_MINUTE = 12;
 
-        document.getElementById("jid-form").addEventListener("submit", (e) => {
-            e.preventDefault();
-            
-            // Anti-Spam Throttle Guard
+        function analyseJidCode(raw) {
+            const code = String(raw == null ? '' : raw).trim().toUpperCase();
+            if (!LEGACY_JID_REGEX.test(code) && !NINE_CHAR_JID_REGEX.test(code)) {
+                return { ok: false, code, error: 'Enter a six-character JamPuz JID (for example 3AU42A) or a nine-character code (for example 6CL114GNT).' };
+            }
+            const regionChar = code[0];
+            const countryCode = code.slice(1, 3);
+            const format = LEGACY_JID_REGEX.test(code) ? 'legacy-6' : 'registration-9';
+            const expectedRegion = countryRegionMap[countryCode];
+            if (regionChar !== '7' && expectedRegion && String(expectedRegion) !== regionChar) {
+                return { ok: false, code, error: `${countryCode} maps to WOSM Region ${expectedRegion}, not Region ${regionChar}.` };
+            }
+            const iso3 = iso2to3[countryCode] || null;
+            if (regionChar !== '7' && !iso3) {
+                return { ok: false, code, error: `Unrecognised country/area code '${countryCode}'. Region 7 is reserved for special-project codes.` };
+            }
+            const special = regionChar === '7';
+            return {
+                ok: true,
+                code,
+                format,
+                formatLabel: format === 'legacy-6' ? 'Classic 6-character JamPuz' : '9-character format (tail not decoded)',
+                regionChar,
+                regionName: wosmRegions[regionChar] || 'Unknown region',
+                countryCode,
+                countryKey: special ? 'SPECIAL' : iso3,
+                countryName: special ? 'Special projects / Region 7' : getCountryDisplayName(countryCode, iso3),
+                bingoNumber: format === 'legacy-6' ? code.slice(3, 5) : null,
+                suffix: format === 'legacy-6' ? code[5] : null,
+                special
+            };
+        }
+
+        function normalizeJidBuckets(rawBuckets) {
+            const cleaned = {};
+            if (!rawBuckets || typeof rawBuckets !== 'object' || Array.isArray(rawBuckets)) return cleaned;
+            for (const [bucket, values] of Object.entries(rawBuckets)) {
+                const list = Array.isArray(values) ? values : (typeof values === 'string' ? [values] : []);
+                const kept = [];
+                for (const raw of list) {
+                    if (raw == null) continue;
+                    const original = String(raw).trim();
+                    if (!original || original.length > 128) continue;
+                    const upper = original.toUpperCase();
+                    // Keep even older/unknown saved entries; unsupported items simply do not count toward milestones.
+                    kept.push(analyseJidCode(upper).ok ? upper : original);
+                }
+                if (kept.length) cleaned[String(bucket)] = kept;
+            }
+            return cleaned;
+        }
+
+        function getJidBucketObject(source = appState) {
+            if (!source || typeof source !== 'object') return {};
+            if (source.jids && typeof source.jids === 'object' && !Array.isArray(source.jids)) return source.jids;
+            return source;
+        }
+
+        function getUniqueJidEntries(source = appState) {
+            const buckets = getJidBucketObject(source);
+            const seen = new Set();
+            const entries = [];
+            for (const [bucket, values] of Object.entries(buckets)) {
+                if (!Array.isArray(values)) continue;
+                for (const raw of values) {
+                    const info = analyseJidCode(raw);
+                    if (!info.ok || seen.has(info.code)) continue;
+                    seen.add(info.code);
+                    entries.push({ ...info, bucket });
+                }
+            }
+            return entries;
+        }
+
+        function isJidAlreadySaved(code) {
+            const canonical = String(code || '').trim().toUpperCase();
+            return Object.values(appState.jids || {}).some(list => Array.isArray(list) && list.some(value => String(value || '').trim().toUpperCase() === canonical));
+        }
+
+        function mergeJidBuckets(...sources) {
+            const merged = {};
+            const seenValid = new Set();
+            for (const source of sources) {
+                const buckets = source && typeof source === 'object' && !Array.isArray(source) ? source : {};
+                for (const [bucket, values] of Object.entries(buckets)) {
+                    const list = Array.isArray(values) ? values : (typeof values === 'string' ? [values] : []);
+                    for (const raw of list) {
+                        const original = String(raw == null ? '' : raw).trim();
+                        if (!original) continue;
+                        const info = analyseJidCode(original);
+                        const targetBucket = info.ok ? info.countryKey : String(bucket);
+                        if (info.ok) {
+                            if (seenValid.has(info.code)) continue;
+                            seenValid.add(info.code);
+                        }
+                        if (!Array.isArray(merged[targetBucket])) merged[targetBucket] = [];
+                        const value = info.ok ? info.code : original;
+                        if (!merged[targetBucket].includes(value)) merged[targetBucket].push(value);
+                    }
+                }
+            }
+            return merged;
+        }
+
+        function stableJidBuckets(value) {
+            const normalized = {};
+            for (const key of Object.keys(value || {}).sort()) {
+                normalized[key] = (Array.isArray(value[key]) ? value[key] : []).map(item => String(item)).sort();
+            }
+            return JSON.stringify(normalized);
+        }
+
+        function getRecentJidAddTimes(now = Date.now()) {
+            try {
+                const parsed = JSON.parse(safeStorageGet(JID_RATE_HISTORY_KEY) || '[]');
+                return (Array.isArray(parsed) ? parsed : []).map(Number).filter(time => Number.isFinite(time) && time > now - 60000 && time <= now + 5000);
+            } catch (error) { return []; }
+        }
+
+        function checkJidAddRateLimit() {
             const now = Date.now();
-            if (now - lastSubmissionTime < SUBMISSION_COOLDOWN_MS) {
-                const waitSec = Math.ceil((SUBMISSION_COOLDOWN_MS - (now - lastSubmissionTime)) / 1000);
-                showToast(`Anti-Spam: Please wait ${waitSec}s before adding another code.`, "warning");
+            const previous = Number(safeStorageGet(JID_LAST_ADD_KEY) || 0);
+            if (previous && now - previous < JID_SUBMISSION_COOLDOWN_MS) {
+                const wait = Math.max(1, Math.ceil((JID_SUBMISSION_COOLDOWN_MS - (now - previous)) / 1000));
+                showToast(`Please wait ${wait} second${wait === 1 ? '' : 's'} before adding another code.`, 'warning');
+                return false;
+            }
+            const recent = getRecentJidAddTimes(now);
+            if (recent.length >= MAX_JIDS_PER_MINUTE) {
+                const wait = Math.max(1, Math.ceil((60000 - (now - Math.min(...recent))) / 1000));
+                showToast(`Rate limit reached: up to ${MAX_JIDS_PER_MINUTE} new codes per minute. Try again in about ${wait}s.`, 'warning');
+                return false;
+            }
+            return true;
+        }
+
+        function recordJidAddTime(now = Date.now()) {
+            const recent = getRecentJidAddTimes(now);
+            recent.push(now);
+            safeStorageSet(JID_RATE_HISTORY_KEY, JSON.stringify(recent));
+            safeStorageSet(JID_LAST_ADD_KEY, String(now));
+        }
+
+        const jidInput = document.getElementById('jid-input');
+        const jidLiveStatus = document.getElementById('jid-live-status');
+        jidInput.addEventListener('input', () => {
+            const value = jidInput.value.trim().toUpperCase();
+            if (!value) {
+                jidLiveStatus.textContent = 'Use a code exchanged during a real JOTA-JOTI conversation. Duplicate codes count once.';
+                jidLiveStatus.style.color = '#71717a';
                 return;
             }
-
-            const input = document.getElementById("jid-input");
-            const jidRaw = input.value.trim().toUpperCase();
-            
-            if (!jidRaw) return;
-
-            if (!jidRegex.test(jidRaw)) {
-                showToast("Invalid format! Enter a valid 6-char JID (e.g. 3AU42A).", "error");
+            if (value.length !== 6 && value.length !== 9) {
+                jidLiveStatus.textContent = `${value.length} character${value.length === 1 ? '' : 's'} entered · supported lengths are 6 or 9.`;
+                jidLiveStatus.style.color = '#fbbf24';
                 return;
             }
+            const result = analyseJidCode(value);
+            jidLiveStatus.textContent = result.ok ? `${result.formatLabel} · Region ${result.regionChar}: ${result.regionName} · format only, not officially verified.` : result.error;
+            jidLiveStatus.style.color = result.ok ? '#5eead4' : '#fda4af';
+        });
 
-            const regionChar = jidRaw[0];               
-            const countryCcTLD = jidRaw.substring(1, 3); 
-            const bingoNumber = jidRaw.substring(3, 5);  
-            const checkLetter = jidRaw[5];               
-
-            const expectedRegion = countryRegionMap[countryCcTLD];
-            if (expectedRegion && regionChar !== '7' && regionChar !== String(expectedRegion)) {
-                showToast(`Validation Failed: ${countryCcTLD} is in Region ${expectedRegion}. Special codes use Region 7.`, 'error');
+        document.getElementById('jid-form').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const raw = jidInput.value.trim().toUpperCase();
+            if (!raw) return;
+            const analysis = analyseJidCode(raw);
+            if (!analysis.ok) {
+                showToast(analysis.error, 'error');
+                jidLiveStatus.textContent = analysis.error;
+                jidLiveStatus.style.color = '#fda4af';
                 return;
             }
-
-            const iso3 = iso2to3[countryCcTLD];
-            if (!iso3) {
-                showToast(`Unrecognized country code '${countryCcTLD}'.`, 'error');
+            if (isJidAlreadySaved(analysis.code)) {
+                showToast(`${analysis.code} has already been saved. Duplicate codes count once.`, 'warning');
+                jidLiveStatus.textContent = 'Already saved — this code will not be counted twice.';
+                jidLiveStatus.style.color = '#fbbf24';
                 return;
             }
-
-            // Update timestamp upon successful attempt
-            lastSubmissionTime = Date.now();
-
-            addJid(iso3, jidRaw, regionChar, countryCcTLD, bingoNumber, checkLetter);
-            input.value = "";
+            if (!checkJidAddRateLimit()) return;
+            const added = addJid(analysis);
+            if (added) {
+                recordJidAddTime();
+                jidInput.value = '';
+                jidLiveStatus.textContent = 'Saved on this device. This is a format check only, not proof of an exchanged or officially issued JID.';
+                jidLiveStatus.style.color = '#5eead4';
+            }
         });
 
         function getCountryDisplayName(iso2, iso3) {
@@ -734,99 +900,90 @@
             return iso2 || iso3;
         }
 
-        function addJid(iso3, jid, regionChar, countryCcTLD, bingoNumber, checkLetter) {
-            const countryName = getCountryDisplayName(countryCcTLD, iso3);
-
-            if (!appState.jids[iso3]) {
-                appState.jids[iso3] = [];
+        function addJid(info) {
+            if (!info || !info.ok) return false;
+            const key = info.countryKey || 'SPECIAL';
+            if (!Array.isArray(appState.jids[key])) appState.jids[key] = [];
+            // Re-check at the insertion boundary as protection against duplicate submissions/race-like UI events.
+            if (isJidAlreadySaved(info.code)) {
+                showToast(`${info.code} has already been saved.`, 'warning');
+                return false;
             }
-            
-            if (appState.jids[iso3].includes(jid)) {
-                showToast(`${jid} is already collected!`, 'warning');
-                return;
-            }
-
-            appState.jids[iso3].push(jid);
+            appState.jids[key].push(info.code);
             if (!Array.isArray(appState.activityLog)) appState.activityLog = [];
-            appState.activityLog.push({ type: 'jid', code: jid, country: countryName, at: new Date().toISOString() });
+            appState.activityLog.push({ type: 'jid', code: info.code, country: info.countryName, format: info.format, validation: 'format-only', at: new Date().toISOString() });
             appState.activityLog = appState.activityLog.slice(-1000);
 
-            if (appState.jids[iso3].length > maxJidsInOneCountry) {
-                maxJidsInOneCountry = appState.jids[iso3].length;
-            }
-
-            saveState();
+            showToast(`Added ${info.code} (${info.countryName}). Format checked only.`, 'success');
+            checkPrizes(true);
             updateMapColors();
             updateStats();
-            
-            let message = `Added ${jid} (${countryName})!`;
-            if (countryCcTLD === "SM" || countryCcTLD === "VA" || countryCcTLD === "MC" || countryCcTLD === "LI" || countryCcTLD === "AD") {
-                 message = `Added ${jid}! (Note: ${countryCcTLD} groups visually with ${countryName})`;
-            }
-            
-            showToast(message, 'success');
-            checkPrizes(jid, regionChar, iso3);
             scheduleParticipantSync('New JID added');
+            return true;
         }
 
-        function checkPrizes(jid, regionChar, iso3) {
-            let totalJidsCount = 0;
-            let totalCountriesCount = 0;
-            let collectedRegions = new Set();
-            let maxJidsInCountry = 0;
+        function getChallengeStats(source = appState) {
+            const entries = getUniqueJidEntries(source);
+            const countryCounts = new Map();
+            const countries = new Set();
+            const regions = new Set();
             let region7Count = 0;
-            
-            for (const [code, jids] of Object.entries(appState.jids)) {
-                if(jids.length > 0) {
-                    totalJidsCount += jids.length;
-                    totalCountriesCount++;
-                    maxJidsInCountry = Math.max(maxJidsInCountry, jids.length);
-                    jids.forEach(j => {
-                        collectedRegions.add(j[0]);
-                        if (j[0] === '7') region7Count++;
-                    });
+            let hasThreeInRow = false;
+            const pattern = /(?:([A-Z])\1{2}|([0-9])\2{2}|ABC|BCD|CDE|DEF|EFG|FGH|GHI|HIJ|IJK|JKL|KLM|LMN|MNO|NOP|OPQ|PQR|QRS|RST|STU|TUV|UVW|VWX|WXY|XYZ|012|123|234|345|456|567|678|789)/i;
+            for (const entry of entries) {
+                regions.add(entry.regionChar);
+                if (entry.special) region7Count++;
+                if (pattern.test(entry.code)) hasThreeInRow = true;
+                if (!entry.special && entry.countryKey) {
+                    countries.add(entry.countryKey);
+                    countryCounts.set(entry.countryKey, (countryCounts.get(entry.countryKey) || 0) + 1);
                 }
             }
-
-            const hasThreeInRow = /(?:([A-Z])\1{2}|([0-9])\2{2}|ABC|BCD|CDE|DEF|EFG|FGH|GHI|HIJ|IJK|JKL|KLM|LMN|MNO|NOP|OPQ|PQR|QRS|RST|STU|TUV|UVW|VWX|WXY|XYZ|012|123|234|345|456|567|678|789)/i.test(jid);
-
             let continentConquered = false;
-            for (let reg = 1; reg <= 6; reg++) {
-                if(regionToIso3[reg]) {
-                    let allInRegion = true;
-                    for (let requiredIso of regionToIso3[reg]) {
-                        if (!appState.jids[requiredIso] || appState.jids[requiredIso].length === 0) {
-                            allInRegion = false;
-                            break;
-                        }
-                    }
-                    if (allInRegion && regionToIso3[reg].size > 0) {
-                        continentConquered = true;
-                        break;
-                    }
+            for (let region = 1; region <= 6; region++) {
+                const expected = regionToIso3[region];
+                if (!expected || !expected.size) continue;
+                let complete = true;
+                for (const iso3 of expected) {
+                    if (!countries.has(iso3)) { complete = false; break; }
                 }
+                if (complete) { continentConquered = true; break; }
             }
-
-            const stats = {
-                totalJids: totalJidsCount,
-                totalCountries: totalCountriesCount,
-                totalRegions: collectedRegions.size,
-                maxJidsInCountry: maxJidsInCountry,
-                region7Count: region7Count,
-                hasThreeInRow: hasThreeInRow,
-                continentConquered: continentConquered
+            return {
+                totalJids: entries.length,
+                totalCountries: countries.size,
+                totalRegions: regions.size,
+                maxJidsInCountry: Math.max(0, ...countryCounts.values()),
+                region7Count,
+                hasThreeInRow,
+                continentConquered
             };
+        }
 
-            for (let challenge of MINI_CHALLENGES) {
-                if (!appState.achievements[challenge.id] && challenge.check(stats)) {
-                    appState.achievements[challenge.id] = true;
-                    if (!Array.isArray(appState.activityLog)) appState.activityLog = [];
-                    appState.activityLog.push({ type: 'achievement', id: challenge.id, title: challenge.title, description: challenge.desc, at: new Date().toISOString() });
-                    appState.activityLog = appState.activityLog.slice(-1000);
-                    saveState();
-                    showBingoModal(challenge.title, challenge.desc);
-                    break; // Display one at a time
-                }
+        function calculateAchievementFlags(source = appState) {
+            const stats = getChallengeStats(source);
+            const result = {};
+            for (const challenge of MINI_CHALLENGES) result[challenge.id] = !!challenge.check(stats);
+            return result;
+        }
+
+        function checkPrizes(showNotification = false) {
+            const previous = appState.achievements && typeof appState.achievements === 'object' ? appState.achievements : {};
+            const calculated = calculateAchievementFlags(appState);
+            const newlyUnlocked = MINI_CHALLENGES.filter(challenge => calculated[challenge.id] && !previous[challenge.id]);
+            appState.achievements = calculated;
+            const now = new Date().toISOString();
+            if (!Array.isArray(appState.activityLog)) appState.activityLog = [];
+            for (const challenge of newlyUnlocked) {
+                appState.activityLog.push({ type: 'achievement', id: challenge.id, title: challenge.title, description: challenge.desc, status: 'provisional-format-only', at: now });
+            }
+            appState.activityLog = appState.activityLog.slice(-1000);
+            const stats = getChallengeStats(appState);
+            maxJidsInOneCountry = Math.max(1, stats.maxJidsInCountry);
+            saveState();
+            if (showNotification && newlyUnlocked.length) {
+                const challenge = newlyUnlocked[0];
+                showBingoModal(`${challenge.title} · Provisional`, `${challenge.desc} This is a tracker milestone based on format-checked entries only, not a verified exchange or official Scout badge.`);
             }
         }
 
@@ -871,18 +1028,18 @@
             MINI_CHALLENGES.forEach(challenge => {
                 const isUnlocked = appState.achievements[challenge.id];
                 const div = document.createElement("div");
-                div.className = `p-4 rounded-xl border flex items-center gap-4 transition-all ${isUnlocked ? 'bg-teal-900/20 border-teal-500/50' : 'bg-white/5 border-white/10 opacity-70'}`;
+                div.className = `p-4 rounded-xl border flex items-center gap-4 transition-all ${isUnlocked ? 'bg-amber-900/15 border-amber-500/40' : 'bg-white/5 border-white/10 opacity-70'}`;
                 
                 div.innerHTML = `
-                    <div class="${isUnlocked ? 'bg-teal-500/20 text-teal-400' : 'bg-black/40 text-zinc-500'} w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-xl border ${isUnlocked ? 'border-teal-500/30' : 'border-white/5'}">
+                    <div class="${isUnlocked ? 'bg-amber-500/20 text-amber-300' : 'bg-black/40 text-zinc-500'} w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-xl border ${isUnlocked ? 'border-amber-500/30' : 'border-white/5'}">
                         <i class="fa-solid ${isUnlocked ? challenge.icon : 'fa-lock'}"></i>
                     </div>
                     <div class="flex-1">
-                        <h4 class="font-bold ${isUnlocked ? 'text-teal-400' : 'text-zinc-300'}">${challenge.title}</h4>
+                        <h4 class="font-bold ${isUnlocked ? 'text-amber-300' : 'text-zinc-300'}">${challenge.title}</h4>
                         <p class="text-xs text-zinc-400 mt-0.5">${challenge.desc}</p>
                     </div>
-                    <div class="shrink-0 text-xs font-bold px-3 py-1 rounded-full ${isUnlocked ? 'bg-teal-500 text-teal-950' : 'bg-zinc-800 text-zinc-500'}">
-                        ${isUnlocked ? 'COMPLETED' : 'LOCKED'}
+                    <div class="shrink-0 text-xs font-bold px-3 py-1 rounded-full ${isUnlocked ? 'bg-amber-400 text-amber-950' : 'bg-zinc-800 text-zinc-500'}">
+                        ${isUnlocked ? 'PROVISIONAL' : 'LOCKED'}
                     </div>
                 `;
                 challengesList.appendChild(div);
@@ -918,22 +1075,11 @@
         }
 
         function updateStats() {
-            let totalJids = 0;
-            let totalCountries = 0;
-
-            for (const code in appState.jids) {
-                const count = appState.jids[code].length;
-                if (count > 0) {
-                    totalJids += count;
-                    totalCountries++;
-                }
-            }
-
-            document.getElementById("stat-jids").textContent = totalJids;
-            document.getElementById("stat-countries").textContent = totalCountries;
-            
-            const remaining = Math.max(0, TOTAL_WORLD_COUNTRIES - totalCountries);
-            document.getElementById("stat-remaining").textContent = remaining;
+            const entries = getUniqueJidEntries(appState);
+            const countries = new Set(entries.filter(entry => !entry.special).map(entry => entry.countryKey).filter(Boolean));
+            document.getElementById("stat-jids").textContent = entries.length;
+            document.getElementById("stat-countries").textContent = countries.size;
+            document.getElementById("stat-remaining").textContent = Math.max(0, TOTAL_WORLD_COUNTRIES - countries.size);
         }
 
         const modalOverlay = document.getElementById("modal-overlay");
@@ -942,37 +1088,53 @@
 
         function openModal(countryName, iso3) {
             document.getElementById("modal-title").textContent = countryName;
-            
             const list = document.getElementById("modal-jid-list");
-            list.innerHTML = "";
-            
-            const jids = appState.jids[iso3] || [];
-            document.getElementById("modal-count").textContent = jids.length;
-
-            jids.forEach((jid, index) => {
-                const regionNum = jid[0];
-                const regionName = wosmRegions[regionNum] || "Unknown Region";
-                const bingoNum = jid.substring(3, 5);
-
-                const li = document.createElement("li");
-                li.className = "bg-white/5 p-3 rounded-lg flex flex-col gap-1 border border-white/10 shadow-sm font-mono text-xs";
-                li.innerHTML = `
-                    <div class="flex justify-between items-center text-white font-bold text-sm tracking-wider">
-                        <span><span class="text-teal-400">#${index+1}</span> ${jid}</span>
-                        <span class="bg-teal-900/40 text-teal-300 px-2 py-0.5 rounded text-[10px] border border-teal-800/50">Bingo: ${bingoNum}</span>
-                    </div>
-                    <div class="text-zinc-400 text-[11px] font-sans">
-                        Region ${regionNum}: ${regionName}
-                    </div>
-                `;
+            list.replaceChildren();
+            const valid = getUniqueJidEntries(appState).filter(entry => entry.countryKey === iso3);
+            const invalid = [];
+            const bucket = appState.jids[iso3];
+            if (Array.isArray(bucket)) {
+                const validCodes = new Set(valid.map(entry => entry.code));
+                const seen = new Set(validCodes);
+                for (const raw of bucket) {
+                    const code = String(raw == null ? '' : raw).trim();
+                    if (!code || seen.has(code.toUpperCase()) || analyseJidCode(code).ok) continue;
+                    seen.add(code.toUpperCase());
+                    invalid.push({ code, ok: false, formatLabel: 'Saved entry · unsupported format · not counted' });
+                }
+            }
+            const rows = [...valid, ...invalid];
+            document.getElementById("modal-count").textContent = valid.length;
+            if (!rows.length) {
+                const empty = document.createElement('li');
+                empty.className = 'text-sm text-zinc-400 p-3';
+                empty.textContent = 'No saved codes in this collection yet.';
+                list.appendChild(empty);
+            }
+            rows.forEach((entry, index) => {
+                const li = document.createElement('li');
+                li.className = 'bg-white/5 p-3 rounded-lg flex flex-col gap-1 border border-white/10 shadow-sm font-mono text-xs';
+                const head = document.createElement('div');
+                head.className = 'flex justify-between items-center gap-3 text-white font-bold text-sm tracking-wider';
+                const codeText = document.createElement('span');
+                codeText.textContent = `#${index + 1} ${entry.code}`;
+                const badge = document.createElement('span');
+                badge.className = entry.ok ? 'bg-teal-900/40 text-teal-300 px-2 py-0.5 rounded text-[10px] border border-teal-800/50' : 'bg-amber-950/40 text-amber-300 px-2 py-0.5 rounded text-[10px] border border-amber-800/50';
+                badge.textContent = entry.ok ? (entry.format === 'legacy-6' ? `Bingo ${entry.bingoNumber} · ${entry.suffix}` : '9-char · tail not decoded') : 'Saved · not counted';
+                head.append(codeText, badge);
+                const details = document.createElement('div');
+                details.className = 'text-zinc-400 text-[11px] font-sans';
+                details.textContent = entry.ok ? `Region ${entry.regionChar}: ${entry.regionName} · ${entry.formatLabel} · not officially verified` : entry.formatLabel;
+                li.append(head, details);
                 list.appendChild(li);
             });
-
             modalOverlay.classList.remove("hidden");
             void modalOverlay.offsetWidth;
             modalOverlay.classList.remove("opacity-0");
             modalContent.classList.remove("scale-95");
         }
+
+        document.getElementById('btn-special-codes').addEventListener('click', () => openModal('Special projects / Region 7', 'SPECIAL'));
 
         function closeModal() {
             modalOverlay.classList.add("opacity-0");
@@ -988,27 +1150,19 @@
         function showToast(message, type = 'info') {
             const container = document.getElementById("toast-container");
             const toast = document.createElement("div");
-            
-            let bgClass = "bg-black/90 backdrop-blur-md";
             let iconClass = "fa-circle-info text-blue-400";
-            
-            if (type === 'success') {
-                iconClass = "fa-check-circle text-teal-400";
-            } else if (type === 'error') {
-                iconClass = "fa-circle-xmark text-red-400";
-            } else if (type === 'warning') {
-                iconClass = "fa-triangle-exclamation text-amber-400";
-            }
-
-            toast.className = `flex items-center gap-3 ${bgClass} border border-white/10 shadow-xl rounded-xl p-4 transform transition-all duration-300 translate-x-full opacity-0 pointer-events-auto max-w-sm`;
-            toast.innerHTML = `
-                <i class="fa-solid ${iconClass} text-lg shrink-0"></i>
-                <span class="text-xs font-medium text-white">${message}</span>
-            `;
-
+            if (type === 'success') iconClass = "fa-check-circle text-teal-400";
+            else if (type === 'error') iconClass = "fa-circle-xmark text-red-400";
+            else if (type === 'warning') iconClass = "fa-triangle-exclamation text-amber-400";
+            toast.className = `flex items-center gap-3 bg-black/90 backdrop-blur-md border border-white/10 shadow-xl rounded-xl p-4 transform transition-all duration-300 translate-x-full opacity-0 pointer-events-auto max-w-sm`;
+            const icon = document.createElement('i');
+            icon.className = `fa-solid ${iconClass} text-lg shrink-0`;
+            const textNode = document.createElement('span');
+            textNode.className = 'text-xs font-medium text-white';
+            textNode.textContent = String(message == null ? '' : message);
+            toast.append(icon, textNode);
             container.appendChild(toast);
             requestAnimationFrame(() => toast.classList.remove("translate-x-full", "opacity-0"));
-
             setTimeout(() => {
                 toast.classList.add("translate-x-full", "opacity-0");
                 setTimeout(() => toast.remove(), 300);
@@ -1113,10 +1267,12 @@
         function updateProfileCardVisibility() {
             const card = document.getElementById('participant-card');
             if (!card) return;
-            const visible = !!organiserKey; // organiserKey is only set after the Hunter sign-in flow succeeds
+            // Show backup/edit controls to participants too; the old organiser-only
+            // visibility accidentally hid the participant backup button on normal accounts.
+            const visible = !!organiserKey || !!participantProfile;
             card.hidden = !visible;
             card.setAttribute('aria-hidden', visible ? 'false' : 'true');
-            if (!visible) return;
+            if (!visible || !organiserKey) return;
 
             const label = document.getElementById('participant-label');
             const sectionBadge = document.getElementById('participant-section-badge');
@@ -1174,8 +1330,10 @@
             title.textContent = isHunter ? 'Organiser sign-in' : (profileEditing ? 'Update your details' : 'First, who\'s taking part?');
             if (description) description.textContent = isHunter
                 ? 'Hunter is the organiser account. Enter the organiser password to open the certificate centre.'
-                : 'Your progress is saved on this device. When the shared server is reachable, it will also sync to the event spreadsheet.';
-            button.textContent = isHunter ? 'Open certificate centre' : (profileEditing ? 'Save details' : 'Start tracking');
+                : 'Your progress is saved on this device and syncs to the shared spreadsheet when the server is reachable. Download a backup before switching devices.';
+            button.textContent = isHunter ? 'Sign in to shared organiser tools' : (profileEditing ? 'Save details' : 'Start tracking');
+            const localModeButton = document.getElementById('profile-local-mode');
+            if (localModeButton) localModeButton.classList.toggle('hidden', !isHunter);
         }
         let profileEditing = false;
 
@@ -1218,6 +1376,16 @@
         }
 
         document.getElementById('profile-name-input').addEventListener('input', updateProfileRoleFields);
+
+        document.getElementById('profile-local-mode').addEventListener('click', () => {
+            const typedName = document.getElementById('profile-name-input').value.trim();
+            if (!isHunterName(typedName)) return;
+            // Offline mode grants no shared-server access; it only exposes backups already in this browser.
+            organiserKey = '';
+            showOrganiserDashboard([], true);
+            adminStatus.textContent = 'Offline tools only · participant records from the shared spreadsheet are not accessible until the real organiser password is verified.';
+            showToast('Opened offline tools. Shared participant records and force-sync are disabled.', 'warning');
+        });
 
         function showOrganiserDashboard(participants, localOnly = false) {
             const organiserOverlay = document.getElementById('organiser-overlay');
@@ -1266,14 +1434,8 @@
                     if (/Incorrect organiser key/i.test(error.message || '')) {
                         errorEl.textContent = 'That organiser password is incorrect.';
                         errorEl.classList.remove('hidden');
-                    } else if (password === '1234') {
-                        // Standalone/local mode: allow certificate creation and backup import even if the server is offline.
-                        organiserKey = password;
-                        showOrganiserDashboard([], true);
-                        adminStatus.textContent = 'Local mode · server unavailable. Import backups from other devices to print their certificates.';
-                        showToast('Opened local organiser mode. Shared server records are not available right now.', 'warning');
                     } else {
-                        errorEl.textContent = error.message || 'Could not verify organiser access. Check the server connection.';
+                        errorEl.textContent = error.message || 'Could not verify organiser access. Check the server connection, or use offline tools for local/imported backups only.';
                         errorEl.classList.remove('hidden');
                     }
                 } finally {
@@ -1319,12 +1481,16 @@
         });
 
         function summarizeState(state) {
-            const jids = state?.jids || {};
-            const codes = Object.values(jids).flat().filter(Boolean);
-            const countries = Object.values(jids).filter(list => Array.isArray(list) && list.length > 0).length;
-            const regions = [...new Set(codes.map(code => String(code)[0]).filter(Boolean))];
-            const achievements = Object.values(state?.achievements || {}).filter(Boolean).length;
-            return { totalJids: codes.length, totalCountries: countries, totalRegions: regions.length, totalAchievements: achievements };
+            const entries = getUniqueJidEntries(state || {});
+            const countries = new Set(entries.filter(entry => !entry.special).map(entry => entry.countryKey).filter(Boolean));
+            const regions = new Set(entries.map(entry => entry.regionChar));
+            const achievements = calculateAchievementFlags(state || {});
+            return {
+                totalJids: entries.length,
+                totalCountries: countries.size,
+                totalRegions: regions.size,
+                totalAchievements: Object.values(achievements).filter(Boolean).length
+            };
         }
 
         function buildParticipantSnapshot() {
@@ -1340,7 +1506,7 @@
                 achievements: appState.achievements || {},
                 activityLog: (Array.isArray(appState.activityLog) ? appState.activityLog : []).slice(-1000),
                 stats: summarizeState(appState),
-                appVersion: 'jid-tracker-certificate-centre-v5-activity-log'
+                appVersion: 'jid-tracker-v7-backend-merge-validated-dual-format-provisional'
             };
         }
 
@@ -1391,10 +1557,10 @@
                 profileCreatedAt: record.profileCreatedAt || record.createdAt || record.firstSeen || new Date().toISOString(),
                 updatedAt: record.updatedAt || record.lastSeen || record.exportedAt || new Date().toISOString(),
                 lastSeen: record.lastSeen || record.updatedAt || '',
-                jids: record.jids && typeof record.jids === 'object' ? record.jids : {},
-                achievements: record.achievements && typeof record.achievements === 'object' ? record.achievements : {},
-                activityLog: Array.isArray(record.activityLog) ? record.activityLog : [],
-                stats: record.stats || summarizeState(record),
+                jids: normalizeJidBuckets(record.jids && typeof record.jids === 'object' ? record.jids : {}),
+                achievements: calculateAchievementFlags({ jids: normalizeJidBuckets(record.jids && typeof record.jids === 'object' ? record.jids : {}) }),
+                activityLog: Array.isArray(record.activityLog) ? record.activityLog.slice(-1000) : [],
+                stats: summarizeState({ jids: normalizeJidBuckets(record.jids && typeof record.jids === 'object' ? record.jids : {}) }),
                 localOnly: !!record.localOnly
             };
             return normalized;
@@ -1422,9 +1588,26 @@
                 if (!person) return;
                 const key = person.participantId || (person.name.toLowerCase() + '|' + person.section);
                 const current = byId.get(key);
-                if (!current || (Date.parse(person.updatedAt || person.lastSeen || '') || 0) >= (Date.parse(current.updatedAt || current.lastSeen || '') || 0)) {
+                if (!current) {
                     byId.set(key, person);
+                    return;
                 }
+                // Prefer the newest profile details, but always union JIDs and activity so an
+                // older/offline backup can never hide progress already saved on the server.
+                const personTime = Date.parse(person.updatedAt || person.lastSeen || '') || 0;
+                const currentTime = Date.parse(current.updatedAt || current.lastSeen || '') || 0;
+                const preferred = personTime >= currentTime ? person : current;
+                const mergedJids = mergeJidBuckets(current.jids || {}, person.jids || {});
+                const activityLog = mergeLocalActivityLogs(current.activityLog || [], person.activityLog || []);
+                const merged = {
+                    ...preferred,
+                    jids: mergedJids,
+                    achievements: calculateAchievementFlags({ jids: mergedJids }),
+                    activityLog,
+                    stats: summarizeState({ jids: mergedJids }),
+                    localOnly: !!current.localOnly && !!person.localOnly
+                };
+                byId.set(key, merged);
             });
             return Array.from(byId.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
         }
@@ -1441,6 +1624,73 @@
             setTimeout(() => URL.revokeObjectURL(url), 1500);
         }
 
+        const participantBackupInput = document.getElementById('participant-backup-input');
+        document.getElementById('btn-import-progress').addEventListener('click', () => participantBackupInput.click());
+        document.getElementById('profile-restore-backup').addEventListener('click', () => participantBackupInput.click());
+
+        function mergeLocalActivityLogs(...sources) {
+            const result = [];
+            const seen = new Set();
+            for (const source of sources) {
+                for (const event of (Array.isArray(source) ? source : [])) {
+                    if (!event || typeof event !== 'object') continue;
+                    const item = {
+                        type: String(event.type || 'activity').slice(0, 30),
+                        id: String(event.id || '').slice(0, 80),
+                        code: String(event.code || '').trim().toUpperCase().slice(0, 12),
+                        country: String(event.country || '').slice(0, 80),
+                        title: String(event.title || '').slice(0, 120),
+                        description: String(event.description || '').slice(0, 240),
+                        at: String(event.at || '').slice(0, 60)
+                    };
+                    const key = [item.at, item.type, item.code, item.id, item.title, item.country].join('|');
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    result.push(item);
+                }
+            }
+            return result.slice(-1000);
+        }
+
+        participantBackupInput.addEventListener('change', async event => {
+            const file = (event.target.files || [])[0];
+            if (!file) return;
+            try {
+                const parsed = JSON.parse(await file.text());
+                const raw = parsed && (parsed.participant || parsed.record) ? (parsed.participant || parsed.record) : parsed;
+                const person = normaliseParticipantRecord(raw);
+                if (!person || !person.participantId || !SECTION_META[person.section]) {
+                    throw new Error('This file is not a usable JOTA-JOTI participant backup. Choose a JSON file downloaded from the tracker.');
+                }
+                const confirmText = `Restore ${person.name}'s backup (${summarizeState({ jids: person.jids }).totalJids} unique format-checked JIDs)? Current local JIDs will be merged, and the restored participant ID will be used for shared sync.`;
+                if (!window.confirm(confirmText)) return;
+                appState.jids = mergeJidBuckets(appState.jids || {}, person.jids || {});
+                appState.activityLog = mergeLocalActivityLogs(appState.activityLog, person.activityLog);
+                appState.achievements = calculateAchievementFlags(appState);
+                participantProfile = {
+                    id: person.participantId,
+                    name: person.name,
+                    section: person.section,
+                    createdAt: person.profileCreatedAt || new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                safeStorageSet('jotaJotiParticipantProfile_v1', JSON.stringify(participantProfile));
+                safeStorageSet('jotaJotiCertName', participantProfile.name);
+                saveState();
+                document.getElementById('profile-overlay').classList.add('hidden');
+                updateProfileLabel();
+                updateMapColors();
+                updateStats();
+                setSyncStatus('Backup restored · syncing merged progress…', 'working');
+                startParticipantSyncTimers();
+                showToast('Backup restored. The server will merge saved JIDs without deleting older entries.', 'success');
+            } catch (error) {
+                showToast(error.message || 'Could not restore that backup file.', 'error');
+            } finally {
+                event.target.value = '';
+            }
+        });
+
         document.getElementById('btn-export-progress').addEventListener('click', () => {
             if (!participantProfile) { showToast('Set up your name and section first.', 'warning'); return; }
             cacheLocalParticipantSnapshot();
@@ -1454,6 +1704,10 @@
 
         async function postSnapshot(payload) {
             const url = getServerUrl();
+            // Correlate the JSONP acknowledgement with this exact upload, not merely an old row.
+            payload.syncToken = (window.crypto && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
             const body = JSON.stringify(payload);
             cacheLocalParticipantSnapshot();
             // First try to read the actual response. On static hosting the browser may hide
@@ -1476,7 +1730,7 @@
             for (let attempt = 0; attempt < 3; attempt++) {
                 if (attempt) await new Promise(resolve => setTimeout(resolve, 900 * attempt));
                 try {
-                    const ack = await jsonpRequest({ action: 'ack', participantId: payload.participantId }, 6500);
+                    const ack = await jsonpRequest({ action: 'ack', participantId: payload.participantId, syncToken: payload.syncToken }, 6500);
                     if (ack && ack.ok && ack.synced) return { confirmed: true, result: ack };
                 } catch (error) { /* The send may have worked even if acknowledgement is unavailable. */ }
             }
@@ -1493,6 +1747,8 @@
                 const payload = buildParticipantSnapshot();
                 const result = await postSnapshot(payload);
                 if (result.confirmed) {
+                    // Fetch the server's merged snapshot so older saved entries return to this device too.
+                    await pullMergedParticipantSnapshot(payload.participantId);
                     const now = new Date();
                     safeStorageSet('jotaJotiLastSyncAt_v1', now.toISOString());
                     setSyncStatus('Synced at ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), 'ok');
@@ -1510,6 +1766,26 @@
                     pendingSyncReason = null;
                     setTimeout(() => sendParticipantData(nextReason), 750);
                 }
+            }
+        }
+
+        async function pullMergedParticipantSnapshot(participantId) {
+            try {
+                const result = await jsonpRequest({ action: 'get', participantId }, 6500);
+                if (!result || !result.ok || !result.found || !result.jids) return false;
+                const merged = mergeJidBuckets(appState.jids || {}, result.jids || {});
+                if (stableJidBuckets(merged) !== stableJidBuckets(appState.jids || {})) {
+                    appState.jids = merged;
+                    appState.achievements = calculateAchievementFlags(appState);
+                    saveState();
+                    updateMapColors();
+                    updateStats();
+                    checkPrizes(false);
+                }
+                return true;
+            } catch (error) {
+                console.warn('Could not pull merged shared progress; local data remains available.', error);
+                return false;
             }
         }
 
@@ -1667,12 +1943,12 @@
             canvas.height = 1240;
             const ctx = canvas.getContext('2d');
             const meta = getSectionMeta(person.section);
-            const jids = state?.jids || {};
-            const achievements = state?.achievements || {};
-            const stats = summarizeState(state || {});
+            const jids = normalizeJidBuckets(state?.jids || {});
+            const achievements = calculateAchievementFlags({ jids });
+            const stats = summarizeState({ jids });
             const totalJids = stats.totalJids;
             const totalCountries = stats.totalCountries;
-            const regionSet = new Set(Object.values(jids).flat().filter(Boolean).map(code => String(code)[0]));
+            const regionSet = new Set(getUniqueJidEntries({ jids }).map(entry => entry.regionChar));
             const unlocked = MINI_CHALLENGES.filter(challenge => achievements[challenge.id]);
 
             ctx.fillStyle = '#ffffff';
@@ -1703,8 +1979,8 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = meta.dark;
-            fitText(ctx, 'CERTIFICATE OF ACHIEVEMENT', 1390, 68, 800);
-            ctx.fillText('CERTIFICATE OF ACHIEVEMENT', canvas.width / 2, 195);
+            fitText(ctx, 'JID TRACKER SUMMARY', 1390, 68, 800);
+            ctx.fillText('JID TRACKER SUMMARY', canvas.width / 2, 195);
 
             ctx.fillStyle = '#64748b';
             ctx.font = '600 22px Inter, sans-serif';
@@ -1727,7 +2003,7 @@
 
             ctx.fillStyle = '#334155';
             ctx.font = '400 27px Inter, sans-serif';
-            ctx.fillText('For successful participation in JOTA-JOTI and establishing global connections.', canvas.width / 2, 545);
+            ctx.fillText('For recording JIDs entered during JOTA-JOTI.', canvas.width / 2, 545);
             ctx.fillStyle = '#64748b';
             ctx.font = 'italic 400 24px "Playfair Display", Inter, serif';
             ctx.fillText('"Connecting the world, one scout at a time."', canvas.width / 2, 600);
@@ -1742,18 +2018,22 @@
             ctx.textAlign = 'center';
             ctx.fillStyle = '#64748b';
             ctx.font = '500 24px Inter, sans-serif';
-            ctx.fillText(`Total Unique Codes: ${totalJids}`, canvas.width / 2, 790);
+            ctx.fillText(`Unique format-checked codes: ${totalJids}`, canvas.width / 2, 790);
 
             ctx.fillStyle = '#334155';
             ctx.font = '600 18px Inter, sans-serif';
             const achievementLine = unlocked.length
-                ? `Achievements completed: ${unlocked.length} · ${unlocked.slice(0, 4).map(item => item.title).join(' · ')}${unlocked.length > 4 ? ' · +' + (unlocked.length - 4) + ' more' : ''}`
-                : 'Keep exploring, collecting JIDs and completing challenges!';
+                ? `Provisional tracker milestones: ${unlocked.length} · ${unlocked.slice(0, 4).map(item => item.title).join(' · ')}${unlocked.length > 4 ? ' · +' + (unlocked.length - 4) + ' more' : ''}`
+                : 'Keep exploring, collecting JIDs and completing tracker milestones!';
             drawWrappedText(ctx, achievementLine, canvas.width / 2, 850, 1260, 25, 2);
 
             // White footer strip gives the two supplied logos a clean print finish.
             ctx.fillStyle = 'rgba(255,255,255,0.90)';
-            ctx.fillRect(90, 895, canvas.width - 180, 210);
+            ctx.fillRect(90, 895, canvas.width - 180, 270);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#7f1d1d';
+            ctx.font = '700 17px Inter, sans-serif';
+            ctx.fillText('PROVISIONAL PERSONAL TRACKER RECORD · NOT AN OFFICIAL SCOUTS AUSTRALIA / WOSM BADGE', canvas.width / 2, 1100);
             try {
                 const jotaLogo = await loadImage(JOTA_LOGO_SRC);
                 const boulderLogo = await loadImage(BOULDER_LOGO_SRC);
@@ -1772,7 +2052,7 @@
             ctx.textAlign = 'center';
             ctx.fillStyle = '#94a3b8';
             ctx.font = '600 20px Inter, sans-serif';
-            ctx.fillText(`Issued on ${new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' })}`, canvas.width / 2, 1140);
+            ctx.fillText(`Issued on ${new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' })}`, canvas.width / 2, 1136);
             return canvas;
         }
 
@@ -1831,7 +2111,14 @@
         organiserOverlay.addEventListener('click', (event) => { if (event.target === organiserOverlay) closeOrganiserPanel(); });
 
         async function refreshOrganiserParticipants() {
-            if (!organiserKey) return;
+            if (!organiserKey) {
+                if (organiserLocalMode) {
+                    renderOrganiserParticipants([]);
+                    document.getElementById('admin-force-sync').disabled = true;
+                    adminStatus.textContent = 'Offline tools only · showing local and imported backups in this browser.';
+                }
+                return;
+            }
             adminStatus.textContent = 'Refreshing participant records…';
             try {
                 const result = await jsonpRequest({ action: 'list', adminKey: organiserKey }, 9000);
@@ -1892,7 +2179,7 @@
                 name.textContent = person.name || 'Unnamed participant';
                 const details = document.createElement('div');
                 details.className = 'text-xs text-zinc-400 mt-1';
-                details.textContent = `${person.section || 'Section not set'} · ${Number(stats.totalJids || 0)} JIDs · ${Number(stats.totalCountries || 0)} countries · ${Number(stats.totalAchievements || 0)} achievements`;
+                details.textContent = `${person.section || 'Section not set'} · ${Number(stats.totalJids || 0)} format-checked unique codes · ${Number(stats.totalCountries || 0)} countries · ${Number(stats.totalAchievements || 0)} provisional milestones · not independently verified`; 
                 left.appendChild(name); left.appendChild(details);
                 const actions = document.createElement('div');
                 actions.className = 'flex items-center gap-2 shrink-0';
@@ -1946,6 +2233,54 @@
                 : 'No usable participant records were found in those files.';
             showToast(count ? `Imported ${count} participant backup(s).` : 'No participant backups could be imported.', count ? 'success' : 'warning');
             event.target.value = '';
+        });
+
+        document.getElementById('admin-upload-backups').addEventListener('click', async () => {
+            const button = document.getElementById('admin-upload-backups');
+            if (!organiserKey || organiserLocalMode) {
+                showToast('Sign in to the shared organiser tools before restoring backups.', 'warning');
+                return;
+            }
+            const people = getLocalParticipantRecords();
+            if (!people.length) {
+                showToast('No local/imported backup records are available to restore.', 'warning');
+                return;
+            }
+            if (!window.confirm(`Restore ${people.length} local/imported participant record(s) to the shared spreadsheet? Existing saved JIDs will be merged, not deleted.`)) return;
+            button.disabled = true;
+            let restored = 0;
+            let failed = 0;
+            adminStatus.textContent = `Restoring 0 of ${people.length} backup records…`;
+            try {
+                for (let i = 0; i < people.length; i++) {
+                    const person = people[i];
+                    try {
+                        const payload = {
+                            action: 'sync',
+                            participantId: person.participantId || person.id,
+                            name: person.name,
+                            section: person.section,
+                            profileCreatedAt: person.profileCreatedAt || person.createdAt || new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            jids: person.jids || {},
+                            achievements: person.achievements || {},
+                            activityLog: Array.isArray(person.activityLog) ? person.activityLog.slice(-1000) : [],
+                            appVersion: 'manual-backup-restore-v1'
+                        };
+                        const result = await postSnapshot(payload);
+                        if (result && result.confirmed) restored++; else failed++;
+                    } catch (error) {
+                        failed++;
+                        console.warn('Backup restore failed for', person.participantId, error);
+                    }
+                    adminStatus.textContent = `Restoring ${i + 1} of ${people.length} backup records…`;
+                }
+                await refreshOrganiserParticipants();
+                adminStatus.textContent = `Backup restore finished. Confirmed: ${restored}; unconfirmed/failed: ${failed}. Keep the original JSON files until you verify the spreadsheet.`;
+                showToast(`Restore finished: ${restored} confirmed, ${failed} unconfirmed/failed.`, failed ? 'warning' : 'success');
+            } finally {
+                button.disabled = false;
+            }
         });
 
         document.getElementById('admin-export-records').addEventListener('click', () => {
@@ -2056,6 +2391,13 @@
         });
 
         loadState();
+        const storedAchievementsBeforeRecalc = JSON.stringify(appState.achievements || {});
+        appState.achievements = calculateAchievementFlags(appState);
+        const challengeStatsOnLoad = getChallengeStats(appState);
+        maxJidsInOneCountry = Math.max(1, challengeStatsOnLoad.maxJidsInCountry);
+        if (JSON.stringify(appState.achievements) !== storedAchievementsBeforeRecalc) saveState();
+        updateStats();
+        updateMapColors();
         initializeParticipantProfile();
 
         // Only show the "Dashboard" link when the tracker is opened on its own
