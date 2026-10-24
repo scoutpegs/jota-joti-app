@@ -1,0 +1,9 @@
+title: Boulder Scout Group
+url: "https://boulderscouts.com"
+baseurl: ""
+markdown: kramdown
+permalink: pretty
+exclude:
+  - README.md
+  - GITHUB-SETUP.md
+  - BUILD-AUDIT.json

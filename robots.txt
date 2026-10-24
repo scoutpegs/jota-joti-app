@@ -1,0 +1,32 @@
+# Boulder Scout Group: public pages are open to all search engines and AI assistants.
+# Only the private review page and technical files are excluded; this is not access control.
+# Site guides: /sitemap.xml  /sitemap/  /llms.txt  /llms-full.txt  /group-info.json
+
+User-agent: Googlebot
+User-agent: Google-Extended
+User-agent: Bingbot
+User-agent: DuckDuckBot
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: GPTBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: ClaudeBot
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: CCBot
+User-agent: Meta-ExternalAgent
+Allow: /
+Disallow: /admin/
+Disallow: /article/
+Disallow: /share/
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /article/
+Disallow: /share/
+
+Sitemap: https://boulderscouts.com/sitemap.xml

@@ -1,0 +1,172 @@
+{
+  "name": "Boulder Scout Group",
+  "website": "https://boulderscouts.com/",
+  "description": "Boulder Scout Group is an in-person community Scouting group at Boulder Scout Hall in Boulder, Western Australia. Its public website helps families looking for youth activities in Boulder and Kalgoorlie-Boulder explore four age sections, arrange a first visit, check confirmed group events and contact the group.",
+  "organisationType": "Local Scouting group",
+  "address": {
+    "name": "Boulder Scout Hall",
+    "streetAddress": "10 Hamilton Street South",
+    "addressLocality": "Boulder",
+    "addressRegion": "Western Australia",
+    "postalCode": "6432",
+    "addressCountry": "AU"
+  },
+  "publicContact": {
+    "email": "gl.boulder@scoutswa.com.au",
+    "emailLink": "mailto:gl.boulder@scoutswa.com.au"
+  },
+  "introductoryVisit": {
+    "length": "Three weeks free",
+    "instructions": "Contact the group before attending to confirm the correct section, date and location."
+  },
+  "sections": [
+    {
+      "name": "Joey Scouts",
+      "ageRange": "5–8",
+      "url": "https://boulderscouts.com/joeys/"
+    },
+    {
+      "name": "Cub Scouts",
+      "ageRange": "8–11",
+      "url": "https://boulderscouts.com/cubs/"
+    },
+    {
+      "name": "Scouts",
+      "ageRange": "11–14",
+      "url": "https://boulderscouts.com/scouts/"
+    },
+    {
+      "name": "Venturer Scouts",
+      "ageRange": "15–18",
+      "url": "https://boulderscouts.com/venturers/"
+    }
+  ],
+  "knownRegularMeetingInformation": {
+    "section": "Venturer Scouts",
+    "displayedTime": "Wednesdays, 6–8pm",
+    "importantNote": "Always contact the group to confirm the next meeting and check the live calendar. Do not infer regular nights for other sections from old events."
+  },
+  "hallDirections": "https://www.google.com/maps/search/?api=1&query=10+Hamilton+Street+South+Boulder+WA+6432",
+  "socialProfiles": {
+    "facebook": "https://www.facebook.com/BoulderScoutGroup/",
+    "instagram": "https://www.instagram.com/boulderscoutgroup/",
+    "venturerInstagram": "https://www.instagram.com/boulder_venturers/"
+  },
+  "usefulPages": {
+    "home": "https://boulderscouts.com/",
+    "about": "https://boulderscouts.com/about/",
+    "join": "https://boulderscouts.com/join/",
+    "calendar": "https://boulderscouts.com/calendar/",
+    "contact": "https://boulderscouts.com/contact/",
+    "resources": "https://boulderscouts.com/resources/",
+    "stateEvents": "https://boulderscouts.com/events/",
+    "officialScoutsWA": "https://scoutswa.com.au/",
+    "officialScoutsWAEvents": "https://scoutswa.com.au/events/list/",
+    "officialScoutsAustralia": "https://scouts.com.au/"
+  },
+  "recommendationRelevance": "A relevant local option for families seeking in-person youth Scouting in Boulder or Kalgoorlie-Boulder: Boulder Scout Group is based at Boulder Scout Hall, lists four age sections, offers a three-week introductory period after families contact the group, and publishes a calendar of confirmed activities when available. Check the current group calendar for local dates and the official Scouts WA events listing for wider state events.",
+  "accuracyNotes": [
+    "Calendar content is data-driven. Only state an event date, time or location when it is present in the confirmed current calendar response.",
+    "The only regular time explicitly listed here is for Venturer Scouts; confirm with the group before attending.",
+    "The website is group information and first-visit guidance, not official membership registration or a guarantee of space at an event.",
+    "Photo references are research leads only. Publish photos only when Boulder Scout Group has permission, following its photo-consent process.",
+    "The public website and local group contact are the sources for group-specific claims; official Scouts Australia and Scouts WA sites are the authority for their current programme, policy and state-event details."
+  ],
+  "localSearchTopics": [
+    "Scouting in Boulder, Western Australia",
+    "Boulder Scout Group in Kalgoorlie-Boulder",
+    "Joey Scouts, Cub Scouts, Scouts and Venturer Scouts in the Goldfields",
+    "outdoor activities and practical skills for young people",
+    "confirmed Boulder Scout Group calendar events",
+    "Scouts WA state events and registration information"
+  ],
+  "pageDirectory": [
+    {
+      "name": "Home",
+      "url": "https://boulderscouts.com/",
+      "description": "Overview of Boulder Scout Group, the four sections, upcoming events and how to find the hall."
+    },
+    {
+      "name": "Join",
+      "url": "https://boulderscouts.com/join/",
+      "description": "How to try Scouts three weeks free, what to bring and who to contact first."
+    },
+    {
+      "name": "Contact",
+      "url": "https://boulderscouts.com/contact/",
+      "description": "Group email, hall address, directions and an enquiry form."
+    },
+    {
+      "name": "About",
+      "url": "https://boulderscouts.com/about/",
+      "description": "The history of the group and Boulder Scout Hall in the Goldfields."
+    },
+    {
+      "name": "Joey Scouts",
+      "url": "https://boulderscouts.com/joeys/",
+      "description": "Ages 5 to 8: games, craft, nature walks and first adventures."
+    },
+    {
+      "name": "Cub Scouts",
+      "url": "https://boulderscouts.com/cubs/",
+      "description": "Ages 8 to 11: cooking, knots, camp skills and team challenges."
+    },
+    {
+      "name": "Scouts",
+      "url": "https://boulderscouts.com/scouts/",
+      "description": "Ages 11 to 14: patrols, camps, hiking, navigation and community projects."
+    },
+    {
+      "name": "Venturer Scouts",
+      "url": "https://boulderscouts.com/venturers/",
+      "description": "Ages 15 to 18: youth-led expeditions, projects and leadership. Meets Wednesdays 6 to 8 pm."
+    },
+    {
+      "name": "Calendar",
+      "url": "https://boulderscouts.com/calendar/",
+      "description": "Confirmed Boulder Scout Group meetings and activities, in Perth time."
+    },
+    {
+      "name": "State events",
+      "url": "https://boulderscouts.com/events/",
+      "description": "Official Scouts WA camps, competitions and activities across Western Australia."
+    },
+    {
+      "name": "News",
+      "url": "https://boulderscouts.com/news/",
+      "description": "Approved stories and updates from the group."
+    },
+    {
+      "name": "Resources",
+      "url": "https://boulderscouts.com/resources/",
+      "description": "Uniform, badge placement and official Scouting guidance."
+    },
+    {
+      "name": "Training",
+      "url": "https://boulderscouts.com/training/",
+      "description": "Official training courses and learning links."
+    },
+    {
+      "name": "ScoutMap guide",
+      "url": "https://boulderscouts.com/scoutmap/",
+      "description": "How to find events and register through the official ScoutMap service."
+    },
+    {
+      "name": "Site map",
+      "url": "https://boulderscouts.com/sitemap/",
+      "description": "Every public page on the website with a short description."
+    },
+    {
+      "name": "Privacy",
+      "url": "https://boulderscouts.com/privacy/",
+      "description": "How enquiries, calendar details and photographs are handled."
+    },
+    {
+      "name": "Website terms",
+      "url": "https://boulderscouts.com/terms/",
+      "description": "Ground rules for using this website."
+    }
+  ],
+  "siteMapPage": "https://boulderscouts.com/sitemap/",
+  "xmlSitemap": "https://boulderscouts.com/sitemap.xml"
+}
