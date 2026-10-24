@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://boulderscouts.com/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-home.jpg</image:loc>
+      <image:title>Home | Boulder Scout Group</image:title>
+      <image:caption>Overview of Boulder Scout Group, the four sections, upcoming events and how to find the hall.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/join/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-join.jpg</image:loc>
+      <image:title>Join | Boulder Scout Group</image:title>
+      <image:caption>How to try Scouts three weeks free, what to bring and who to contact first.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/contact/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-contact.jpg</image:loc>
+      <image:title>Contact | Boulder Scout Group</image:title>
+      <image:caption>Group email, hall address, directions and an enquiry form.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/about/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-about.jpg</image:loc>
+      <image:title>About | Boulder Scout Group</image:title>
+      <image:caption>The history of the group and Boulder Scout Hall in the Goldfields.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/joeys/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-joeys.jpg</image:loc>
+      <image:title>Joey Scouts | Boulder Scout Group</image:title>
+      <image:caption>Ages 5 to 8: games, craft, nature walks and first adventures.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/cubs/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-cubs.jpg</image:loc>
+      <image:title>Cub Scouts | Boulder Scout Group</image:title>
+      <image:caption>Ages 8 to 11: cooking, knots, camp skills and team challenges.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/scouts/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-scouts.jpg</image:loc>
+      <image:title>Scouts | Boulder Scout Group</image:title>
+      <image:caption>Ages 11 to 14: patrols, camps, hiking, navigation and community projects.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/venturers/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-venturers.jpg</image:loc>
+      <image:title>Venturer Scouts | Boulder Scout Group</image:title>
+      <image:caption>Ages 15 to 18: youth-led expeditions, projects and leadership. Meets Wednesdays 6 to 8 pm.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/calendar/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-calendar.jpg</image:loc>
+      <image:title>Calendar | Boulder Scout Group</image:title>
+      <image:caption>Confirmed Boulder Scout Group meetings and activities, in Perth time.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/events/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-events.jpg</image:loc>
+      <image:title>State events | Boulder Scout Group</image:title>
+      <image:caption>Official Scouts WA camps, competitions and activities across Western Australia.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/news/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-news.jpg</image:loc>
+      <image:title>News | Boulder Scout Group</image:title>
+      <image:caption>Approved stories and updates from the group.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/resources/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-resources.jpg</image:loc>
+      <image:title>Resources | Boulder Scout Group</image:title>
+      <image:caption>Uniform, badge placement and official Scouting guidance.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/training/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-resources.jpg</image:loc>
+      <image:title>Training | Boulder Scout Group</image:title>
+      <image:caption>Official training courses and learning links.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/scoutmap/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-resources.jpg</image:loc>
+      <image:title>ScoutMap guide | Boulder Scout Group</image:title>
+      <image:caption>How to find events and register through the official ScoutMap service.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/sitemap/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-default.jpg</image:loc>
+      <image:title>Site map | Boulder Scout Group</image:title>
+      <image:caption>Every public page on the website with a short description.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/privacy/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-default.jpg</image:loc>
+      <image:title>Privacy | Boulder Scout Group</image:title>
+      <image:caption>How enquiries, calendar details and photographs are handled.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://boulderscouts.com/terms/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+    <image:image>
+      <image:loc>https://boulderscouts.com/social-cover-default.jpg</image:loc>
+      <image:title>Website terms | Boulder Scout Group</image:title>
+      <image:caption>Ground rules for using this website.</image:caption>
+    </image:image>
+  </url>
+</urlset>
